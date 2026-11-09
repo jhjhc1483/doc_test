@@ -1178,8 +1178,9 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     var out = [], m;
     var url = link ? link.split(/\s+/)[0] : '';
     if (link && !safeHref(url)) { extras.push({ label: '링크', value: link }); url = ''; }
+    /* 비고·"*" 줄은 들여쓰기 1칸: 내용 칸의 "- 하위" 줄(2칸) 밑이 아니라 그 일정 바로 밑에 붙도록 */
     if (/^\*\s*\S/.test(first)) {                     // * 로 시작 → 바로 위 일정의 작은 하위 항목
-      out.push('  * ' + [time, first.replace(/^\*\s*/, '')].filter(Boolean).join(' ') + (url ? ' ' + url : ''));
+      out.push(' * ' + [time, first.replace(/^\*\s*/, '')].filter(Boolean).join(' ') + (url ? ' ' + url : ''));
     } else if ((m = RE_DETAIL.exec(first))) {
       out.push('  >> ' + m[1]);
     } else {
@@ -1191,7 +1192,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     extras.forEach(function (e) {
       var v = e.value.replace(/\s*\n\s*/g, ', ');
       var plain = !e.label || /^(비고|참고|기타|note|notes|remarks?)$/i.test(e.label) || v.indexOf(e.label) === 0;
-      out.push('  * ' + (plain ? '' : e.label + ': ') + v);
+      out.push(' * ' + (plain ? '' : e.label + ': ') + v);
     });
     return out;
   }
@@ -2237,7 +2238,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
         return { name: attr(w, 'Name') || '시트', grid: grid };
       });
     }
-    return [{ name: fileName.replace(/\.[^.]+$/, ''), grid: genericXmlGrid(doc) }];
+    return [{ name: fileName.replace(/\.[^.]+$/, ''), grid: genericXmlGrid(doc), isFile: true }];
   }
   function genericXmlGrid(doc) {
     var all = byTag(doc, '*'), groups = {}, best = null;
@@ -2325,10 +2326,12 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     if (allowPlain) { var d = l.trim().length <= 20 ? findDeptByName(l) : null; if (d) return { name: d.name, date: '' }; }
     return null;
   }
-  function interpretGrid(sheetName, rawGrid) {
+  function interpretGrid(sheetName, rawGrid, sheetIsDept) {
     var grid = (rawGrid || []).map(function (row) { var r = (row || []).map(cellStr); while (r.length && !r[r.length - 1]) r.pop(); return r; });
     var sheetDept = sheetName ? (findDeptByName(sheetName) || (normName(sheetName).length >= 2 ? findDeptInText(sheetName) : null)) : null;
     var baseName = sheetDept ? sheetDept.name : (sheetName || '');
+    /* 엑셀 시트 이름이 처음 보는 부서여도, 머리글(시간·내용…)이 있는 시트면 새 부서로 받는다 ("Sheet1" 같은 기본 이름은 제외) */
+    var nameOk = !!sheetIsDept && !!sheetName && !/^(sheet|시트)\s*\d*$/i.test(String(sheetName).trim());
     var groups = [], gmap = {};
     function add(name, known, date, lines) {
       var key = normName(name) + '|' + date, g = gmap[key];
@@ -2339,8 +2342,9 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
       return groups.map(function (g) { return { name: g.name || '(이름 없음)', known: g.known, date: g.date, content: cleanContent(g.lines.join('\n')) }; });
     }
     var nonEmpty = grid.filter(function (r) { return r.some(Boolean); });
-    if (!nonEmpty.length) { add(baseName, !!sheetDept, '', []); return finalize(); }
+    if (!nonEmpty.length) { add(baseName, !!sheetDept || nameOk, '', []); return finalize(); }
     var hr = findHeader(grid), cols = hr >= 0 ? colsFromHeader(grid[hr]) : null, start = hr >= 0 ? hr + 1 : 0;
+    var baseKnown = !!sheetDept || (!!cols && nameOk);
     if (!cols) {
       var used = {};
       nonEmpty.forEach(function (r) { r.forEach(function (v, i) { if (v) used[i] = 1; }); });
@@ -2380,9 +2384,9 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
       if (!lines.length) continue;
       if (dept) { var dd = findDeptByName(dept); add(dd ? dd.name : dept, true, date, lines); }
       else if (curHead) add(curHead.name, true, date, lines);
-      else add(baseName, !!sheetDept, date, lines);
+      else add(baseName, baseKnown, date, lines);
     }
-    if (!groups.length) add(baseName, !!sheetDept, '', []);
+    if (!groups.length) add(baseName, baseKnown, '', []);
     return finalize();
   }
 
@@ -2459,7 +2463,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     sheets.forEach(function (s) {
       if (s.hidden || SKIP_SHEET.test(String(s.name).trim())) { skipped++; return; }
       var label = file.name + (sheets.length > 1 ? ' › ' + s.name : '');
-      rows = rows.concat(sectionRows(label, file.lastModified, interpretGrid(s.name, s.grid)));
+      rows = rows.concat(sectionRows(label, file.lastModified, interpretGrid(s.name, s.grid, !s.isFile)));
     });
     return { rows: rows, skipped: skipped };
   }
@@ -2472,7 +2476,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
       return readFile(f).then(function (t) {
         var name = n.replace(/\.[^.]+$/, ''), d = findDeptInText(name);
         var tab = /\.tsv$/i.test(n) || (t.split('\n')[0] || '').indexOf('\t') >= 0;
-        return sheetsToRows(f, [{ name: d ? d.name : name, grid: parseDelimited(t, tab ? '\t' : ',') }]);
+        return sheetsToRows(f, [{ name: d ? d.name : name, grid: parseDelimited(t, tab ? '\t' : ','), isFile: true }]);
       });
     }
     return Promise.reject(new Error('엑셀 파일(.xlsx)이 아닙니다'));
