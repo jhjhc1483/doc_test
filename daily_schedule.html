@@ -255,7 +255,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   word-break: keep-all; overflow-wrap: break-word;
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
   --fs: 11pt; --lh: 1.5; --ls: 0em; --gap: .2em; --padv: .3em; --padh: .6em;
-  --title-fs: 20pt; --meta-fs: 10pt; --deptw: 6em; --timew: 5em; --placew: 7em; --margin: 12mm;
+  --title-fs: 20pt; --meta-fs: 10pt; --deptw: 6em; --margin: 12mm;
 }
 .sheet.landscape { width: 297mm; height: 210mm; }
 .sheet.over { outline: 3px solid #e53935; outline-offset: 0; }
@@ -289,34 +289,27 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 /* 표형 */
 .sched { width: 100%; border-collapse: collapse; table-layout: fixed; border-top: 2px solid #000; border-bottom: 2px solid #000; }
 .sched col.c-dept { width: var(--deptw); }
-.sched col.c-time, .items col.c-time { width: var(--timew); }
-.sched col.c-place, .items col.c-place { width: var(--placew); }
 .sched th, .sched td { border: 1px solid #8a8a8a; padding: var(--padv) var(--padh); }
 .sched tr > :first-child { border-left: 0; }
 .sched tr > :last-child { border-right: 0; }
 .sched thead th { background: #e7e9ec; font-weight: 700; text-align: center; border-bottom: 1.5px solid #000; letter-spacing: .1em; }
 .sched td.dept { text-align: center; vertical-align: middle; font-weight: 700; background: #f4f5f6; letter-spacing: -.02em; line-height: 1.3; }
-.sched td.cont, .sched td.c-body { vertical-align: top; }
+.sched td.cont { vertical-align: top; }
 
-/* 예정사항 칸 나누기 (시간 | 내용 | 장소) */
-.sched.split td.c-time { text-align: center; vertical-align: top; font-variant-numeric: tabular-nums; border-right-color: #c8c8c8; }
-.sched.split td.c-body { border-right-color: #c8c8c8; }
-.sched.split td.c-place { vertical-align: top; font-size: .94em; }
-.sched.split tbody td:not(.dept) { padding-top: calc(var(--padv) * .5); padding-bottom: calc(var(--padv) * .5); }
-.sched.split tbody tr:not(:last-child) > td:not(.dept) { border-bottom: 1px dotted #a9a9a9; }
-.sched.split tbody tr.sub > td { border-top: 1px dotted #a9a9a9; }
-.items { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.items td { padding: calc(.08em + var(--gap) * .5) .3em; vertical-align: top; }
-.items tr + tr > td { border-top: 1px dotted #b8b8b8; }
-.items td.c-time { text-align: center; font-variant-numeric: tabular-nums; }
-.items td.c-place { font-size: .94em; }
-.c-time .tm { font-weight: 700; }
+/* 예정사항 칸을 좌우 2칸으로 (일정을 알아서 나눠 담음) */
+.sched td.half-a { border-right-color: #c4c4c4; }
+.halves { display: flex; }
+.halves > .half-a, .halves > .half-b { flex: 1 1 0; min-width: 0; }
+.halves > .half-b { border-left: 1px solid #c4c4c4; padding-left: .7em; margin-left: .7em; }
+.md .grp > * { margin: 0; }
+.md .grp > * + * { margin-top: var(--gap); }
+.md .grp > .h:not(:first-child) { margin-top: calc(var(--gap) * 2 + .25em); }
 
 /* 제목형 */
 .dblk + .dblk { margin-top: calc(.55em + var(--gap) * 2); }
 .dname { display: flex; align-items: center; gap: .35em; font-weight: 800; font-size: 1.06em; border-bottom: 1.5px solid #222; padding-bottom: .1em; margin-bottom: calc(.15em + var(--gap)); line-height: 1.35; }
 .dname::before { content: ""; flex: none; width: .42em; height: .42em; background: #222; }
-.dblk > .md { padding-left: .2em; }
+.dblk > .md, .dblk > .halves { padding-left: .2em; }
 
 /* 마크다운 본문 */
 .md > * { margin: 0; }
@@ -460,10 +453,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
             <div class="set-row">
               <span class="row-label">예정사항 칸</span>
               <select class="grow" data-bind="style.split">
-                <option value="auto">시간 · 내용 · 장소로 나누기 (있는 것만 자동)</option>
-                <option value="none">나누지 않음 (한 칸)</option>
+                <option value="two">좌우 2칸으로 나누기 (일정을 알아서 나눠 담음)</option>
+                <option value="none">한 칸</option>
               </select>
             </div>
+            <p class="hint" style="margin-top:0">일정이 하나뿐이거나 표가 있는 부서는 두 칸을 합쳐 씁니다. 2단 레이아웃에서는 나누지 않습니다.</p>
             <div class="set-row">
               <span class="row-label">용지 방향</span>
               <div class="seg">
@@ -515,10 +509,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
             <div class="set-row"><label class="chk"><input type="checkbox" data-bind="style.fillPage"> 표를 페이지 아래 끝까지 늘리기</label></div>
             <div class="set-row">
               <label class="chk"><input type="checkbox" data-bind="style.showColHead"> 표 머리글</label>
-              <input type="text" style="width:64px" data-bind="style.colHead1" aria-label="부서 칸 머리글">
-              <input type="text" style="width:56px" data-bind="style.colHeadTime" aria-label="시간 칸 머리글">
+              <input type="text" style="width:90px" data-bind="style.colHead1" aria-label="부서 칸 머리글">
               <input type="text" class="grow" data-bind="style.colHead2" aria-label="예정사항 칸 머리글">
-              <input type="text" style="width:56px" data-bind="style.colHeadPlace" aria-label="장소 칸 머리글">
             </div>
             <div class="set-row">
               <span class="row-label">내용 없는 부서</span>
@@ -548,7 +540,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
             <h3>엑셀 칸 → 인쇄물</h3>
             <table>
               <tr><th style="width:38%">엑셀</th><th>인쇄물</th></tr>
-              <tr><td>시간 · 내용 · 장소</td><td>예정사항 칸이 <b>시간 | 내용 | 장소</b>로 나뉘어 들어갑니다.</td></tr>
+              <tr><td>시간 · 내용 · 장소</td><td>한 줄로: <b>09:00</b> 주간회의 (대회의실)</td></tr>
               <tr><td>내용 칸에서 <kbd>Alt</kbd>+<kbd>Enter</kbd> 후 <code>- 참석: 과장</code></td><td>하위 항목</td></tr>
               <tr><td>내용 칸에서 <code>* 참고 사항</code></td><td>하위 항목, 글씨 2pt 작게</td></tr>
               <tr><td>내용이 <code>*</code>로 시작하는 줄</td><td>바로 위 일정의 작은 글씨 하위 항목</td></tr>
@@ -571,7 +563,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
               <tr><td><code>- 회의</code></td><td>○ 회의 (글머리 기호)</td></tr>
               <tr><td><code>  - 참석: 과장</code> (앞에 2칸)</td><td>&nbsp;&nbsp;- 참석: 과장 (하위 항목)</td></tr>
               <tr><td><code>* 참석: 실장</code> (위 항목 아래)</td><td><span style="font-size:11px">* 참석: 실장</span> (하위, 글씨 2pt 작게)</td></tr>
-              <tr><td><code>- 09:00 회의 @대회의실</code></td><td>시간·장소가 각자 칸으로 갑니다</td></tr>
+              <tr><td><code>- 09:00 회의 @대회의실</code></td><td>○ <b>09:00</b> 회의 (대회의실)</td></tr>
               <tr><td><code>1. 첫째</code> <code>가. 항목</code></td><td>번호 그대로</td></tr>
               <tr><td><code>○ □ ※ · ▶</code> 직접 입력</td><td>입력한 기호 그대로</td></tr>
               <tr><td><code>**굵게**</code></td><td><b>굵게</b></td></tr>
@@ -583,12 +575,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
               <tr><td><code>&gt; 비고</code></td><td>왼쪽 선이 있는 비고</td></tr>
               <tr><td>빈 줄</td><td>문단 사이 간격</td></tr>
             </table>
-            <p class="hint"><b>칸 나누기</b>(서식 탭): 시간이나 장소가 있으면 예정사항 칸을 <b>시간 | 내용 | 장소</b>로 나눕니다. 줄 앞의 시간, <code>@장소</code>, 끝의 괄호 속 장소(예: <code>(3층 회의실)</code>)를 알아서 옮깁니다.</p>
+            <p class="hint"><b>칸 나누기</b>(서식 탭): 예정사항 칸을 좌우 2칸으로 나누고, 일정(하위 항목·설명 포함)을 위에서부터 차례로 왼쪽→오른쪽에 높이가 비슷하도록 나눠 담습니다.</p>
             <h3>표</h3>
 <pre>| 시간 | 내용 | 장소 |
 |---|---|---|
 | 10:00 | 계약심의 | 소회의실 |</pre>
-            <p class="hint">머리글이 시간·내용·장소이면 칸 나누기에 맞춰 들어가고, 아니면 표 그대로 나옵니다.</p>
           </section>
           <section class="panel">
             <h3>링크·설명 팝업 (화면에서만, 인쇄 안 됨)</h3>
@@ -781,7 +772,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 
   var DEFAULT_STYLE = {
     layout: 'table',            // table | table2 | block | block2
-    split: 'auto',              // auto | none  (예정사항 칸을 시간·내용·장소로)
+    split: 'two',               // two | none  (예정사항 칸을 좌우 2칸으로)
     orientation: 'portrait',    // portrait | landscape
     font: 'malgun',
     autoFit: true,
@@ -797,9 +788,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     fillPage: true,
     showColHead: true,
     colHead1: '부서',
-    colHeadTime: '시간',
     colHead2: '주요 예정사항',
-    colHeadPlace: '장소',
     emptyMode: 'text',
     emptyText: '특이사항 없음',
     showApproval: false,
@@ -822,7 +811,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
       out.style[k] = isFinite(v) ? clamp(v, NUM_RANGE[k][0], NUM_RANGE[k][1]) : DEFAULT_STYLE[k];
     });
     if (['table', 'table2', 'block', 'block2'].indexOf(out.style.layout) < 0) out.style.layout = 'table';
-    if (out.style.split !== 'none') out.style.split = 'auto';
+    if (out.style.split !== 'none') out.style.split = 'two';
+    delete out.style.colHeadTime; delete out.style.colHeadPlace;
     if (out.style.orientation !== 'landscape') out.style.orientation = 'portrait';
     out.departments = (Array.isArray(s.departments) ? s.departments : []).map(function (d) {
       d = d || {};
@@ -921,8 +911,6 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   var T_PART = '(?:(?:오전|오후)\\s*)?(?:\\d{1,2}:\\d{2}|\\d{1,2}시(?!간)(?:\\s*(?:\\d{1,2}분|반))?)';
   var RE_TIME = new RegExp('^(' + T_PART + '(?:\\s*[~∼〜\\-–—]\\s*' + T_PART + '|\\s*[~∼〜])?|종일|오전\\s*중|오후\\s*중)(?![\\d:])');
   var RE_AT_PLACE = /\s@\s*([^@\n]+?)\s*$/;
-  var RE_PAREN_TAIL = /\s*[(（]([^()（）]{1,30})[)）]\s*$/;
-  var RE_PLACE_WORD = /(\d+층|층|회의실|강당|교육장|강의실|세미나실|접견실|상황실|사무실|회의장|행사장|체육관|운동장|연수원|청사|본관|별관|신관|현장|센터|홀|라운지|식당|로비|광장|\d+호)$/;
 
   function matchListItem(t) {
     var m;
@@ -1207,63 +1195,13 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     });
     return out;
   }
-  function tableToBlocks(b, st) {
-    if (!b.head) return null;
-    var cols = colsFromHeader(b.head);
-    if (!cols || (cols.time == null && cols.place == null)) return null;
-    var lines = [];
-    b.body.forEach(function (row) { lines = lines.concat(recordToLines(row, cols)); });
-    return parseBlocks(lines.join('\n'), st).blocks;
-  }
-
-  /* 칸 나누기: 일정 하나 = 한 줄 (시간 | 내용 | 장소) */
-  function extractPlace(text) {
-    var m = RE_AT_PLACE.exec(text);
-    if (m) return { text: text.slice(0, m.index), place: m[1].trim() };
-    m = RE_PAREN_TAIL.exec(text);
-    if (m) {
-      var inner = m[1].trim(), last = inner.split(/\s+/).pop();
-      if (RE_PLACE_WORD.test(last) && !/\d{1,2}:\d{2}/.test(inner)) return { text: text.slice(0, m.index), place: inner };
-    }
-    return { text: text, place: '' };
-  }
-  var PLAIN_BULLET = /^[-*+○●◎◇◆▶▷►□■•·ㆍ∙◦▪▫]$/;
-  function splitRows(blocks, st) {
-    var rows = [], cur = null;
-    blocks.forEach(function (b) {
-      if (b.t === 'sp') return;
-      if (b.t === 'hr') { cur = null; return; }
-      if (b.t === 'table') {
-        var conv = tableToBlocks(b, st);
-        if (conv) { splitRows(conv, st).forEach(function (r) { rows.push(r); }); cur = rows[rows.length - 1] && !rows[rows.length - 1].full ? rows[rows.length - 1] : null; return; }
-        rows.push({ full: true, html: blocksHTML([b], st) }); cur = null; return;
-      }
-      if (b.t === 'li' && b.level === 0 && b.kind !== 'small') {
-        var lines = b.text.split('\n'), first = lines[0], time = '';
-        var m = RE_TIME.exec(first);
-        if (m) { time = m[1].trim(); first = first.slice(m[1].length).replace(/^\s*(?:[-–—:]\s+)?/, ''); }
-        var r = splitUrls(first);                         // 주소를 먼저 떼어야 끝의 장소를 찾을 수 있다
-        var pe = extractPlace(r.text);
-        var body = linkedLines([pe.text + (r.urls.length ? ' ' + r.urls.join(' ') : '')].concat(lines.slice(1)), st);
-        var tip = tipTemplate(b.details, body.urls);
-        var mk = PLAIN_BULLET.test(b.marker) ? '' : '<span class="mk">' + esc(b.marker) + '</span>';
-        cur = { time: time, place: pe.place, html: '<div' + tipAttrs('li', tip) + '>' + mk + '<span class="tx">' + body.html + '</span>' + tip + '</div>' };
-        rows.push(cur);
-        return;
-      }
-      if (b.t === 'li' && cur) { cur.html += liHTML(b, st, Math.max(0, b.level - 1)); return; }
-      rows.push({ full: true, html: blocksHTML([b], st) }); cur = null;
-    });
-    return rows;
-  }
-
   /* ------------------------------------------------------------------
      A4 미리보기 + 자동 맞춤
      ------------------------------------------------------------------ */
   var sheet = $('#sheet'), holder = $('#sheetHolder'), scroller = $('#previewScroll');
   var docBody = $('#docBody'), flow = $('#flow');
   var pageRule = $('#page-rule');
-  var units = [], curSplit = null;
+  var units = [], curHalves = false;
   var lastFit = null;
 
   function isTableLayout(l) { return l === 'table' || l === 'table2'; }
@@ -1284,78 +1222,90 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   function effStyle() { return state.style; }
   function emptyHTML(st) { return '<div class="empty">' + esc(st.emptyText) + '</div>'; }
 
+  /* 일정 묶음 = 맨 위 일정 하나 + 그 아래 하위 항목·설명 (좌우 2칸으로 나눌 때 이 단위로 나눔) */
+  function groupBlocks(blocks) {
+    var groups = [], cur = null, afterHead = false;
+    blocks.forEach(function (b) {
+      if (b.t === 'sp') { cur = null; afterHead = false; return; }
+      if (b.t === 'h') { cur = [b]; groups.push(cur); afterHead = true; return; }
+      var startsNew = b.t === 'li' ? (b.level === 0 && b.kind !== 'small') : (b.t !== 'q');
+      if (!cur || (startsNew && !afterHead)) { cur = [b]; groups.push(cur); }
+      else cur.push(b);
+      afterHead = false;
+    });
+    return groups;
+  }
+
   function buildUnits(st) {
+    var halves = st.split === 'two' && !isTwoCol(st.layout);
     var list = [];
     state.departments.forEach(function (d) {
       if (d.hidden) return;
       var parsed = parseBlocks(d.content, st);
       if (!parsed.blocks.length && !parsed.deptDetails.length && st.emptyMode === 'hide') return;
-      list.push({
-        id: d.id, name: d.name.trim() || '(이름 없음)', blocks: parsed.blocks,
+      var u = {
+        id: d.id, name: d.name.trim() || '(이름 없음)', groups: '',
         html: '<div class="md">' + (parsed.blocks.length ? blocksHTML(parsed.blocks, st) : emptyHTML(st)) + '</div>',
         tip: tipTemplate(parsed.deptDetails, [])
-      });
+      };
+      var hasTable = parsed.blocks.some(function (b) { return b.t === 'table'; });
+      var groups = halves && !hasTable ? groupBlocks(parsed.blocks) : [];
+      if (groups.length >= 2) u.groups = groups.map(function (g) { return '<div class="grp">' + blocksHTML(g, st) + '</div>'; }).join('');
+      list.push(u);
     });
-    var split = null;
-    if (st.split !== 'none') {
-      var hasTime = false, hasPlace = false;
-      list.forEach(function (u) {
-        u.rows = splitRows(u.blocks, st);
-        u.rows.forEach(function (r) { if (r.time) hasTime = true; if (r.place) hasPlace = true; });
-      });
-      if (hasTime || hasPlace) split = { time: hasTime, place: hasPlace };
-    }
-    return { units: list, split: split };
+    return { units: list, halves: halves };
   }
-
-  function splitCellsHTML(r, st, sp, span) {
-    if (r.full) return '<td class="c-body" colspan="' + span + '"><div class="md">' + r.html + '</div></td>';
-    var h = '';
-    if (sp.time) h += '<td class="c-time">' + (r.time ? (st.timeBold ? '<span class="tm">' : '<span>') + esc(r.time) + '</span>' : '') + '</td>';
-    h += '<td class="c-body"><div class="md">' + r.html + '</div></td>';
-    if (sp.place) h += '<td class="c-place">' + esc(r.place) + '</td>';
-    return h;
-  }
-  function unitRows(u, st) { return u.rows && u.rows.length ? u.rows : [{ full: true, html: emptyHTML(st) }]; }
 
   function columnHTML(list, st) {
     if (!list.length) return '';
-    var sp = curSplit;
-    var span = sp ? 1 + (sp.time ? 1 : 0) + (sp.place ? 1 : 0) : 1;
+    var hv = curHalves;
     if (isTableLayout(st.layout)) {
-      var h = '<table class="sched' + (sp ? ' split' : '') + '"><colgroup><col class="c-dept">' +
-        (sp && sp.time ? '<col class="c-time">' : '') + '<col class="c-cont">' + (sp && sp.place ? '<col class="c-place">' : '') + '</colgroup>';
-      if (st.showColHead) {
-        h += '<thead><tr><th>' + esc(st.colHead1) + '</th>' + (sp && sp.time ? '<th>' + esc(st.colHeadTime) + '</th>' : '') +
-          '<th>' + esc(st.colHead2) + '</th>' + (sp && sp.place ? '<th>' + esc(st.colHeadPlace) + '</th>' : '') + '</tr></thead>';
-      }
-      if (!sp) {
-        h += '<tbody>';
-        list.forEach(function (u) {
-          h += '<tr class="unit" data-id="' + esc(u.id) + '"><td' + tipAttrs('dept', u.tip) + '>' + esc(u.name) + u.tip + '</td><td class="cont">' + u.html + '</td></tr>';
-        });
-        return h + '</tbody></table>';
-      }
+      var h = '<table class="sched"><colgroup><col class="c-dept"><col>' + (hv ? '<col>' : '') + '</colgroup>';
+      if (st.showColHead) h += '<thead><tr><th>' + esc(st.colHead1) + '</th><th' + (hv ? ' colspan="2"' : '') + '>' + esc(st.colHead2) + '</th></tr></thead>';
+      h += '<tbody>';
       list.forEach(function (u) {
-        var rows = unitRows(u, st);
-        h += '<tbody class="unit" data-id="' + esc(u.id) + '">';
-        rows.forEach(function (r, i) {
-          h += '<tr' + (i ? ' class="sub"' : '') + '>' +
-            (i ? '' : '<td' + tipAttrs('dept', u.tip) + ' rowspan="' + rows.length + '">' + esc(u.name) + u.tip + '</td>') +
-            splitCellsHTML(r, st, sp, span) + '</tr>';
-        });
-        h += '</tbody>';
+        h += '<tr class="unit" data-id="' + esc(u.id) + '"><td' + tipAttrs('dept', u.tip) + '>' + esc(u.name) + u.tip + '</td>' +
+          (u.groups
+            ? '<td class="cont half-a"><div class="md">' + u.groups + '</div></td><td class="cont half-b"><div class="md"></div></td>'
+            : '<td class="cont"' + (hv ? ' colspan="2"' : '') + '>' + u.html + '</td>') + '</tr>';
       });
-      return h + '</table>';
+      return h + '</tbody></table>';
     }
     return list.map(function (u) {
-      var inner = u.html;
-      if (sp) {
-        inner = '<table class="items"><colgroup>' + (sp.time ? '<col class="c-time">' : '') + '<col>' + (sp.place ? '<col class="c-place">' : '') + '</colgroup>' +
-          unitRows(u, st).map(function (r) { return '<tr>' + splitCellsHTML(r, st, sp, span) + '</tr>'; }).join('') + '</table>';
-      }
+      var inner = u.groups
+        ? '<div class="halves"><div class="half-a"><div class="md">' + u.groups + '</div></div><div class="half-b"><div class="md"></div></div></div>'
+        : u.html;
       return '<section class="unit dblk" data-id="' + esc(u.id) + '"><div' + tipAttrs('dname', u.tip) + '>' + esc(u.name) + u.tip + '</div>' + inner + '</section>';
     }).join('');
+  }
+
+  /* 좌우 2칸: 일정 묶음을 순서대로, 왼쪽·오른쪽 높이가 가장 비슷해지는 곳에서 나눈다 (글자크기가 바뀔 때마다 다시).
+     두 칸 폭이 조금 달라 줄바꿈이 다를 수 있어, 묶음을 왼쪽에 모두 넣고 한 번, 오른쪽에 모두 넣고 한 번 실제 높이를 잰다. */
+  function balanceHalves() {
+    var pairs = $$('.half-a', flow).map(function (a) {
+      var b = a.nextElementSibling;
+      return { a: a.querySelector('.md'), b: b && b.querySelector('.md') };
+    }).filter(function (p) { return p.a && p.b; });
+    if (!pairs.length) return;
+    pairs.forEach(function (p) { while (p.b.firstChild) p.a.appendChild(p.b.firstChild); });
+    var lefts = pairs.map(function (p) {            // 왼쪽 칸에 처음~i번째까지 넣었을 때 높이
+      var gs = p.a.children, top0 = gs.length ? gs[0].offsetTop : 0;
+      return Array.prototype.map.call(gs, function (g) { return g.offsetTop + g.offsetHeight - top0; });
+    });
+    pairs.forEach(function (p) { while (p.a.firstChild) p.b.appendChild(p.a.firstChild); });
+    var rights = pairs.map(function (p) {           // 오른쪽 칸에 i번째~끝까지 넣었을 때 높이
+      var gs = p.b.children, n = gs.length, bottom = n ? gs[n - 1].offsetTop + gs[n - 1].offsetHeight : 0;
+      return Array.prototype.map.call(gs, function (g) { return bottom - g.offsetTop; });
+    });
+    pairs.forEach(function (p, i) {
+      var L = lefts[i], R = rights[i], n = L.length, best = Infinity, k = n;
+      for (var j = 1; j < n; j++) {
+        var mx = Math.max(L[j - 1], R[j]);
+        if (mx < best - 0.5 || (mx <= best + 0.5 && L[j - 1] >= R[j])) { best = Math.min(best, mx); k = j; }
+      }
+      var gs = Array.prototype.slice.call(p.b.children);
+      for (var t = 0; t < k; t++) p.a.appendChild(gs[t]);
+    });
   }
 
   /* 글자크기 하나로 줄간격·자간·간격을 함께 정한다 (작을수록 촘촘하게) */
@@ -1404,6 +1354,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
       flow.className = 'flow two';
       flow.innerHTML = '<div class="col">' + columnHTML(units.slice(0, bestK), st) + '</div><div class="col">' + columnHTML(units.slice(bestK), st) + '</div>';
     }
+    balanceHalves();
     return { need: flow.offsetHeight, avail: docBody.clientHeight };
   }
 
@@ -1490,21 +1441,10 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     foot.hidden = !doc.footer.trim();
 
     var built = buildUnits(st);
-    units = built.units; curSplit = built.split;
+    units = built.units; curHalves = built.halves;
     var maxName = textWidthEm(st.showColHead ? st.colHead1 : '');
     units.forEach(function (u) { maxName = Math.max(maxName, textWidthEm(u.name)); });
     sheet.style.setProperty('--deptw', (clamp(maxName, 2.4, 6.2) + 1.3).toFixed(2) + 'em');
-    if (curSplit) {
-      var tw = st.showColHead ? textWidthEm(st.colHeadTime) * 1.1 : 0, pw = st.showColHead ? textWidthEm(st.colHeadPlace) * 1.1 : 0;
-      units.forEach(function (u) {
-        (u.rows || []).forEach(function (r) {
-          if (r.time) tw = Math.max(tw, textWidthEm(r.time) * 1.06);
-          if (r.place) pw = Math.max(pw, textWidthEm(r.place) * 0.94);
-        });
-      });
-      sheet.style.setProperty('--timew', (clamp(tw, 2.4, 7) + 1.2).toFixed(2) + 'em');
-      sheet.style.setProperty('--placew', (clamp(pw, 2.6, isTwoCol(st.layout) ? 5.6 : 8.4) + 1.2).toFixed(2) + 'em');
-    }
 
     fit(st);
     updateZoom();
@@ -1529,7 +1469,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     if (!units.length) { el.className = 'status'; el.textContent = '표시할 부서가 없습니다.'; return; }
     var px2mm = 25.4 / 96;
     var info = '글자 ' + f.v.fs.toFixed(1) + 'pt · 줄간격 ' + Math.round(f.v.lh * 100) + '% · 자간 ' + (f.v.ls * 100).toFixed(1) + '%';
-    if (curSplit) info += ' · 칸: ' + [curSplit.time ? '시간' : '', '내용', curSplit.place ? '장소' : ''].filter(Boolean).join('|');
+    if (curHalves && flow.querySelector('.half-a')) info += ' · 예정사항 좌우 2칸';
     if (!f.ok) {
       el.className = 'status bad';
       el.innerHTML = '⚠ A4 한 장을 ' + Math.ceil((f.need - f.avail) * px2mm) + 'mm 넘습니다. ' +
