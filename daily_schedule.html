@@ -322,7 +322,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .md .li { display: flex; }
 .md .li .mk { flex: none; min-width: .9em; margin-right: .3em; }
 .md .li .tx { flex: 1 1 auto; min-width: 0; }
-.md .li.small > .mk, .md .li.small > .tx { font-size: max(calc(1em - 2pt), .75em); }
+.md .li.small > .mk, .md .li.small > .tx { font-size: max(calc(1em - 2pt), .75em, 6pt); }
 .md .tm { font-weight: 700; font-variant-numeric: tabular-nums; }
 .md b, .md strong { font-weight: 700; }
 .md mark { background: #ffe680; color: inherit; padding: 0 .1em; }
@@ -457,7 +457,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
                 <option value="none">한 칸</option>
               </select>
             </div>
-            <p class="hint" style="margin-top:0">일정이 하나뿐이거나 표가 있는 부서는 두 칸을 합쳐 씁니다. 2단 레이아웃에서는 나누지 않습니다.</p>
+            <p class="hint" style="margin-top:0">일정이 하나뿐이거나 넓은 표(열 5개 이상)가 있는 부서는 두 칸을 합쳐 씁니다. 표는 제목과 함께 한 묶음으로 나눠 담습니다. 2단 레이아웃에서는 나누지 않습니다.</p>
             <div class="set-row">
               <span class="row-label">용지 방향</span>
               <div class="seg">
@@ -548,6 +548,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
               <tr><td>설명</td><td>화면에서 마우스를 올리면 나오는 팝업 (인쇄 안 됨)</td></tr>
               <tr><td>링크</td><td>누르면 열리는 링크 (주소는 인쇄 안 됨)</td></tr>
               <tr><td>내용 칸의 <code>**굵게**</code>, <code>!!중요!!</code> 등</td><td>아래 ‘글자 꾸밈’과 같이 적용</td></tr>
+              <tr><td>일정 아래 <b>한 줄 비우고</b> A열부터 표 제목(선택)·머리글·내용</td><td>그 부서 칸 안에 <b>표</b>로 들어갑니다 (제목은 표 바로 위에)</td></tr>
             </table>
             <ul>
               <li>부서는 <b>시트 이름</b>으로 찾습니다. 한 시트에 모든 부서를 쓰려면 맨 앞에 <b>부서</b> 열을 두세요(병합된 칸도 됩니다).</li>
@@ -1249,8 +1250,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
         html: '<div class="md">' + (parsed.blocks.length ? blocksHTML(parsed.blocks, st) : emptyHTML(st)) + '</div>',
         tip: tipTemplate(parsed.deptDetails, [])
       };
-      var hasTable = parsed.blocks.some(function (b) { return b.t === 'table'; });
-      var groups = halves && !hasTable ? groupBlocks(parsed.blocks) : [];
+      var wideTable = parsed.blocks.some(function (b) { return b.t === 'table' && Math.max(b.head ? b.head.length : 0, b.body.reduce(function (a, r) { return Math.max(a, r.length); }, 0)) > 4; });   // 열 5개 이상인 표는 반쪽 칸에 좁음
+      var groups = halves && !wideTable ? groupBlocks(parsed.blocks) : [];
       if (groups.length >= 2) u.groups = groups.map(function (g) { return '<div class="grp">' + blocksHTML(g, st) + '</div>'; }).join('');
       list.push(u);
     });
@@ -2318,6 +2319,24 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     var sep = '|'; for (var i = 0; i < n; i++) sep += '---|';
     return [line(rows[0]), sep].concat(rows.slice(1).map(line)).join('\n');
   }
+  /* 시트 안의 표: 빈 줄 다음, A열부터 [표 제목 한 칸(선택)] + 머리글 줄(2칸 이상) + 내용 줄들 (다음 빈 줄까지) */
+  function looksTableHeader(row) {
+    var cells = (row || []).filter(Boolean);
+    return !!(row && row[0]) && cells.length >= 2 && !isTimeLike(row[0]) &&
+      cells.every(function (c) { return c.length <= 30 && c.indexOf('\n') < 0; });
+  }
+  function tableBlockAt(grid, r) {
+    var h = r, title = '';
+    if (grid[r].filter(Boolean).length === 1 && grid[r][0] && looksTableHeader(grid[r + 1])) { title = grid[r][0]; h = r + 1; }
+    if (!looksTableHeader(grid[h])) return null;
+    var e = h + 1;
+    while (e < grid.length && grid[e].some(Boolean)) e++;
+    if (e - h < 2) return null;                                   // 머리글 + 내용 1줄 이상
+    var lines = [];
+    if (title) lines.push('### ' + title);                     // 제목은 표와 한 묶음이 되도록 소제목으로
+    lines.push(gridToMdTable(grid.slice(h, e)));
+    return { end: e, lines: lines };
+  }
   /* 부서 줄(“# 기획과”, “[기획과]”, 또는 부서명만 있는 줄) */
   function sectionHead(l, allowPlain) {
     var m = RE_SEC_HASH.exec(l);
@@ -2365,10 +2384,22 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
         return finalize();
       }
     }
-    var curHead = null, lastDept = '', lastDate = '';
+    var curHead = null, lastDept = '', lastDate = '', afterBlank = false;
     for (var r = start; r < grid.length; r++) {
       var row = grid[r];
-      if (!row.some(Boolean)) continue;
+      if (!row.some(Boolean)) { afterBlank = true; continue; }
+      if (afterBlank) {                                           // 빈 줄 다음에 A열부터 (제목) + 머리글 + 내용 → 표
+        afterBlank = false;
+        var tb = tableBlockAt(grid, r);
+        if (tb) {
+          var tDept = cols.dept != null ? lastDept : '';
+          if (tDept) { var td = findDeptByName(tDept); add(td ? td.name : tDept, true, lastDate, tb.lines); }
+          else if (curHead) add(curHead.name, true, curHead.date || '', tb.lines);
+          else add(baseName, baseKnown, lastDate, tb.lines);
+          r = tb.end - 1;
+          continue;
+        }
+      }
       var filled = row.filter(Boolean);
       if (filled.length === 1 && cols.dept == null) {
         var hd = sectionHead(filled[0], true);
@@ -2846,13 +2877,19 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
       G('4. 내용이 "* "로 시작하는 줄은 바로 위 일정의 하위 항목(작은 글씨)이 됩니다.'),
       G('5. 비고는 작은 글씨로 붙고, 설명은 화면에서 마우스를 올리면 보이는 팝업, 링크는 누르면 열리는 주소입니다(설명·링크는 인쇄되지 않음).'),
       G('6. 여러 날을 한 시트에 쓰려면 맨 앞에 "날짜" 열을 넣으세요. 문서 날짜에 맞는 줄만 가져옵니다.'),
-      G('7. 다 쓰면 담당자가 파일을 내려받아 [엑셀 불러오기]로 올리거나, 범위를 복사해 프로그램 화면에서 Ctrl+V 합니다.'),
+      G('7. 표를 넣으려면 일정 아래 한 줄을 비우고, A열부터 표 제목(한 칸, 선택) → 표 머리글 → 표 내용 순서로 적습니다. 다음 빈 줄까지가 표입니다.'),
+      G('8. 다 쓰면 담당자가 파일을 내려받아 [엑셀 불러오기]로 올리거나, 범위를 복사해 프로그램 화면에서 Ctrl+V 합니다.'),
       [], [{ v: '예시', s: 3 }],
       H(HEAD),
       B(['09:00', '주간 업무보고 회의\n- 안건: 예산안 검토', '본관 3층 대회의실', '참석: 실장, 각 과장', '자료는 회의 전날 배포', 'http://intranet/board/123']),
       B(['14:00~15:30', '예산안 검토 회의', '소회의실', '', '', '']),
       B(['', '* 실무 협의는 별도 진행', '', '', '', '']),
-      B(['', '상반기 업무계획 실적 취합 (17:00 마감)', '', '', '', ''])
+      B(['', '상반기 업무계획 실적 취합 (17:00 마감)', '', '', '', '']),
+      [],
+      [{ v: '■ 이번 주 교육 일정', s: 4 }],
+      H(['교육명', '일자', '장소', '대상']),
+      B(['청렴 교육', '11. 12.(목)', '대회의실', '전 직원']),
+      B(['개인정보보호 교육', '11. 13.(금)', '온라인', '전 직원'])
     ];
     var sheets = [{ name: '작성방법', rows: guide, widths: W }];
     var used = { '작성방법': 1 };
