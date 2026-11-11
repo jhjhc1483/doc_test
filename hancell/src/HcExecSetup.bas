@@ -6,6 +6,8 @@ Option Explicit
 ' ===========================================================================
 Public Sub Setup()
     Dim ws As Object
+    On Error GoTo fail
+    StepTo "setup: check"
     Set ws = SheetByName(SH_IN)
     If Not ws Is Nothing Then
         If Not Confirm("이미 만들어진 파일입니다. 처음 상태(예시 내용)로 다시 만들까요? 지금 내용은 지워집니다.") Then Exit Sub
@@ -14,20 +16,12 @@ Public Sub Setup()
     SetupAll
     EndWork
     Info "임원 일일 예정사항 파일을 만들었습니다. [다른 이름으로 저장]에서 '매크로 사용 문서(.xlsm)'로 저장하세요."
+    Exit Sub
+fail:
+    EndWork
+    Info "파일을 만들다가 문제가 생겼습니다." & vbLf & Err.Number & " " & Err.Description & vbLf & "(단계: " & gStep & ")"
 End Sub
 
-' used by tools/build.py (LibreOffice)
-Public Function BuildRelease() As String
-    gQuiet = True
-    On Error GoTo fail
-    SetupAll
-    gQuiet = False
-    BuildRelease = "ok " & gDbg
-    Exit Function
-fail:
-    gQuiet = False
-    BuildRelease = "ERROR " & Err.Number & ": " & Err.Description & " [step " & gStep & "] [" & gTrace & "]"
-End Function
 
 Private Sub Lbl(ByVal ws As Object, ByVal addr As String, ByVal txt As String, Optional ByVal bold As Boolean = False, Optional ByVal size As Double = 10, Optional ByVal color As Long = 0)
     With ws.Range(addr)
@@ -71,56 +65,91 @@ Private Sub SheetBase(ByVal ws As Object)
     HideGrid ws
 End Sub
 
-Private Sub SetupAll()
-    Dim wb As Object, ws As Object, k As Long
+' Setup, showing each step first (when Hancell stops during Setup, the last step shown tells where)
+Public Sub SetupStepByStep()
+    gAnnounce = True
+    Setup
+    gAnnounce = False
+End Sub
+
+' A4 만들기, showing each step first
+Public Sub BuildA4StepByStep()
+    gAnnounce = True
+    BuildA4
+    gAnnounce = False
+End Sub
+
+Public Sub SetupAll()
+    Dim wb As Object, ws As Object, k As Long, i As Long, nAll As Long, samp As Variant
     Set wb = HostBook()
     Application.DisplayAlerts = False
     On Error Resume Next
     wb.Styles("Normal").Font.Name = "맑은 고딕"
     wb.Styles("Normal").Font.Size = 10
     On Error GoTo 0
-    ' start from one sheet called 입력
-    gStep = "setup start"
-    Set ws = wb.Worksheets(1)
+    StepTo "setup start"
     Do While wb.Worksheets.Count > 1
         wb.Worksheets(wb.Worksheets.Count).Delete
     Loop
-    ClearSheet ws
-    On Error Resume Next
-    Do While ws.Shapes.Count > 0
-        ws.Shapes(1).Delete
-        If Err.Number <> 0 Then Exit Do
+    ' make every sheet first, then give each one its job by tab position
+    ' (where a new sheet lands differs between hosts)
+    ' 입력, A4, 임원 8, 맨밑표, 서식, 입력방법, 붙여넣기, _측정, _백업
+    nAll = NX + 8
+    StepTo "add sheets"
+    Do While wb.Worksheets.Count < nAll
+        Set ws = NewSheet(wb)
     Loop
-    On Error GoTo 0
-    gStep = "rename input"
-    ws.Name = SH_IN
-    Dim a4 As Object, prev As Object
-    Set a4 = wb.Worksheets.Add(, ws)
-    a4.Name = SH_A4
-    Set prev = a4
-    Dim samp As Variant
+    StepTo "clear sheets"
+    For i = 1 To nAll
+        Set ws = wb.Worksheets(i)
+        ClearSheet ws
+        On Error Resume Next
+        Do While ws.Shapes.Count > 0
+            ws.Shapes(1).Delete
+            If Err.Number <> 0 Then Exit Do
+        Loop
+        On Error GoTo 0
+        ws.Name = "~t" & i
+    Next
+    StepTo "rename"
+    wb.Worksheets(1).Name = SH_IN
+    wb.Worksheets(2).Name = SH_A4
     For k = 1 To NX
-        Set ws = wb.Worksheets.Add(, prev)
-        gStep = "exec sheet " & k
+        Set ws = wb.Worksheets(2 + k)
+        StepTo "exec sheet " & k
         samp = SampleExec(k)
         SetupExecSheet ws, samp(0), samp(1), samp(2)
         ws.Name = SafeSheetName(samp(0) & " " & samp(1))
-        Set prev = ws
     Next
-    gStep = "tables"
-    Set ws = wb.Worksheets.Add(, prev): ws.Name = SH_TBL: SetupTables ws: Set prev = ws
-    Set ws = wb.Worksheets.Add(, prev): ws.Name = SH_FMT: SetupFormat ws: Set prev = ws
-    Set ws = wb.Worksheets.Add(, prev): ws.Name = SH_HELP: SetupHelp ws: Set prev = ws
-    Set ws = wb.Worksheets.Add(, prev): ws.Name = SH_PASTE: SetupPaste ws: Set prev = ws
-    gStep = "scratch"
-    ScratchSheet SH_MS
-    ScratchSheet SH_BAK
-    gStep = "input"
+    StepTo "tables"
+    Set ws = wb.Worksheets(NX + 3)
+    ws.Name = SH_TBL
+    SetupTables ws
+    StepTo "format"
+    Set ws = wb.Worksheets(NX + 4)
+    ws.Name = SH_FMT
+    SetupFormat ws
+    StepTo "help"
+    Set ws = wb.Worksheets(NX + 5)
+    ws.Name = SH_HELP
+    SetupHelp ws
+    StepTo "paste"
+    Set ws = wb.Worksheets(NX + 6)
+    ws.Name = SH_PASTE
+    SetupPaste ws
+    StepTo "scratch"
+    Set ws = wb.Worksheets(NX + 7)
+    ws.Name = SH_MS
+    ws.Visible = XL_SHEET_HIDDEN
+    Set ws = wb.Worksheets(NX + 8)
+    ws.Name = SH_BAK
+    ws.Visible = XL_SHEET_HIDDEN
+    StepTo "input"
     SetupInput wb.Worksheets(SH_IN)
-    gStep = "a4"
-    SetupA4 a4
+    StepTo "a4"
+    SetupA4 wb.Worksheets(SH_A4)
     Application.DisplayAlerts = True
-    gStep = "build"
+    StepTo "build"
     DoBuild
     wb.Worksheets(SH_IN).Activate
 End Sub
@@ -153,28 +182,28 @@ Private Function SampleExec(ByVal k As Long) As Variant
 End Function
 
 Public Sub SetupExecSheet(ByVal ws As Object, ByVal pos As String, ByVal nm As String, ByVal rows As Variant)
-    gStep = "exec sheet clear"
+    StepTo "exec sheet clear"
     ClearSheet ws
-    gStep = "exec sheet base"
+    StepTo "exec sheet base"
     SheetBase ws
-    gStep = "exec sheet widths"
+    StepTo "exec sheet widths"
     ws.Columns(1).ColumnWidth = 14
     ws.Columns(2).ColumnWidth = 54
     ws.Columns(3).ColumnWidth = 32
     ws.Columns(4).ColumnWidth = 34
-    Dim cc As Variant
-    gStep = "exec sheet labels"
+    StepTo "exec sheet labels"
     ws.Range("A1").Value = "직위"
     ws.Range("C1").Value = "성명"
-    For Each cc In Array("A1", "C1")
-        ws.Range(cc).Font.Bold = True
-        ws.Range(cc).Interior.Color = COL_HEAD
-        ws.Range(cc).HorizontalAlignment = XL_CENTER
-    Next
-    For Each cc In Array("B1", "D1")
-        ws.Range(cc).NumberFormat = "@"
-        ws.Range(cc).Font.Bold = True
-    Next
+    ws.Range("A1").Font.Bold = True
+    ws.Range("A1").Interior.Color = COL_HEAD
+    ws.Range("A1").HorizontalAlignment = XL_CENTER
+    ws.Range("C1").Font.Bold = True
+    ws.Range("C1").Interior.Color = COL_HEAD
+    ws.Range("C1").HorizontalAlignment = XL_CENTER
+    ws.Range("B1").NumberFormat = "@"
+    ws.Range("B1").Font.Bold = True
+    ws.Range("D1").NumberFormat = "@"
+    ws.Range("D1").Font.Bold = True
     ws.Range("B1").Value = pos
     ws.Range("D1").Value = nm
     ws.Range("A1:D1").Borders.LineStyle = XL_CONT
@@ -186,8 +215,11 @@ Public Sub SetupExecSheet(ByVal ws As Object, ByVal pos As String, ByVal nm As S
     ws.Range("A2").Font.Color = COL_GRAY
     ws.Range("A2").WrapText = True
     ws.Rows(2).RowHeight = 28
+    ws.Range("A3").Value = "시간"
+    ws.Range("B3").Value = "내용"
+    ws.Range("C3").Value = "비고 (작은 글씨 *)"
+    ws.Range("D3").Value = "※ 참고"
     With ws.Range("A3:D3")
-        .Value = Array("시간", "내용", "비고 (작은 글씨 *)", "※ 참고")
         .Font.Bold = True
         .Interior.Color = COL_HEAD
         .HorizontalAlignment = XL_CENTER
@@ -200,15 +232,15 @@ Public Sub SetupExecSheet(ByVal ws As Object, ByVal pos As String, ByVal nm As S
         .VerticalAlignment = XL_TOP
     End With
     ws.Range("A4:A200").HorizontalAlignment = XL_CENTER
-    gStep = "exec sheet rows"
+    StepTo "exec sheet rows"
     Dim i As Long, f As Variant
     If IsArray(rows) Then
         For i = 0 To UBound(rows)
             f = Split(CStr(rows(i)), "|")
-            ws.Cells(4 + i, 1).Value = f(0)
-            ws.Cells(4 + i, 2).Value = Replace(f(1), "^", vbLf)
-            ws.Cells(4 + i, 3).Value = f(2)
-            ws.Cells(4 + i, 4).Value = f(3)
+            ws.Cells(4 + i, 1).Value = CStr(f(0))
+            ws.Cells(4 + i, 2).Value = Replace(CStr(f(1)), "^", vbLf)
+            ws.Cells(4 + i, 3).Value = CStr(f(2))
+            ws.Cells(4 + i, 4).Value = CStr(f(3))
         Next
     End If
     On Error Resume Next
@@ -331,8 +363,11 @@ Private Sub SetupTables(ByVal ws As Object)
     ws.Range("A2").Font.Size = 9
     ws.Range("A2").Font.Color = COL_GRAY
     ws.Rows(2).RowHeight = 40
+    ws.Range("A3").Value = "표 이름"
+    ws.Range("B3").Value = "칸"
+    ws.Range("C3").Value = "칸 제목"
+    ws.Range("D3").Value = "내용"
     With ws.Range("A3:D3")
-        .Value = Array("표 이름", "칸", "칸 제목", "내용")
         .Font.Bold = True
         .Interior.Color = COL_HEAD
         .HorizontalAlignment = XL_CENTER
@@ -363,13 +398,13 @@ Private Sub SetupTables(ByVal ws As Object)
             ws.Cells(r + j - 1, 2).HorizontalAlignment = XL_CENTER
             ws.Range(ws.Cells(r + j - 1, 3), ws.Cells(r + j - 1, 4)).NumberFormat = "@"
             If TblHasHeads(k) Then
-                ws.Cells(r + j - 1, 3).Value = heads(j - 1)
+                ws.Cells(r + j - 1, 3).Value = CStr(heads(j - 1))
             Else
                 ws.Cells(r + j - 1, 3).Value = "(제목 없음)"
                 ws.Cells(r + j - 1, 3).Font.Color = COL_GRAY
                 ws.Cells(r + j - 1, 3).Interior.Color = COL_SOFT
             End If
-            ws.Cells(r + j - 1, 4).Value = Replace(texts(j - 1), "^", vbLf)
+            ws.Cells(r + j - 1, 4).Value = Replace(CStr(texts(j - 1)), "^", vbLf)
         Next
         With ws.Range(ws.Cells(r, 1), ws.Cells(r + TblN(k) - 1, 4))
             .Borders.LineStyle = XL_CONT
@@ -470,45 +505,45 @@ Private Sub SetupHelp(ByVal ws As Object)
     SheetBase ws
     ws.Columns(1).ColumnWidth = 44
     ws.Columns(2).ColumnWidth = 60
-    Dim rows As Collection, i As Long, f As Variant, k As Long, ln As String
-    Set rows = New Collection
-    rows.Add "#일정 칸 — 한 줄에 일정 하나"
-    rows.Add "입력|인쇄물"
-    rows.Add "시간 칸 09:00, 내용 칸 주간 업무회의|시간 09:00 (굵게) / 내용"
-    rows.Add "14:00~16:00|시간 범위 (~ 뒤에서 줄 바꿈)"
-    rows.Add "9:30, 9시 반, 오후 2시|09:30, 09:30, 14:00 처럼 맞춰 줌"
-    rows.Add "종일, 오전 (시간 칸에)|시간 칸에 종일 / 오전"
-    rows.Add "시간 칸을 비우고 내용에 09:00 회의|시간과 내용을 알아서 나눔"
-    rows.Add "내용 끝에 @소회의실|내용 (소회의실)"
-    rows.Add "비고 칸, 또는 내용이 * 로 시작하는 줄|바로 위 일정 밑에 작은 글씨 부가 설명"
-    rows.Add "내용 칸 안에서 Alt+Enter 후 - 안건|바로 위 일정 밑에 하위 항목"
-    rows.Add "※ 참고 칸, 또는 내용이 ※ 로 시작|그 임원 칸 맨 밑 ※ 참고"
-    rows.Add "**굵게**, !!빨간 강조!!, __밑줄__, ==형광펜==|글자 꾸밈 (형광펜은 그 줄의 칸 전체가 노랗게)"
-    rows.Add ""
-    rows.Add "#단추"
-    rows.Add "A4 만들기|A4 시트에 한 장짜리 문서를 새로 만듭니다(글자크기 자동 맞춤)"
-    rows.Add "엑셀 불러오기|두레이에서 내려받은 공동편집 파일(.xlsx·.csv)을 골라 임원별로 넣습니다"
-    rows.Add "붙여넣은 표 가져오기|붙여넣기 시트에 붙인 표를 임원별로 넣습니다"
-    rows.Add "되돌리기|마지막 [엑셀 불러오기]·[붙여넣은 표 가져오기]·[새 문서] 전으로"
-    rows.Add "새 문서|일정·※ 참고·맨 밑 표 내용만 비움 (직위·성명·서식은 그대로, 날짜는 오늘)"
-    rows.Add "자리 바꾸기|두 자리의 임원을 맞바꿈 (임원 시트 탭을 끌어 순서를 바꿔도 됨)"
-    rows.Add "형광펜|고른 칸의 글자를 ==…==로 감쌈 (다시 누르면 지움, Ctrl+Shift+H)"
-    rows.Add "공동편집용 엑셀 양식 만들기|임원마다 시트가 있는 .xlsx — 두레이에 올려 함께 작성"
-    rows.Add ""
-    rows.Add "#엑셀 불러오기 규칙"
-    rows.Add "임원 찾기|시트 이름에 든 성명으로 (없으면 겹치지 않는 직위로). 못 찾으면 자리 번호를 물어봄"
-    rows.Add "한 시트에 여러 임원|'성명' 열을 두세요 (병합된 칸도 됨)"
-    rows.Add "날짜 열|문서 날짜의 줄만 가져옴. 문서 날짜에 없으면 일정이 가장 많은 날짜를 권하고, 가져오면 문서 날짜도 바뀜"
-    rows.Add "빼는 시트|빈 시트, 작성방법 같은 안내 시트, 숨긴 시트"
-    rows.Add ""
-    rows.Add "#문서 암호"
-    rows.Add "열 때 암호 묻기|서식 시트의 [문서 암호 정하기] 또는 한셀 메뉴의 문서 암호. 파일 내용이 암호화됩니다"
-    rows.Add ""
-    rows.Add "#단추가 안 보이거나 눌리지 않을 때"
-    rows.Add "Alt+F8 (매크로 목록)|BuildA4, ImportExcel, ImportPasted, UndoLast, NewDoc, SwapSeats, HighlightSel, MakeTemplate, PrintPreviewA4, SetDocPassword"
-    For k = 1 To rows.Count
-        i = k - 1
-        ln = rows(k)
+    Dim rows As String, ra As Variant, n As Long, i As Long, f As Variant, ln As String
+    LAdd rows, "#일정 칸 — 한 줄에 일정 하나"
+    LAdd rows, "입력|인쇄물"
+    LAdd rows, "시간 칸 09:00, 내용 칸 주간 업무회의|시간 09:00 (굵게) / 내용"
+    LAdd rows, "14:00~16:00|시간 범위 (~ 뒤에서 줄 바꿈)"
+    LAdd rows, "9:30, 9시 반, 오후 2시|09:30, 09:30, 14:00 처럼 맞춰 줌"
+    LAdd rows, "종일, 오전 (시간 칸에)|시간 칸에 종일 / 오전"
+    LAdd rows, "시간 칸을 비우고 내용에 09:00 회의|시간과 내용을 알아서 나눔"
+    LAdd rows, "내용 끝에 @소회의실|내용 (소회의실)"
+    LAdd rows, "비고 칸, 또는 내용이 * 로 시작하는 줄|바로 위 일정 밑에 작은 글씨 부가 설명"
+    LAdd rows, "내용 칸 안에서 Alt+Enter 후 - 안건|바로 위 일정 밑에 하위 항목"
+    LAdd rows, "※ 참고 칸, 또는 내용이 ※ 로 시작|그 임원 칸 맨 밑 ※ 참고"
+    LAdd rows, "**굵게**, !!빨간 강조!!, __밑줄__, ==형광펜==|글자 꾸밈 (형광펜은 그 줄의 칸 전체가 노랗게)"
+    LAdd rows, ""
+    LAdd rows, "#단추"
+    LAdd rows, "A4 만들기|A4 시트에 한 장짜리 문서를 새로 만듭니다(글자크기 자동 맞춤)"
+    LAdd rows, "엑셀 불러오기|두레이에서 내려받은 공동편집 파일(.xlsx·.csv)을 골라 임원별로 넣습니다"
+    LAdd rows, "붙여넣은 표 가져오기|붙여넣기 시트에 붙인 표를 임원별로 넣습니다"
+    LAdd rows, "되돌리기|마지막 [엑셀 불러오기]·[붙여넣은 표 가져오기]·[새 문서] 전으로"
+    LAdd rows, "새 문서|일정·※ 참고·맨 밑 표 내용만 비움 (직위·성명·서식은 그대로, 날짜는 오늘)"
+    LAdd rows, "자리 바꾸기|두 자리의 임원을 맞바꿈 (임원 시트 탭을 끌어 순서를 바꿔도 됨)"
+    LAdd rows, "형광펜|고른 칸의 글자를 ==…==로 감쌈 (다시 누르면 지움, Ctrl+Shift+H)"
+    LAdd rows, "공동편집용 엑셀 양식 만들기|임원마다 시트가 있는 .xlsx — 두레이에 올려 함께 작성"
+    LAdd rows, ""
+    LAdd rows, "#엑셀 불러오기 규칙"
+    LAdd rows, "임원 찾기|시트 이름에 든 성명으로 (없으면 겹치지 않는 직위로). 못 찾으면 자리 번호를 물어봄"
+    LAdd rows, "한 시트에 여러 임원|'성명' 열을 두세요 (병합된 칸도 됨)"
+    LAdd rows, "날짜 열|문서 날짜의 줄만 가져옴. 문서 날짜에 없으면 일정이 가장 많은 날짜를 권하고, 가져오면 문서 날짜도 바뀜"
+    LAdd rows, "빼는 시트|빈 시트, 작성방법 같은 안내 시트, 숨긴 시트"
+    LAdd rows, ""
+    LAdd rows, "#문서 암호"
+    LAdd rows, "열 때 암호 묻기|서식 시트의 [문서 암호 정하기] 또는 한셀 메뉴의 문서 암호. 파일 내용이 암호화됩니다"
+    LAdd rows, ""
+    LAdd rows, "#단추가 안 보이거나 눌리지 않을 때"
+    LAdd rows, "Alt+F8 (매크로 목록)|BuildA4, ImportExcel, ImportPasted, UndoLast, NewDoc, SwapSeats, HighlightSel, MakeTemplate, PrintPreviewA4, SetDocPassword"
+    n = LCount(rows)
+    ra = LItems(rows)
+    For i = 0 To n - 1
+        ln = CStr(ra(i))
         If Left$(ln, 1) = "#" Then
             ws.Cells(i + 1, 1).Value = Mid$(ln, 2)
             ws.Cells(i + 1, 1).Font.Bold = True
@@ -516,93 +551,17 @@ Private Sub SetupHelp(ByVal ws As Object)
         ElseIf ln <> "" Then
             f = Split(ln, "|")
             ws.Range(ws.Cells(i + 1, 1), ws.Cells(i + 1, 2)).NumberFormat = "@"
-            ws.Cells(i + 1, 1).Value = f(0)
-            If UBound(f) >= 1 Then ws.Cells(i + 1, 2).Value = f(1)
+            ws.Cells(i + 1, 1).Value = CStr(f(0))
+            If UBound(f) >= 1 Then ws.Cells(i + 1, 2).Value = CStr(f(1))
             ws.Range(ws.Cells(i + 1, 1), ws.Cells(i + 1, 2)).Borders.LineStyle = XL_CONT
             ws.Range(ws.Cells(i + 1, 1), ws.Cells(i + 1, 2)).Borders.Color = COL_INLINE
             ws.Range(ws.Cells(i + 1, 1), ws.Cells(i + 1, 2)).WrapText = True
             ws.Range(ws.Cells(i + 1, 1), ws.Cells(i + 1, 2)).VerticalAlignment = XL_TOP
-            If f(0) = "입력" Then ws.Range(ws.Cells(i + 1, 1), ws.Cells(i + 1, 2)).Interior.Color = COL_HEAD
+            If CStr(f(0)) = "입력" Then ws.Range(ws.Cells(i + 1, 1), ws.Cells(i + 1, 2)).Interior.Color = COL_HEAD
         End If
     Next
 End Sub
 
-' ---- tests (LibreOffice) -------------------------------------------------
-Public Function TestImport() As String
-    gQuiet = True
-    gDbg = ""
-    On Error GoTo fail
-    TestImport = ImportFiles(Array(Environ$("HC_TEST_XLSX"))) & " | " & gDbg
-    gQuiet = False
-    Exit Function
-fail:
-    gQuiet = False
-    TestImport = "ERROR " & Err.Number & ": " & Err.Description & " [" & gStep & "] [" & gTrace & "] " & gDbg
-End Function
-
-Public Function TestBuild() As String
-    gQuiet = True
-    DoBuild
-    gQuiet = False
-    TestBuild = "fs=" & gFS & " " & gTrace
-End Function
-
-' exercises the buttons without dialogs (LibreOffice test)
-Public Function TestAll() As String
-    Dim r As String, ws As Object, p As String
-    gQuiet = True
-    gDbg = ""
-    On Error GoTo fail
-    gStep = "swap"
-    LoadExecs
-    SwapSeatsIJ 1, 4
-    LoadExecs
-    r = r & "swap1=" & exName(1) & "/" & exName(4) & "; "
-    SwapSeatsIJ 1, 4
-    LoadExecs
-    r = r & "back=" & exName(1) & "; "
-    gStep = "highlight"
-    r = r & "mark=" & MarkLines("09:00 회의 @대회의실" & vbLf & "* 참석: 실장" & vbLf & "※ 메모") & "; "
-    gStep = "newdoc"
-    NewDoc
-    LoadExecs
-    r = r & "afterNew items1=" & exItems(1).Count & "; "
-    gStep = "undo"
-    UndoLast
-    LoadExecs
-    r = r & "afterUndo items1=" & exItems(1).Count & "; "
-    gStep = "paste"
-    Set ws = HostBook().Worksheets(SH_PASTE)
-    ws.Range("A3:C3").Value = Array("성명", "시간", "내용")
-    ws.Range("A4:C4").Value = Array("한소영", "10:00", "붙여넣기 시험")
-    ImportPasted
-    LoadExecs
-    r = r & "pasted8=" & exItems(8).Count & " pasteLeft=" & ws.Range("A4").Value & "; "
-    UndoLast
-    gStep = "template"
-    p = Environ$("HC_TEST_OUT")
-    If p <> "" Then r = r & "template=" & MakeTemplateTo(p) & "; "
-    gStep = "landscape"
-    NSet "s_orient", "A4 가로"
-    NSet "s_tables", "아니오"
-    NSet "s_secret", "아니오"
-    DoBuild
-    r = r & "landscape status=" & NStr("d_status") & "; "
-    NSet "s_orient", "A4 세로"
-    NSet "s_tables", "예"
-    NSet "s_secret", "예"
-    NSet "s_h1", 1: NSet "s_h2", 1: NSet "s_h3", 1
-    DoBuild
-    r = r & "rows set status=" & NStr("d_status") & "; "
-    PresetAutoH
-    r = r & "auto status=" & NStr("d_status")
-    gQuiet = False
-    TestAll = r
-    Exit Function
-fail:
-    gQuiet = False
-    TestAll = r & " ERROR " & Err.Number & ": " & Err.Description & " [" & gStep & "] [" & gTrace & "] " & gDbg
-End Function
 
 ' 이 모듈을 한셀이 읽었는지 확인 (실행했을 때 창이 뜨면 정상)
 Public Sub CheckHcExecSetup()

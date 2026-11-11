@@ -1,14 +1,14 @@
-"""한셀용 매크로 파일(.bas)과 매크로가 들어간 통합 문서(.xlsm)를 만듭니다.
+"""한셀에 붙여넣을 매크로 모듈을 만들고 LibreOffice 에서 그대로 시험합니다.
 
-src/*.bas 는 읽기 쉽게 한글을 그대로 쓴 원본입니다.
-VBA 편집기는 한글(유니코드)을 파일에 제대로 담지 못할 때가 있어서,
-문자열 속 한글은 U("\\uXXXX") 꼴로 바꿔 ASCII만 남긴 .bas 를 만듭니다.
+src/*.bas 는 읽기 쉬운 원본입니다. 한셀 2020 은 VBA 일부(Collection 등)에서 꺼지고
+큰 모듈은 읽지 못해서, tools/hancellify.py 가 확인된 문법만 쓰는 작은 모듈 여러 개로 바꿉니다.
+결과: hancell/붙여넣기/<화면>/모듈1.txt, 모듈2.txt, ... (붙여넣는 순서)
 
-usage: python3 build.py            # 두 화면 모두
-       python3 build.py exec       # 임원 화면만
+usage: python3 build.py            # 임원 화면
+       python3 build.py exec daily # 두 화면
 """
 import os
-import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -16,107 +16,18 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)              # hancell/
 SRC = os.path.join(ROOT, 'src')
-OUT_BAS = os.path.join(ROOT, '매크로')
-
 OUT_PASTE = os.path.join(ROOT, '붙여넣기')
 
 APPS = {
-    'exec': {'modules': ['HcCore', 'HcExec', 'HcExecIO', 'HcExecSetup'], 'book': '임원일일예정.xlsm', 'paste': '임원'},
-    'daily': {'modules': ['HcCore', 'HcDaily', 'HcDailyMd', 'HcDailyIO', 'HcDailySetup'], 'book': '부서별일일예정.xlsm',
-              'paste': '부서별'},
+    'exec': {'modules': ['HcCore', 'HcExec', 'HcExecIO', 'HcExecSetup'], 'test': 'HcExecTest',
+             'title': '임원 일일 예정사항', 'book': '임원일일예정.xlsm', 'paste': '임원'},
+    'daily': {'modules': ['HcCore', 'HcDaily', 'HcDailyMd', 'HcDailyIO', 'HcDailySetup'], 'test': 'HcDailyTest',
+              'title': '부서별 일일 예정사항', 'book': '부서별일일예정.xlsm', 'paste': '부서별'},
 }
 
-
-def enc_str(body):
-    """VBA 문자열 내용(따옴표 안, "" 는 그대로) → \\uXXXX 꼴"""
-    out = []
-    for ch in body:
-        o = ord(ch)
-        if ch == '\\':
-            out.append('\\u005C')
-        elif o < 128:
-            out.append(ch)
-        elif o > 0xFFFF:
-            o -= 0x10000
-            out.append('\\u%04X\\u%04X' % (0xD800 + (o >> 10), 0xDC00 + (o & 0x3FF)))
-        else:
-            out.append('\\u%04X' % o)
-    return ''.join(out)
-
-
-def convert_line(line, fname, no):
-    res = []
-    i = 0
-    n = len(line)
-    while i < n:
-        ch = line[i]
-        if ch == '"':
-            j = i + 1
-            while j < n:
-                if line[j] == '"':
-                    if j + 1 < n and line[j + 1] == '"':
-                        j += 2
-                        continue
-                    break
-                j += 1
-            if j >= n:
-                raise SystemExit('%s:%d: 따옴표가 닫히지 않음' % (fname, no))
-            body = line[i + 1:j]
-            if any(ord(c) >= 128 for c in body):
-                res.append('U("' + enc_str(body) + '")')
-            else:
-                res.append(line[i:j + 1])
-            i = j + 1
-            continue
-        if ch == "'":
-            comment = line[i:]
-            if any(ord(c) >= 128 for c in comment):
-                comment = "'"          # 한글 주석은 뺀다 (원본 src 에 남아 있음)
-            res.append(comment)
-            break
-        res.append(ch)
-        i += 1
-    out = ''.join(res).rstrip()
-    if re.match(r'^\s*(Public\s+|Private\s+)?Const\b', out) and 'U("' in out:
-        raise SystemExit('%s:%d: Const 에는 한글 문자열을 쓸 수 없습니다' % (fname, no))
-    if any(ord(c) >= 128 for c in out):
-        raise SystemExit('%s:%d: 문자열 밖에 한글이 있습니다: %s' % (fname, no, out))
-    if len(out) > 1000:
-        raise SystemExit('%s:%d: 줄이 너무 깁니다(%d자). 문자열을 나누세요.' % (fname, no, len(out)))
-    return out
-
-
-def convert_file(name):
-    path = os.path.join(SRC, name + '.bas')
-    lines = open(path, encoding='utf-8').read().replace('\r\n', '\n').split('\n')
-    out = [convert_line(ln, name, k + 1) for k, ln in enumerate(lines)]
-    while out and not out[-1]:
-        out.pop()
-    text = '\r\n'.join(out) + '\r\n'
-    os.makedirs(OUT_BAS, exist_ok=True)
-    dst = os.path.join(OUT_BAS, name + '.bas')
-    with open(dst, 'w', encoding='ascii', newline='') as f:
-        f.write(text)
-    return dst, len(text)
-
-
-def write_paste(app, cfg):
-    """한셀 매크로 편집기에 붙여넣을 파일: Attribute 줄을 뺀 모듈, 순서대로 번호"""
-    d = os.path.join(OUT_PASTE, cfg['paste'])
-    os.makedirs(d, exist_ok=True)
-    for f in os.listdir(d):
-        if f.endswith('.txt'):
-            os.remove(os.path.join(d, f))
-    for k, m in enumerate(cfg['modules'], 1):
-        src = open(os.path.join(OUT_BAS, m + '.bas'), encoding='ascii', newline='').read()
-        lines = [ln for ln in src.replace('\r\n', '\n').split('\n') if not ln.startswith('Attribute VB_')]
-        text = '\r\n'.join(lines)
-        # 빈 파일이 나가지 않도록 확인
-        if len(text) < len(src) * 0.95 or 'End Sub' not in text and 'End Function' not in text:
-            raise SystemExit('붙여넣기 파일이 비었거나 너무 짧습니다: ' + m)
-        with open(os.path.join(d, '%d_%s.txt' % (k, m)), 'w', encoding='ascii', newline='') as fh:
-            fh.write(text)
-    print('paste files:', os.path.relpath(d, ROOT))
+# 원본에만 있는 확인용 프로시저 (붙여넣기 모듈에는 CheckN 이 새로 붙음)
+DROP = {'CheckHcCore', 'CheckHcExec', 'CheckHcExecIO', 'CheckHcExecSetup',
+        'CheckHcDaily', 'CheckHcDailyMd', 'CheckHcDailyIO', 'CheckHcDailySetup'}
 
 
 def blank_xlsx(path):
@@ -131,27 +42,54 @@ def build(app):
     sys.path.insert(0, HERE)
     import vbalint
     import vbacompile
-    errs = vbalint.lint([os.path.join(SRC, m + '.bas') for m in cfg['modules']])
-    errs += vbacompile.check([os.path.join(SRC, m + '.bas') for m in cfg['modules']])
+    import hancellify
+    src_files = [os.path.join(SRC, m + '.bas') for m in cfg['modules']]
+    test_file = os.path.join(SRC, cfg['test'] + '.bas')
+    errs = vbalint.lint(src_files)
+    errs += vbacompile.check(src_files + [test_file])
     if errs:
         print('\n'.join(errs))
-        raise SystemExit('VBA 검사에서 문제가 나왔습니다')
+        raise SystemExit('VBA 검사에서 문제가 나왔습니다 (원본)')
+
+    sources = [(m, open(os.path.join(SRC, m + '.bas'), encoding='utf-8').read()) for m in cfg['modules']]
+    try:
+        texts = hancellify.build_modules(sources, cfg['title'], drop=DROP)
+    except hancellify.BuildError as e:
+        raise SystemExit('한셀용으로 바꾸지 못했습니다:\n%s' % e)
+
+    # 붙여넣기 파일
+    d = os.path.join(OUT_PASTE, cfg['paste'])
+    if os.path.isdir(d):
+        shutil.rmtree(d)
+    os.makedirs(d)
+    for k, t in enumerate(texts, 1):
+        with open(os.path.join(d, '모듈%d.txt' % k), 'w', encoding='utf-8', newline='') as fh:
+            fh.write(t)
+        print('%s/모듈%d.txt: %d자, %d줄' % (os.path.relpath(d, ROOT), k, len(t), t.count('\n')))
+
+    # 붙여넣기 파일 그대로 다시 검사하고 LibreOffice 에서 실행
+    tmpd = tempfile.mkdtemp(prefix='hc_paste_')
     bas = []
-    for m in cfg['modules']:
-        dst, size = convert_file(m)
-        print('%s: %d bytes' % (os.path.relpath(dst, ROOT), size))
-        if size > 60000:
-            print('  경고: 모듈이 60KB를 넘습니다. 나누는 것이 좋습니다.')
-        bas.append(dst)
-    write_paste(app, cfg)
-    tmp = os.path.join(tempfile.gettempdir(), 'hc_blank.xlsx')
+    for k, t in enumerate(texts, 1):
+        p = os.path.join(tmpd, 'Mod%d.bas' % k)
+        with open(p, 'w', encoding='utf-8', newline='') as fh:
+            fh.write(t)
+        bas.append(p)
+    errs = vbalint.lint(bas)
+    errs += vbacompile.check(bas + [test_file])
+    if errs:
+        print('\n'.join(errs))
+        raise SystemExit('VBA 검사에서 문제가 나왔습니다 (붙여넣기 파일)')
+    tmp = os.path.join(tmpd, 'hc_blank.xlsx')
     blank_xlsx(tmp)
-    # LibreOffice로 만든 .xlsm 은 한셀이 매크로를 읽지 못하므로 시험용으로만 만든다
     book = os.path.join(tempfile.gettempdir(), cfg['book'])
     cmd = [sys.executable, os.path.join(HERE, 'lo_run.py'), '--in', tmp]
-    for b in bas:
+    for b in bas + [test_file]:
         cmd += ['--bas', b]
-    cmd += ['--run', cfg['modules'][-1] + '.BuildRelease', '--save', book]
+    cmd += ['--run', cfg['test'] + '.BuildRelease']
+    for extra in os.environ.get('HC_RUN', '').split():
+        cmd += ['--run', cfg['test'] + '.' + extra]
+    cmd += ['--save', book]
     if os.environ.get('HC_PDF'):
         cmd += ['--pdf', os.environ['HC_PDF'], '--pdfsheet', 'A4']
     print(' '.join(cmd))
@@ -161,6 +99,6 @@ def build(app):
 
 
 if __name__ == '__main__':
-    apps = sys.argv[1:] or ['exec', 'daily']
+    apps = sys.argv[1:] or ['exec']
     for a in apps:
         build(a)

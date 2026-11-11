@@ -1,0 +1,597 @@
+' 임원 일일 예정사항 - 모듈 4 / 7
+' 한셀 매크로 편집기에 이 파일 전체를 붙여넣고, 맨 아래 Check4 를 실행해 확인하세요.
+' (원본: hancell/src, 만드는 도구: hancell/tools/build.py)
+Option Explicit
+
+Public Sub SetupExecSheet(ByVal ws As Object, ByVal pos As String, ByVal nm As String, ByVal rows As Variant)
+    StepTo "exec sheet clear"
+    ClearSheet ws
+    StepTo "exec sheet base"
+    SheetBase ws
+    StepTo "exec sheet widths"
+    ws.Columns(1).ColumnWidth = 14
+    ws.Columns(2).ColumnWidth = 54
+    ws.Columns(3).ColumnWidth = 32
+    ws.Columns(4).ColumnWidth = 34
+    StepTo "exec sheet labels"
+    ws.Range("A1").Value = "직위"
+    ws.Range("C1").Value = "성명"
+    ws.Range("A1").Font.Bold = True
+    ws.Range("A1").Interior.Color = 15526375
+    ws.Range("A1").HorizontalAlignment = -4108
+    ws.Range("C1").Font.Bold = True
+    ws.Range("C1").Interior.Color = 15526375
+    ws.Range("C1").HorizontalAlignment = -4108
+    ws.Range("B1").NumberFormat = "@"
+    ws.Range("B1").Font.Bold = True
+    ws.Range("D1").NumberFormat = "@"
+    ws.Range("D1").Font.Bold = True
+    ws.Range("B1").Value = pos
+    ws.Range("D1").Value = nm
+    ws.Range("A1:D1").Borders.LineStyle = 1
+    ws.Range("A1:D1").Borders.Color = 14011590
+    ws.Rows(1).RowHeight = 22
+    ws.Range("A2:D2").Merge
+    ws.Range("A2").Value = "한 줄에 일정 하나 · 시간은 09:00, 14:00~16:00, 종일 · 내용 끝에 @장소 · 내용이 * 로 시작하면 위 일정의 작은 글씨 · ※ 참고는 칸 맨 밑 · 시트 순서 = 자리 순서"
+    ws.Range("A2").Font.Size = 9
+    ws.Range("A2").Font.Color = 9079434
+    ws.Range("A2").WrapText = True
+    ws.Rows(2).RowHeight = 28
+    ws.Range("A3").Value = "시간"
+    ws.Range("B3").Value = "내용"
+    ws.Range("C3").Value = "비고 (작은 글씨 *)"
+    ws.Range("D3").Value = "※ 참고"
+    With ws.Range("A3:D3")
+        .Font.Bold = True
+        .Interior.Color = 15526375
+        .HorizontalAlignment = -4108
+        .Borders.LineStyle = 1
+        .Borders.Color = 14011590
+    End With
+    With ws.Range("A4:D200")
+        .NumberFormat = "@"
+        .WrapText = True
+        .VerticalAlignment = -4160
+    End With
+    ws.Range("A4:A200").HorizontalAlignment = -4108
+    StepTo "exec sheet rows"
+    Dim i As Long, f As Variant
+    If IsArray(rows) Then
+        For i = 0 To UBound(rows)
+            f = Split(CStr(rows(i)), "|")
+            ws.Cells(4 + i, 1).Value = CStr(f(0))
+            ws.Cells(4 + i, 2).Value = Replace(CStr(f(1)), "^", vbLf)
+            ws.Cells(4 + i, 3).Value = CStr(f(2))
+            ws.Cells(4 + i, 4).Value = CStr(f(3))
+        Next
+    End If
+    On Error Resume Next
+    Dim cur As Object
+    Set cur = ActiveSheet
+    ws.Activate
+    ActiveWindow.FreezePanes = False
+    ws.Range("A4").Select
+    ActiveWindow.FreezePanes = True
+    ws.Range("B4").Select
+    If Not cur Is Nothing Then cur.Activate
+    On Error GoTo 0
+    AddButton ws, ws.Columns(5).Left + 12, 4, 96, 24, "A4 만들기", "BuildA4"
+    AddButton ws, ws.Columns(5).Left + 12, 32, 96, 24, "형광펜", "HighlightSel"
+    AddButton ws, ws.Columns(5).Left + 12, 60, 96, 24, "입력으로", "GoInput"
+End Sub
+
+Public Sub LoadExecs()
+    Dim idx() As Long, n As Long, k As Long, nws As Object
+    Dim sched As String, refc As String, its As String, rfs As String
+    StepTo "execs: list"
+    n = ExecSheetIdx(idx)
+    Do While n < 8
+        Set nws = NewSheet(HostBook())
+        SetupExecSheet nws, "", "", Empty
+        nws.Name = UniqueSheetName("임원" & (n + 1), nws)
+        k = n
+        n = ExecSheetIdx(idx)
+        If n <= k Then Err.Raise 1004, "LoadExecs", "임원 시트를 만들 수 없습니다"
+    Loop
+    For k = 1 To 8
+        StepTo "execs: sheet " & k
+        Set exWs(k) = HostBook().Worksheets(idx(k))
+        exPos(k) = CellText(exWs(k).Cells(1, 2).Value)
+        exName(k) = CellText(exWs(k).Cells(1, 4).Value)
+        sched = ""
+        refc = ""
+        StepTo "execs: read " & k
+        ReadExecRows exWs(k), sched, refc
+        StepTo "execs: parse " & k
+        ParseSched sched, its, rfs
+        exItems(k) = its
+        exRefs(k) = refc & rfs
+    Next
+End Sub
+
+Public Sub SyncExecNames()
+    Dim k As Long, want As String
+    On Error Resume Next
+    For k = 1 To 8
+        want = TrimX(exPos(k) & " " & exName(k))
+        If want = "" Then want = "임원" & k
+        want = UniqueSheetName(want, exWs(k))
+        If exWs(k).Name <> want Then exWs(k).Name = want
+    Next
+    On Error GoTo 0
+End Sub
+
+Private Function TitleFs() As Double
+    TitleFs = R5(Clamp(gFS * 1.75, 15, 21))
+End Function
+
+Private Function MetaFs() As Double
+    MetaFs = R5(Clamp(gFS * 0.95, 8.5, 11))
+End Function
+
+Public Function LayHead(ByVal doRender As Boolean) As Double
+    Dim tH As Double, secW As Double, secH As Double, tx As Double, y As Double, mfs As Double, mH As Double, idx As Long
+    Dim dTxt As String
+    gTrace = "LayHead start"
+    mfs = MetaFs()
+    gTrace = "LayHead mfs"
+    If gShowSecret Then
+        secW = MeasureW(gSecretText, gFont, 9.5, True) + 3.4 * 2.834645669
+        secH = MeasureH(gSecretText, "", secW, gFont, 9.5, True) + 1 * 2.834645669
+        If doRender Then
+            idx = ElText(gW - secW, 0, secW, secH, gSecretText, "", 9.5, True, -4108, -4108, 212, False)
+            ElBorderAll idx, 1, -4138, 212
+        End If
+        tx = secW + 2 * 2.834645669
+    End If
+    If gTitle <> "" Then
+        tH = MeasureH(gTitle, "", gW - 2 * tx, gFont, TitleFs(), True)
+        If doRender Then ElText tx, 0, gW - 2 * tx, tH, gTitle, "", TitleFs(), True, -4108, -4108
+        y = tH
+    Else
+        y = secH
+    End If
+    y = y + 1.2 * 2.834645669
+    dTxt = FmtDateK(gDate)
+    mH = MaxD(MeasureH(IIf(gSub = "", "가", gSub), "", gW * 0.62, gFont, mfs), MeasureH(dTxt, "", gW * 0.38, gFont, mfs, True))
+    If doRender Then
+        If gSub <> "" Then ElText 0, y, gW * 0.62, mH, gSub, "", mfs, False, -4131, -4107
+        ElText gW * 0.62, y, gW * 0.38, mH, dTxt, "", mfs, True, -4152, -4107
+    End If
+    y = y + mH + 1.6 * 2.834645669
+    If doRender Then
+        idx = ElBox(0, 0, gW, y)
+        ElBorder idx, 1, 1, -4138, 0
+    End If
+    LayHead = y + 3 * 2.834645669
+End Function
+
+Public Function LayFoot(ByVal y As Double, ByVal doRender As Boolean) As Double
+    If gFoot = "" Then Exit Function
+    Dim h As Double
+    h = MeasureH(gFoot, "", gW, gFont, MetaFs())
+    If doRender Then ElText 0, y + 2.2 * 2.834645669, gW, h, gFoot, "", MetaFs()
+    LayFoot = h + 2.2 * 2.834645669
+End Function
+
+Private Sub RBMainLine(ByVal s As String, Optional ByVal size As Double = 0)
+    Dim p As Long, place As String, m1 As String
+    p = InStrRev(s, "@")
+    If p > 0 Then
+        place = TrimX(Mid$(s, p + 1))
+        If place <> "" Then
+            If p = 1 Then
+                RBAdd "(", False, False, -1, size
+                RBInline place, False, size
+                RBAdd ")", False, False, -1, size
+                Exit Sub
+            ElseIf IsWs(Mid$(s, p - 1, 1)) Then
+                m1 = RTrimX(Left$(s, p - 1))
+                RBInline m1, False, size
+                If m1 <> "" Then RBAdd " ", False, False, -1, size
+                RBAdd "(", False, False, -1, size
+                RBInline place, False, size
+                RBAdd ")", False, False, -1, size
+                Exit Sub
+            End If
+        End If
+    End If
+    RBInline s, False, size
+End Sub
+
+Private Function PadV() As Double
+    PadV = (0.22 + 0.3 * gU) * gFS
+End Function
+
+Private Function PadH() As Double
+    PadH = (0.4 + 0.2 * gU) * gFS
+End Function
+
+Private Function RowPad() As Double
+    RowPad = (0.08 + 0.2 * gU) * gFS
+End Function
+
+Private Function TimePieces(ByVal t As String) As String
+    TimePieces = Replace(t, "~", "~" & vbLf)
+End Function
+
+Private Function TimeColW(ByVal i As Long) As Double
+    Dim its As Variant, n As Long, k As Long, f As Variant, ps As Variant, j As Long, w As Double
+    n = LCount(exItems(i))
+    If n = 0 Then Exit Function
+    its = LItems(exItems(i))
+    For k = 0 To n - 1
+        f = Split(CStr(its(k)), SepB())
+        If CStr(f(0)) <> "" Then
+            ps = Split(TimePieces(CStr(f(0))), vbLf)
+            For j = 0 To UBound(ps)
+                w = MaxD(w, MeasureW(CStr(ps(j)), gFont, gFS, True))
+            Next
+        End If
+    Next
+    TimeColW = w
+End Function
+
+Public Function LayBox(ByVal i As Long, ByVal x As Double, ByVal y As Double, ByVal w As Double, ByVal h As Double, ByVal doRender As Boolean) As Double
+    Dim fs As Double, pv As Double, ph As Double, rp As Double
+    fs = gFS
+    pv = PadV()
+    ph = PadH()
+    rp = RowPad()
+    Dim hfs As Double, headTxt As String, headH As Double, idx As Long
+    hfs = R5(fs * 1.06)
+    headTxt = TrimX(exPos(i) & " " & exName(i))
+    headH = MeasureH(IIf(headTxt = "", "가", headTxt), "", w - 2 * ph, gFont, hfs, True) + 1.4 * pv
+    If doRender Then
+        idx = ElText(x, y, w, headH, headTxt, "", hfs, True, -4108, -4108)
+        ElFill idx, 15526375
+        ElBorder idx, 1, 1, -4138, 2236962
+        idx = ElBox(x, y, w, h)
+        ElBorderAll idx, 1, 2, 2236962
+    End If
+    Dim x0 As Double, bw As Double, yy As Double, tw As Double, cx As Double, cw As Double
+    x0 = x + ph - 1.5
+    bw = w - 2 * ph + 2 * 1.5
+    yy = y + headH + 0.5 * pv
+    tw = TimeColW(i)
+    If tw > 0 Then
+        tw = tw + 4.6
+        cx = x0 + tw + 0.15 * fs
+    Else
+        cx = x0
+    End If
+    cw = x0 + bw - cx
+    Dim k As Long, m As Long, itemTop As Double, y1 As Double, cy As Double
+    Dim tTxt As String, tH As Double, mTxt As String, mRuns As String, mMark As Boolean, mH As Double
+    Dim sfs As Double, mk As String, mkW As Double, sTxt As String, sRuns As String, sMark As Boolean, sH As Double
+    Dim n As Long, itemH As Double, nh As Double
+    Dim its As Variant, nIt As Long, f As Variant, ma As Variant, nM As Long, sa As Variant, nS As Long, sb As Variant, ls As Variant, j As Long, q As Long
+    nIt = LCount(exItems(i))
+    If nIt > 0 Then its = LItems(exItems(i))
+    For k = 1 To nIt
+        itemTop = yy
+        y1 = yy + rp
+        f = Split(CStr(its(k - 1)), SepB())
+        tTxt = TimePieces(CStr(f(0)))
+        tH = 0
+        If tTxt <> "" Then tH = MeasureH(tTxt, "", tw, gFont, fs, True)
+        RBReset
+        nM = LCountS(CStr(f(1)), SepC())
+        If nM > 0 Then
+            ma = LItemsS(CStr(f(1)), SepC())
+            For m = 1 To nM
+                If m > 1 Then RBAdd vbLf
+                RBMainLine CStr(ma(m - 1))
+            Next
+        End If
+        mTxt = RBText()
+        mRuns = RBRuns()
+        mMark = rbMark
+        mH = MeasureH(mTxt, mRuns, cw, gFont, fs)
+        If doRender And mTxt <> "" Then
+            idx = ElText(cx, y1, cw, mH, mTxt, mRuns, fs)
+            If mMark Then ElFill idx, 5958655
+        End If
+        cy = y1 + mH
+        nS = LCountS(CStr(f(2)), SepC())
+        If nS > 0 Then sa = LItemsS(CStr(f(2)), SepC())
+        For q = 1 To nS
+            sb = Split(CStr(sa(q - 1)), SepD())
+            If CStr(sb(0)) = "star" Then
+                sfs = R5(MaxD(MaxD(fs - 2, 0.75 * fs), 6))
+                mk = "*"
+                cy = cy + 0.06 * fs
+            Else
+                sfs = fs
+                mk = "-"
+                cy = cy + 0.02 * fs
+            End If
+            mkW = MeasureW(mk, gFont, sfs) + 0.1 * sfs
+            RBReset
+            n = 0
+            ls = Split(CStr(sb(1)), vbLf)
+            For j = 0 To UBound(ls)
+                If n > 0 Then RBAdd vbLf
+                n = n + 1
+                RBInline CStr(ls(j))
+            Next
+            sTxt = RBText()
+            sRuns = RBRuns()
+            sMark = rbMark
+            sH = MeasureH(sTxt, sRuns, cw - mkW, gFont, sfs)
+            If doRender Then
+                ElText cx, cy, mkW, sH, mk, "", sfs
+                idx = ElText(cx + mkW, cy, cw - mkW, sH, sTxt, sRuns, sfs)
+                If sMark Then ElFill idx, 5958655
+            End If
+            cy = cy + sH
+        Next
+        itemH = MaxD(tH, cy - y1) + 2 * rp
+        If doRender Then
+            If tTxt <> "" Then ElText x0, y1, tw, tH, tTxt, "", fs, True
+            If k > 1 Then
+                idx = ElBox(x0, itemTop, bw, itemH)
+                ElBorder idx, 0, -4118, 1, 11119017
+            End If
+        End If
+        yy = itemTop + itemH
+    Next
+    If nIt = 0 And gEmptyText <> "" Then
+        nh = MeasureH(gEmptyText, "", bw, gFont, fs)
+        If doRender Then ElText x0, yy + 0.5 * fs, bw, nh, gEmptyText, "", fs, False, -4108, -4160, 9079434
+        yy = yy + nh + fs
+    End If
+    yy = yy + 0.5 * pv
+    Dim refH As Double, rfs As Double, rmW As Double, rTop As Double, rH() As Double, rT() As String, rR() As String, rM() As Boolean
+    Dim nR As Long, ra As Variant
+    nR = LCount(exRefs(i))
+    If nR > 0 Then
+        ra = LItems(exRefs(i))
+        rfs = R5(0.93 * fs)
+        rmW = MeasureW("※", gFont, rfs)
+        ReDim rH(1 To nR)
+        ReDim rT(1 To nR)
+        ReDim rR(1 To nR)
+        ReDim rM(1 To nR)
+        refH = 0.8 * pv + 0.9 * pv
+        For n = 1 To nR
+            RBReset
+            RBInline CStr(ra(n - 1))
+            rT(n) = RBText()
+            rR(n) = RBRuns()
+            rM(n) = rbMark
+            rH(n) = MeasureH(rT(n), rR(n), bw - rmW, gFont, rfs)
+            refH = refH + rH(n)
+            If n > 1 Then refH = refH + 0.08 * fs
+        Next
+        If doRender Then
+            rTop = y + h - refH
+            idx = ElBox(x0, rTop, bw, refH)
+            ElBorder idx, 0, -4115, 1, 6710886
+            cy = rTop + 0.8 * pv
+            For n = 1 To nR
+                If n > 1 Then cy = cy + 0.08 * fs
+                ElText x0, cy, rmW, rH(n), "※", "", rfs
+                idx = ElText(x0 + rmW, cy, bw - rmW, rH(n), rT(n), rR(n), rfs)
+                If rM(n) Then ElFill idx, 5958655
+                cy = cy + rH(n)
+            Next
+        End If
+    End If
+    LayBox = (yy - y) + refH
+End Function
+
+Private Sub RBTableCell(ByVal txt As String, ByVal fs As Double)
+    Dim ls As Variant, j As Long, t As String, n As Long, sp As String, rest As String, sfs As Double
+    sfs = R5(MaxD(MaxD(fs - 1.5, 0.75 * fs), 6))
+    ls = SplitLines(TabsToSpace(txt))
+    For j = 0 To UBound(ls)
+        t = TrimX(CStr(ls(j)))
+        If t <> "" Then
+            If n > 0 Then RBAdd vbLf
+            n = n + 1
+            If Left$(t, 1) = "※" Then
+                RBInline t
+            ElseIf FirstIn(t, "*＊") Then
+                RBAdd "* ", False, False, -1, sfs
+                RBInline StripLead(t, "*＊"), False, sfs
+            ElseIf SplitTime(t, sp, rest) Then
+                RBAdd sp, True
+                If rest <> "" Then
+                    RBAdd " "
+                    RBMainLine rest
+                End If
+            Else
+                RBMainLine t
+            End If
+        End If
+    Next
+End Sub
+
+Public Function LayTables(ByVal y0 As Double, ByVal doRender As Boolean) As Double
+    Dim tf As Double, pvT As Double, phT As Double, lw As Double, k As Long, j As Long, n As Long, y As Double
+    Dim colW As Double, heads As Boolean, hRow As Double, cRow As Double, hh As Double, idx As Long
+    tf = R5(0.95 * gFS)
+    pvT = (0.22 + 0.3 * gU) * 0.55 * tf
+    phT = (0.4 + 0.2 * gU) * 0.8 * tf
+    For k = 1 To 4
+        lw = MaxD(lw, MeasureW(IIf(tbLabel(k) = "", "가", tbLabel(k)), gFont, tf, True))
+    Next
+    lw = Clamp(lw + 0.6 * tf, 3 * tf, 10 * tf)
+    y = y0
+    Dim cT(1 To 5) As String, cR(1 To 5) As String, cM(1 To 5) As Boolean, cH As Double
+    For k = 1 To 4
+        If k > 1 Then y = y + gGap
+        n = TblN(k)
+        colW = (gW - lw) / n
+        heads = False
+        If TblHasHeads(k) Then
+            For j = 1 To n
+                If tbHead(k, j) <> "" Then heads = True
+            Next
+        End If
+        hRow = 0
+        If heads Then
+            For j = 1 To n
+                hRow = MaxD(hRow, MeasureH(IIf(tbHead(k, j) = "", "가", tbHead(k, j)), "", colW - 2 * phT, gFont, tf, True))
+            Next
+            hRow = hRow + 2 * pvT
+        End If
+        cRow = MeasureH("가", "", colW - 2 * phT, gFont, tf)
+        For j = 1 To n
+            RBReset
+            RBTableCell tbText(k, j), tf
+            cT(j) = RBText()
+            cR(j) = RBRuns()
+            cM(j) = rbMark
+            cRow = MaxD(cRow, MeasureH(cT(j), cR(j), colW - 2 * phT + 2 * 1.5, gFont, tf))
+        Next
+        cRow = cRow + 2 * pvT
+        If doRender Then
+            idx = ElText(0, y, lw, hRow + cRow, tbLabel(k), "", tf, True, -4108, -4108, 0, False)
+            ElFill idx, 15526375
+            ElBorderAll idx, 1, 2, 2236962
+            For j = 1 To n
+                If heads Then
+                    idx = ElText(lw + (j - 1) * colW, y, colW, hRow, tbHead(k, j), "", tf, True, -4108, -4108)
+                    ElFill idx, 16184563
+                    ElBorderAll idx, 1, 2, 2236962
+                End If
+                idx = ElBox(lw + (j - 1) * colW, y + hRow, colW, cRow)
+                ElBorderAll idx, 1, 2, 2236962
+                If cT(j) <> "" Then
+                    idx = ElText(lw + (j - 1) * colW + phT - 1.5, y + hRow + pvT, colW - 2 * phT + 2 * 1.5, cRow - 2 * pvT, cT(j), cR(j), tf)
+                    If cM(j) Then ElFill idx, 5958655
+                End If
+            Next
+        End If
+        y = y + hRow + cRow
+    Next
+    LayTables = y - y0
+End Function
+
+Public Sub SeatGeom(ByVal i As Long, ByRef x As Double, ByRef w As Double)
+    Dim a As Double
+    Select Case i
+        Case 1, 2, 3
+            a = gW - 2 * gGap
+            x = 0
+            If i >= 2 Then x = gC1(1) * a + gGap
+            If i = 3 Then x = x + gC1(2) * a + gGap
+            w = gC1(i) * a
+        Case 4
+            x = 0
+            w = gC2(1) * (gW - gGap)
+        Case 5, 6
+            x = gC2(1) * (gW - gGap) + gGap
+            w = gC2(2) * (gW - gGap)
+        Case 7
+            x = 0
+            w = gC3(1) * (gW - gGap)
+        Case 8
+            x = gC3(1) * (gW - gGap) + gGap
+            w = gC3(2) * (gW - gGap)
+    End Select
+End Sub
+
+Public Sub FitEval(ByVal fs As Double, ByVal lo As Double, ByVal hi As Double, ByRef ok As Boolean, ByRef need As Double, ByRef avail As Double, ByRef req() As Double, ByRef nat() As Double, ByRef headH As Double, ByRef tabH As Double, ByRef footH As Double)
+    Dim i As Long, x As Double, w As Double
+    gTrace = "FitEval start fs=" & fs
+    gFS = fs
+    gTrace = "FitEval gFS"
+    If hi > lo Then
+        gU = Clamp((fs - lo) / (hi - lo), 0, 1)
+    Else
+        gU = 1
+    End If
+    gTrace = "FitEval head"
+    headH = LayHead(False)
+    gTrace = "FitEval foot"
+    footH = LayFoot(0, False)
+    tabH = 0
+    If gShowTables Then tabH = LayTables(0, False)
+    avail = gH - headH - footH
+    If gShowTables Then avail = avail - tabH - gGap
+    For i = 1 To 8
+        SeatGeom i, x, w
+        nat(i) = LayBox(i, x, 0, w, 0, False)
+    Next
+    req(1) = MaxD(MaxD(nat(1), nat(2)), nat(3))
+    If gSplit < 0 Then
+        req(2) = MaxD(nat(4), nat(5) + gGap + nat(6))
+    Else
+        req(2) = MaxD(MaxD(nat(4), nat(5) / gSplit + gGap), nat(6) / (1 - gSplit) + gGap)
+    End If
+    req(3) = MaxD(nat(7), nat(8))
+    Dim inner As Double, t As Double, k As Long
+    inner = avail - 2 * gGap
+    If Not gRowsSet Then
+        need = req(1) + req(2) + req(3) + 2 * gGap
+        ok = (need <= avail - 1.5)
+    Else
+        ok = True
+        need = 2 * gGap
+        For k = 1 To 3
+            t = gRows(k) * (inner - 1)
+            If req(k) > t Then ok = False
+            need = need + MaxD(req(k), t)
+        Next
+    End If
+End Sub
+
+Public Sub ShowStatus(ByVal st As String, ByVal ok As Boolean)
+    Dim r As Object
+    Set r = NameRange("d_status")
+    If Not r Is Nothing Then
+        r.Cells(1, 1).Value = IIf(ok, "맞춤 완료: ", "넘침: ") & st
+        r.Cells(1, 1).Font.Color = IIf(ok, 4422942, 2832066)
+    End If
+    On Error Resume Next
+    Dim ws As Object, shp As Object
+    Set ws = HostBook().Worksheets(SH_A4)
+    Set shp = ws.Shapes("a4status")
+    If Not shp Is Nothing Then
+        shp.TextFrame.Characters.Text = IIf(ok, "맞춤 완료: ", "넘침: ") & st
+        shp.TextFrame.Characters.Font.Color = IIf(ok, 4422942, 2832066)
+    End If
+    On Error GoTo 0
+End Sub
+
+Public Sub PlaceA4Buttons(ByVal ws As Object, ByVal lastC As Long)
+    Dim x As Double, shp As Object, y As Double, i As Long
+    On Error Resume Next
+    x = ws.Cells(1, lastC + 1).Left + 18
+    y = 6
+    For i = 1 To ws.Shapes.Count
+        Set shp = ws.Shapes(i)
+        If shp.Name = "a4status" Then
+            shp.Left = x
+            shp.Top = 6
+        Else
+            shp.Left = x
+            shp.Top = 80 + y
+            y = y + shp.Height + 6
+        End If
+    Next
+    On Error GoTo 0
+End Sub
+
+Public Function ModOk4() As Long
+    ModOk4 = 4
+End Function
+
+Public Sub Check4()
+    Dim n As Long, msg As String
+    msg = "4번 모듈을 읽었습니다 (전체 7개)."
+    On Error Resume Next
+    n = ModOk1() + ModOk2() + ModOk3() + ModOk4()
+    If Err.Number <> 0 Or n <> 10 Then
+        msg = msg & vbLf & "그런데 앞 모듈을 부르지 못했습니다: " & Err.Description
+    Else
+        msg = msg & vbLf & "다음: 5번 파일을 새 모듈에 붙여넣으세요."
+    End If
+    On Error GoTo 0
+    MsgBox msg, 0, "확인"
+End Sub
+
+' ==== 모듈 4 끝 ====

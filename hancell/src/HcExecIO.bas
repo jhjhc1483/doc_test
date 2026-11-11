@@ -7,7 +7,7 @@ Option Explicit
 Private Const SEP1 As String = "|~|"
 Private gN As Long
 Private gLabel() As String, gTitleG() As String, gSource() As String, gHasExec() As Boolean, gHasRoles() As Boolean
-Private gTarget() As Long, gRowsC() As Object, gRoles() As Variant, gLabels() As Variant
+Private gTarget() As Long, gRowsC() As String, gRoles() As Variant, gLabels() As Variant
 
 Private Sub GroupsReset()
     gN = 0
@@ -15,25 +15,36 @@ Private Sub GroupsReset()
     ReDim gTarget(1 To 1): ReDim gRowsC(1 To 1): ReDim gRoles(1 To 1): ReDim gLabels(1 To 1)
 End Sub
 
-Private Function GroupAdd(ByVal label As String, ByVal title As String, ByVal source As String, ByVal hasExec As Boolean, _
-        ByVal hasRoles As Boolean, roles As Variant, labels As Variant) As Long
+Private Function GroupAdd(ByVal label As String, ByVal title As String, ByVal source As String, ByVal hasExec As Boolean, ByVal hasRoles As Boolean, roles As Variant, labels As Variant) As Long
     gN = gN + 1
-    ReDim Preserve gLabel(1 To gN): ReDim Preserve gTitleG(1 To gN): ReDim Preserve gSource(1 To gN)
-    ReDim Preserve gHasExec(1 To gN): ReDim Preserve gHasRoles(1 To gN): ReDim Preserve gTarget(1 To gN)
-    ReDim Preserve gRowsC(1 To gN): ReDim Preserve gRoles(1 To gN): ReDim Preserve gLabels(1 To gN)
-    gLabel(gN) = label: gTitleG(gN) = title: gSource(gN) = source: gHasExec(gN) = hasExec: gHasRoles(gN) = hasRoles
+    ReDim Preserve gLabel(1 To gN)
+    ReDim Preserve gTitleG(1 To gN)
+    ReDim Preserve gSource(1 To gN)
+    ReDim Preserve gHasExec(1 To gN)
+    ReDim Preserve gHasRoles(1 To gN)
+    ReDim Preserve gTarget(1 To gN)
+    ReDim Preserve gRowsC(1 To gN)
+    ReDim Preserve gRoles(1 To gN)
+    ReDim Preserve gLabels(1 To gN)
+    gLabel(gN) = label
+    gTitleG(gN) = title
+    gSource(gN) = source
+    gHasExec(gN) = hasExec
+    gHasRoles(gN) = hasRoles
     gTarget(gN) = -1
-    Set gRowsC(gN) = New Collection
+    gRowsC(gN) = ""
     ' stored as joined text: arrays kept in variants are shared by reference in some hosts
-    gRoles(gN) = Join(roles, SEP1): gLabels(gN) = Join(labels, SEP1)
+    gRoles(gN) = Join(roles, SEP1)
+    gLabels(gN) = Join(labels, SEP1)
     GroupAdd = gN
 End Function
 
 Private Function SkipSheetName(ByVal nm As String) As Boolean
-    Dim k As String, p As Variant
+    Dim k As String, p As Variant, i As Long
     k = LCase$(RemoveChars(nm, ""))
-    For Each p In Array("작성방법", "작성요령", "작성예시", "안내", "도움말", "사용법", "예시", "목록", "설정", "readme", "guide", "help")
-        If StartsWith(k, CStr(p)) Then
+    p = Array("작성방법", "작성요령", "작성예시", "안내", "도움말", "사용법", "예시", "목록", "설정", "readme", "guide", "help")
+    For i = 0 To UBound(p)
+        If StartsWith(k, CStr(p(i))) Then
             SkipSheetName = True
             Exit Function
         End If
@@ -131,7 +142,8 @@ Private Sub SheetGroups(ByVal sheetName As String, v As Variant, ByVal r0 As Lon
                     keys(nKeys) = key
                     keyG(nKeys) = g
                 End If
-                gRowsC(g).Add Array(IIf(cd >= 0, curDate, ""), Join(rowS, SEP1))
+                ' one row = date SepB cells (joined)
+                gRowsC(g) = gRowsC(g) & SepA() & IIf(cd >= 0, curDate, "") & SepB() & Join(rowS, SEP1)
             End If
         End If
     Next
@@ -180,12 +192,17 @@ Private Function ExecLabel(ByVal i As Long) As String
 End Function
 
 ' rows of group g that belong to date D -> lines (for counting / no-header groups)
-Private Sub GroupLines(ByVal g As Long, ByVal D As String, ByVal sched As Collection, ByVal refc As Collection)
-    Dim rw As Variant, cells() As String, roles() As String, labels() As String
-    roles = Split(gRoles(g), SEP1): labels = Split(gLabels(g), SEP1)
-    For Each rw In gRowsC(g)
-        If rw(0) = "" Or D = "" Or rw(0) = D Then
-            cells = Split(rw(1), SEP1)
+Private Sub GroupLines(ByVal g As Long, ByVal D As String, ByRef sched As String, ByRef refc As String)
+    Dim rw As Variant, cells() As String, roles() As String, labels() As String, ra As Variant, n As Long, q As Long
+    roles = Split(gRoles(g), SEP1)
+    labels = Split(gLabels(g), SEP1)
+    n = LCount(gRowsC(g))
+    If n = 0 Then Exit Sub
+    ra = LItems(gRowsC(g))
+    For q = 0 To n - 1
+        rw = Split(CStr(ra(q)), SepB())
+        If CStr(rw(0)) = "" Or D = "" Or CStr(rw(0)) = D Then
+            cells = Split(CStr(rw(1)), SEP1)
             RowLines cells, roles, labels, gHasRoles(g), sched, refc
         End If
     Next
@@ -203,32 +220,34 @@ fail:
 End Sub
 
 Public Function ImportFiles(files As Variant) As String
-    Dim p As Variant, wb As Object, ws As Object, v As Variant, names As String, fn As String
+    Dim fi As Long, p As String, wb As Object, ws As Object, v As Variant, names As String, fn As String, si As Long
     LoadSettings
     LoadExecs
-    gStep = "import: reset"
+    StepTo "import: reset"
     GroupsReset
-    For Each p In files
-        If LCase$(CStr(p)) = LCase$(HostBook().FullName) Then
+    For fi = LBound(files) To UBound(files)
+        p = CStr(files(fi))
+        If LCase$(p) = LCase$(HostBook().FullName) Then
             Info "지금 열려 있는 이 파일은 불러올 수 없습니다. 두레이에서 내려받은 공동편집 파일을 고르세요."
             Exit Function
         End If
-        fn = Mid$(CStr(p), InStrRev(Replace(CStr(p), "\", "/"), "/") + 1)
-        gStep = "import: open " & fn
+        fn = Mid$(p, InStrRev(Replace(p, "\", "/"), "/") + 1)
+        StepTo "import: open " & fn
         On Error Resume Next
         Set wb = Nothing
-        Set wb = Application.Workbooks.Open(CStr(p), 0, True)
+        Set wb = Application.Workbooks.Open(p, 0, True)
         On Error GoTo 0
         If wb Is Nothing Then
             Info fn & ": 파일을 열 수 없습니다."
         Else
             If names <> "" Then names = names & ", "
             names = names & fn
-            For Each ws In wb.Worksheets
-                gStep = "import: sheet " & ws.Name
+            For si = 1 To wb.Worksheets.Count
+                Set ws = wb.Worksheets(si)
+                StepTo "import: sheet " & ws.Name
                 If ws.Visible = XL_SHEET_VISIBLE And Not SkipSheetName(ws.Name) Then
                     v = SheetValues(ws)
-                    gStep = "import: groups " & ws.Name
+                    StepTo "import: groups " & ws.Name
                     SheetGroups ws.Name, v, 1, fn & " › " & ws.Name
                 End If
             Next
@@ -236,7 +255,7 @@ Public Function ImportFiles(files As Variant) As String
         End If
     Next
     If names = "" Then Exit Function
-    gStep = "import: open dialog"
+    StepTo "import: open dialog"
     ImportFiles = OpenImport(names)
 End Function
 
@@ -285,16 +304,21 @@ Private Function OpenImport(ByVal srcLabel As String) As String
         Info "가져올 일정을 찾지 못했습니다. 머리글(시간·내용)이 있는지 확인하세요."
         Exit Function
     End If
+    Dim ra As Variant, nr As Long, q As Long
     For g = 1 To gN
         gTarget(g) = MatchExec(gLabel(g))
         If gTarget(g) < 0 And Not gHasExec(g) And gTitleG(g) <> "" Then gTarget(g) = MatchExec(gTitleG(g))
-        For Each rw In gRowsC(g)
-            If rw(0) <> "" Then
-                c = FindKey(dates, nD, rw(0))
+        nr = LCount(gRowsC(g))
+        If nr > 0 Then ra = LItems(gRowsC(g))
+        For q = 0 To nr - 1
+            rw = Split(CStr(ra(q)), SepB())
+            If CStr(rw(0)) <> "" Then
+                c = FindKey(dates, nD, CStr(rw(0)))
                 If c = 0 Then
                     nD = nD + 1
-                    ReDim Preserve dates(1 To nD): ReDim Preserve cnt(1 To nD)
-                    dates(nD) = rw(0)
+                    ReDim Preserve dates(1 To nD)
+                    ReDim Preserve cnt(1 To nD)
+                    dates(nD) = CStr(rw(0))
                     cnt(nD) = 1
                 Else
                     cnt(c) = cnt(c) + 1
@@ -339,19 +363,22 @@ Private Function OpenImport(ByVal srcLabel As String) As String
         End If
     End If
     ' entries
-    gStep = "import: entries"
-    Dim on_() As Boolean, nSched() As Long, nRef() As Long, empties As Long, sched As Collection, refc As Collection, res As Variant
-    ReDim on_(1 To gN): ReDim nSched(1 To gN): ReDim nRef(1 To gN)
+    StepTo "import: entries"
+    Dim on_() As Boolean, nSched() As Long, nRef() As Long, empties As Long, sched As String, refc As String, its As String, rfs As String
+    ReDim on_(1 To gN)
+    ReDim nSched(1 To gN)
+    ReDim nRef(1 To gN)
     For g = 1 To gN
-        Set sched = New Collection: Set refc = New Collection
+        sched = ""
+        refc = ""
         GroupLines g, D, sched, refc
-        res = ParseSched(sched)
-        nSched(g) = res(0).Count
-        nRef(g) = refc.Count + res(1).Count
-        on_(g) = (sched.Count + refc.Count > 0)
+        ParseSched sched, its, rfs
+        nSched(g) = LCount(its)
+        nRef(g) = LCount(refc) + LCount(rfs)
+        on_(g) = (LCount(sched) + LCount(refc) > 0)
         If Not on_(g) Then empties = empties + 1
     Next
-    gStep = "import: seats"
+    StepTo "import: seats"
     ' seats for groups not found
     Dim seatList As String
     For k = 1 To NX
@@ -366,7 +393,7 @@ Private Function OpenImport(ByVal srcLabel As String) As String
             If gTarget(g) < 0 Then on_(g) = False
         End If
     Next
-    gStep = "import: summary"
+    StepTo "import: summary"
     ' summary
     Dim used(1 To 8) As Long, n As Long, lines As String, miss As String
     For g = 1 To gN
@@ -391,9 +418,9 @@ Private Function OpenImport(ByVal srcLabel As String) As String
     If Len(msg) > 1000 Then msg = Left$(msg, 990) & "…"
     If Not Confirm(msg) Then Exit Function
     ' apply
-    gStep = "import: backup"
+    StepTo "import: backup"
     SaveBackup "엑셀 불러오기"
-    gStep = "import: write"
+    StepTo "import: write"
     BeginWork
     For k = 1 To NX
         If used(k) > 0 Then ClearExecRows exWs(k)
@@ -424,20 +451,33 @@ End Sub
 Private Sub WriteGroupRows(ByVal g As Long, ByVal D As String, ByVal ws As Object, ByRef rowN As Long)
     Dim rw As Variant, cells() As String, roles() As String, labels() As String, i As Long
     Dim tm As String, content As String, place As String, stars As String, refs As String
-    Dim sched As Collection, refc As Collection, l As Variant
-    roles = Split(gRoles(g), SEP1): labels = Split(gLabels(g), SEP1)
-    For Each rw In gRowsC(g)
-        If rw(0) = "" Or D = "" Or rw(0) = D Then
-            cells = Split(rw(1), SEP1)
+    Dim sched As String, refc As String, ra As Variant, n As Long, q As Long, la As Variant, nl As Long, j As Long
+    roles = Split(gRoles(g), SEP1)
+    labels = Split(gLabels(g), SEP1)
+    n = LCount(gRowsC(g))
+    If n = 0 Then Exit Sub
+    ra = LItems(gRowsC(g))
+    For q = 0 To n - 1
+        rw = Split(CStr(ra(q)), SepB())
+        If CStr(rw(0)) = "" Or D = "" Or CStr(rw(0)) = D Then
+            cells = Split(CStr(rw(1)), SEP1)
             If gHasRoles(g) Then
-                tm = "": content = "": place = "": stars = "": refs = ""
+                tm = ""
+                content = ""
+                place = ""
+                stars = ""
+                refs = ""
                 For i = LBound(cells) To UBound(cells)
                     If cells(i) <> "" Then
                         Select Case roles(i)
-                            Case "time": tm = cells(i)
-                            Case "content": content = content & IIf(content = "", "", vbLf) & cells(i)
-                            Case "place": place = cells(i)
-                            Case "ref": refs = refs & IIf(refs = "", "", vbLf) & cells(i)
+                            Case "time"
+                                tm = cells(i)
+                            Case "content"
+                                content = content & IIf(content = "", "", vbLf) & cells(i)
+                            Case "place"
+                                place = cells(i)
+                            Case "ref"
+                                refs = refs & IIf(refs = "", "", vbLf) & cells(i)
                             Case "star"
                                 If labels(i) <> "" Then
                                     stars = stars & IIf(stars = "", "", vbLf) & labels(i) & ": " & cells(i)
@@ -450,14 +490,23 @@ Private Sub WriteGroupRows(ByVal g As Long, ByVal D As String, ByVal ws As Objec
                 If place <> "" Then content = AttachPlace(content, place)
                 WriteExecRow ws, rowN, tm, content, stars, refs
             Else
-                Set sched = New Collection: Set refc = New Collection
+                sched = ""
+                refc = ""
                 RowLines cells, roles, labels, False, sched, refc
-                For Each l In sched
-                    WriteExecRow ws, rowN, "", CStr(l), "", ""
-                Next
-                For Each l In refc
-                    WriteExecRow ws, rowN, "", "", "", CStr(l)
-                Next
+                nl = LCount(sched)
+                If nl > 0 Then
+                    la = LItems(sched)
+                    For j = 0 To nl - 1
+                        WriteExecRow ws, rowN, "", CStr(la(j)), "", ""
+                    Next
+                End If
+                nl = LCount(refc)
+                If nl > 0 Then
+                    la = LItems(refc)
+                    For j = 0 To nl - 1
+                        WriteExecRow ws, rowN, "", "", "", CStr(la(j))
+                    Next
+                End If
             End If
         End If
     Next
@@ -599,7 +648,7 @@ fail:
 End Sub
 
 Public Function MakeTemplateTo(ByVal path As String) As String
-    Dim wb As Object, ws As Object, k As Long, guide As Variant, i As Long
+    Dim wb As Object, ws As Object, k As Long, guide As Variant, i As Long, g0 As Long
     LoadSettings
     LoadExecs
     Application.DisplayAlerts = False
@@ -607,39 +656,48 @@ Public Function MakeTemplateTo(ByVal path As String) As String
     Do While wb.Worksheets.Count > 1
         wb.Worksheets(wb.Worksheets.Count).Delete
     Loop
+    ' make all sheets first, then give each one its job by tab position
+    Do While wb.Worksheets.Count < NX + 1
+        Set ws = NewSheet(wb)
+    Loop
+    For k = 1 To wb.Worksheets.Count
+        wb.Worksheets(k).Name = "~t" & k
+    Next
     Set ws = wb.Worksheets(1)
     ws.Name = "작성방법"
-    guide = Array("임원 일일 예정사항 — 공동편집 양식", "", _
-        "1. 임원마다 시트가 하나씩 있습니다. 시트 이름(직위 성명)으로 임원을 찾으니 바꾸지 마세요.", _
-        "2. 한 줄에 일정 하나: 시간 / 내용을 각자 칸에 씁니다. 시간은 09:00 또는 14:00~15:30처럼 씁니다(종일·오전도 됩니다).", _
-        "3. 비고 칸에 쓴 것은 그 일정 밑에 작은 글씨 부가 설명(*)으로 붙습니다.", _
-        "4. 내용 칸 안에서 줄을 바꿔(Alt+Enter) ""* ""로 시작하면 부가 설명, ""- ""로 시작하면 하위 항목입니다. 내용이 ""* ""로 시작하는 줄은 바로 위 일정에 붙습니다.", _
-        "5. ※ 참고 칸에 쓴 것은 그 임원 칸 맨 밑에 ※ 표시로 인쇄됩니다. 어느 줄에 써도 됩니다.", _
-        "6. 여러 날을 한 시트에 쓰려면 맨 앞에 ""날짜"" 열을 넣으세요. 문서 날짜에 맞는 줄만 가져옵니다.", _
-        "7. 다 쓰면 담당자가 파일을 내려받아 한셀 파일의 [엑셀 불러오기]로 가져옵니다.", "", "예시")
+    guide = Array("임원 일일 예정사항 — 공동편집 양식", "", "1. 임원마다 시트가 하나씩 있습니다. 시트 이름(직위 성명)으로 임원을 찾으니 바꾸지 마세요.", "2. 한 줄에 일정 하나: 시간 / 내용을 각자 칸에 씁니다. 시간은 09:00 또는 14:00~15:30처럼 씁니다(종일·오전도 됩니다).", "3. 비고 칸에 쓴 것은 그 일정 밑에 작은 글씨 부가 설명(*)으로 붙습니다.")
     For i = 0 To UBound(guide)
         ws.Cells(i + 1, 1).Value = guide(i)
     Next
+    g0 = UBound(guide) + 1
+    guide = Array("4. 내용 칸 안에서 줄을 바꿔(Alt+Enter) ""* ""로 시작하면 부가 설명, ""- ""로 시작하면 하위 항목입니다. 내용이 ""* ""로 시작하는 줄은 바로 위 일정에 붙습니다.", "5. ※ 참고 칸에 쓴 것은 그 임원 칸 맨 밑에 ※ 표시로 인쇄됩니다. 어느 줄에 써도 됩니다.", "6. 여러 날을 한 시트에 쓰려면 맨 앞에 ""날짜"" 열을 넣으세요. 문서 날짜에 맞는 줄만 가져옵니다.", "7. 다 쓰면 담당자가 파일을 내려받아 한셀 파일의 [엑셀 불러오기]로 가져옵니다.", "", "예시")
+    For i = 0 To UBound(guide)
+        ws.Cells(g0 + i + 1, 1).Value = guide(i)
+    Next
+    g0 = g0 + UBound(guide) + 1
+    ' g0 = the row of "예시"
     ws.Cells(1, 1).Font.Bold = True
     ws.Cells(1, 1).Font.Size = 14
-    ws.Cells(UBound(guide) + 1, 1).Font.Bold = True
-    TemplateHeader ws, UBound(guide) + 2
-    Dim ex As Variant
-    ex = Array(Array("08:30", "임원 조찬 간담회 @20층 라운지", "참석: 부사장 이하 임원 전원", "11/10(화) 싱가포르 출장"), _
-        Array("10:00", "주간 경영회의 @대회의실" & vbLf & "- 안건: 4분기 실적 전망", "", ""), _
-        Array("14:00~16:00", "노사협의회 정기회의", "노측 6명, 사측 6명", ""), _
-        Array("", "* 회의 후 현장 점검", "", ""))
-    For i = 0 To UBound(ex)
-        ws.Range(ws.Cells(UBound(guide) + 3 + i, 1), ws.Cells(UBound(guide) + 3 + i, 4)).NumberFormat = "@"
-        ws.Range(ws.Cells(UBound(guide) + 3 + i, 1), ws.Cells(UBound(guide) + 3 + i, 4)).Value = ex(i)
-        ws.Range(ws.Cells(UBound(guide) + 3 + i, 1), ws.Cells(UBound(guide) + 3 + i, 4)).Borders.LineStyle = XL_CONT
-        ws.Range(ws.Cells(UBound(guide) + 3 + i, 1), ws.Cells(UBound(guide) + 3 + i, 4)).WrapText = True
+    ws.Cells(g0, 1).Font.Bold = True
+    TemplateHeader ws, g0 + 1
+    Dim exRows As Variant
+    exRows = Array("08:30|임원 조찬 간담회 @20층 라운지|참석: 부사장 이하 임원 전원|11/10(화) 싱가포르 출장", "10:00|주간 경영회의 @대회의실^- 안건: 4분기 실적 전망||", "14:00~16:00|노사협의회 정기회의|노측 6명, 사측 6명|", "|* 회의 후 현장 점검||")
+    Dim f As Variant, j As Long
+    For i = 0 To UBound(exRows)
+        f = Split(Replace(CStr(exRows(i)), "^", vbLf), "|")
+        With ws.Range(ws.Cells(g0 + 2 + i, 1), ws.Cells(g0 + 2 + i, 4))
+            .NumberFormat = "@"
+            .Borders.LineStyle = XL_CONT
+            .WrapText = True
+        End With
+        For j = 0 To 3
+            ws.Cells(g0 + 2 + i, j + 1).Value = CStr(f(j))
+        Next
     Next
     TemplateWidths ws
-    Dim prev As Object, nm As String
-    Set prev = ws
+    Dim nm As String
     For k = 1 To NX
-        Set ws = wb.Worksheets.Add(, prev)
+        Set ws = wb.Worksheets(k + 1)
         nm = SafeSheetName(ExecLabel(k))
         On Error Resume Next
         ws.Name = nm
@@ -650,7 +708,6 @@ Public Function MakeTemplateTo(ByVal path As String) As String
         ws.Range("A2:D300").WrapText = True
         ws.Range("A2:D300").VerticalAlignment = XL_TOP
         TemplateWidths ws
-        Set prev = ws
     Next
     wb.Worksheets(2).Activate
     On Error Resume Next
@@ -672,8 +729,11 @@ Public Function MakeTemplateTo(ByVal path As String) As String
 End Function
 
 Private Sub TemplateHeader(ByVal ws As Object, ByVal r As Long)
+    ws.Cells(r, 1).Value = "시간"
+    ws.Cells(r, 2).Value = "내용"
+    ws.Cells(r, 3).Value = "비고 (작은 글씨 *)"
+    ws.Cells(r, 4).Value = "※ 참고"
     With ws.Range(ws.Cells(r, 1), ws.Cells(r, 4))
-        .Value = Array("시간", "내용", "비고 (작은 글씨 *)", "※ 참고")
         .Font.Bold = True
         .Interior.Color = COL_HEAD
         .HorizontalAlignment = XL_CENTER
@@ -690,11 +750,14 @@ End Sub
 
 ' ==text== on the selected cells (again: remove)
 Public Sub HighlightSel()
-    Dim c As Object, s As String, n As Long
+    Dim c As Object, s As String, n As Long, sel As Object, i As Long
     On Error Resume Next
     If TypeName(Selection) <> "Range" Then Exit Sub
+    Set sel = Selection
     On Error GoTo 0
-    For Each c In Selection.Cells
+    If sel Is Nothing Then Exit Sub
+    For i = 1 To sel.Cells.Count
+        Set c = sel.Cells(i)
         If Not IsEmpty(c.Value) And c.Column > 1 Then
             s = CStr(c.Value)
             If InStr(s, "==") > 0 Then
@@ -706,7 +769,7 @@ Public Sub HighlightSel()
             c.Value = s
             n = n + 1
         End If
-        If n > 500 Then Exit For
+        If i > 2000 Or n > 500 Then Exit For
     Next
     If n = 0 Then Info "칠할 칸(내용·비고·※ 참고·맨 밑 표 내용)을 먼저 고르세요. 칠한 칸을 다시 고르고 누르면 지워집니다."
 End Sub
