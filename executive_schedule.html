@@ -416,12 +416,12 @@ body.locked > *:not(.lock) { display: none !important; }
 <div class="lock pw-dialog" id="pwDialog" hidden>
   <form class="lock-box" id="pwForm" autocomplete="off">
     <div class="lock-title">비밀번호 바꾸기</div>
-    <p class="lock-desc">새 비밀번호가 들어간 이 파일을 내려받습니다. 지금 쓰는 파일을 내려받은 파일로 바꿔 쓰세요.</p>
+    <p class="lock-desc">이 컴퓨터에서는 바로 새 비밀번호로 바뀝니다. 다른 컴퓨터에서 쓸 수 있게 새 비밀번호가 들어간 파일도 함께 내려받습니다.</p>
     <label>지금 비밀번호<input type="password" id="pwOld"></label>
     <label>새 비밀번호 (4자 이상)<input type="password" id="pwNew"></label>
     <label>새 비밀번호 확인<input type="password" id="pwNew2"></label>
     <div class="lock-msg" id="pwMsg" role="alert"></div>
-    <div class="lock-actions"><button type="button" class="lock-btn sub" data-pw-close>취소</button><button type="submit" class="lock-btn">새 파일로 저장</button></div>
+    <div class="lock-actions"><button type="button" class="lock-btn sub" data-pw-close>취소</button><button type="submit" class="lock-btn">바꾸기</button></div>
   </form>
 </div>
 <div class="app">
@@ -443,6 +443,7 @@ body.locked > *:not(.lock) { display: none !important; }
       </div>
     </div>
     <button class="btn" id="btnSave" title="작업 파일(.json)로 저장 (Ctrl+S)">저장</button>
+    <button class="btn" id="btnPwTop" title="열 때 묻는 비밀번호를 바꿉니다">비밀번호 바꾸기</button>
     <div class="spacer"></div>
     <span class="save-state" id="saveState"></span>
     <button class="btn primary" id="btnPrint" title="Ctrl+P · 인쇄 창에서 'PDF로 저장'도 됩니다">인쇄 / PDF</button>
@@ -525,7 +526,7 @@ body.locked > *:not(.lock) { display: none !important; }
           </section>
           <section class="panel">
             <h2>비밀번호</h2>
-            <p class="hint" style="margin-top:0">이 파일은 열 때마다 비밀번호를 묻습니다. 바꾸면 새 비밀번호가 들어간 파일을 내려받으니, 지금 쓰는 파일을 내려받은 파일로 바꿔 쓰세요.</p>
+            <p class="hint" style="margin-top:0">이 파일은 열 때마다 비밀번호를 묻습니다. 바꾸면 이 컴퓨터에서는 바로 새 비밀번호로 열리고, 다른 컴퓨터용으로 새 비밀번호가 들어간 파일도 함께 내려받습니다. (위쪽 막대의 [비밀번호 바꾸기]와 같습니다)</p>
             <div class="btn-row"><button type="button" class="btn small" id="btnPw">비밀번호 바꾸기</button></div>
           </section>
         </div>
@@ -1992,6 +1993,7 @@ body.locked > *:not(.lock) { display: none !important; }
   $('#fileInput').addEventListener('change', function (e) { openFiles(e.target.files); e.target.value = ''; });
   $('#btnPrint').addEventListener('click', function () { renderPreview(); window.print(); });
   $('#btnPw').addEventListener('click', function () { if (window.__lock) window.__lock.change(); });
+  $('#btnPwTop').addEventListener('click', function () { if (window.__lock) window.__lock.change(); });
   $('#btnNew').addEventListener('click', function () {
     if (!confirm('8명 모두의 일정·※ 참고 내용과 맨 밑 표 내용을 비웁니다.\n(직위·성명·회사명·표 이름·서식은 그대로 두고, 날짜는 오늘로 바뀝니다)')) return;
     var prev = clone(state);
@@ -2667,6 +2669,13 @@ body.locked > *:not(.lock) { display: none !important; }
   var PW_SALT = 'doc-lock-v1';
   var PW_HASH = '7b7fec2af76bba6869114cef9577a7c27ab274f4738c5428bbea27920550849a';
   var ROUNDS = 3000;
+  var LS_KEY = 'doc-lock:' + document.title;      // 이 컴퓨터에서 바꾼 비밀번호 (파일에 든 해시 → 새 해시)
+  function changes() { try { var o = JSON.parse(localStorage.getItem(LS_KEY) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (err) { return {}; } }
+  function currentHash() {
+    var h = PW_HASH, map = changes();
+    for (var i = 0; i < 20 && /^[0-9a-f]{64}$/.test(map[h] || '') && map[h] !== h; i++) h = map[h];
+    return h;
+  }
   window.__PRISTINE_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;   // 손대기 전의 이 파일 (잠긴 상태 그대로)
 
   var K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -2721,7 +2730,7 @@ body.locked > *:not(.lock) { display: none !important; }
   el('lockForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var inp = el('lockPw');
-    if (pwHash(inp.value) === PW_HASH) { inp.value = ''; start(); return; }
+    if (pwHash(inp.value) === currentHash()) { inp.value = ''; start(); return; }
     el('lockMsg').textContent = '비밀번호가 맞지 않습니다.';
     var box = el('lockForm');
     box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
@@ -2744,16 +2753,21 @@ body.locked > *:not(.lock) { display: none !important; }
   el('pwForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var o = el('pwOld').value, nw = el('pwNew').value, msg = el('pwMsg');
-    if (pwHash(o) !== PW_HASH) { msg.textContent = '지금 비밀번호가 맞지 않습니다.'; el('pwOld').select(); return; }
+    var cur = currentHash();
+    if (pwHash(o) !== cur) { msg.textContent = '지금 비밀번호가 맞지 않습니다.'; el('pwOld').select(); return; }
     if (nw.length < 4) { msg.textContent = '새 비밀번호는 4자 이상으로 해 주세요.'; el('pwNew').focus(); return; }
     if (nw !== el('pwNew2').value) { msg.textContent = '새 비밀번호 두 칸이 서로 다릅니다.'; el('pwNew2').select(); return; }
-    var html = window.__PRISTINE_HTML.replace(/var PW_HASH = '[0-9a-f]{64}';/, "var PW_HASH = '" + pwHash(nw) + "';");
+    var nh = pwHash(nw), saved = false;
+    try { var map = changes(); map[PW_HASH] = nh; map[cur] = nh; localStorage.setItem(LS_KEY, JSON.stringify(map)); saved = currentHash() === nh; } catch (err) { saved = false; }
+    var html = window.__PRISTINE_HTML.replace(/var PW_HASH = '[0-9a-f]{64}';/, "var PW_HASH = '" + nh + "';");
     var name = fileName(), url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), a = document.createElement('a');
     a.href = url; a.download = name; a.style.display = 'none';
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
     el('pwDialog').hidden = true;
-    alert('새 비밀번호가 들어간 파일(' + name + ')을 내려받았습니다.\n지금 쓰는 파일을 내려받은 파일로 바꿔 쓰세요.\n(바꾸기 전까지 이 파일은 예전 비밀번호로 열립니다)');
+    alert(saved
+      ? '비밀번호를 바꿨습니다. 이 컴퓨터에서는 지금부터 새 비밀번호로 열립니다.\n\n새 비밀번호가 들어간 파일(' + name + ')도 내려받았습니다.\n다른 컴퓨터에서 쓰거나 다른 사람에게 줄 때는 이 파일을 쓰세요.'
+      : '새 비밀번호가 들어간 파일(' + name + ')을 내려받았습니다.\n이 브라우저에는 저장하지 못했으니, 지금 쓰는 파일을 내려받은 파일로 바꿔 쓰세요.');
   });
   el('pwDialog').addEventListener('click', function (e) {
     if (e.target === this || e.target.hasAttribute('data-pw-close')) this.hidden = true;
