@@ -427,7 +427,7 @@ End Function
 
 ' removes bare addresses from the text (they are not printed); md links stay
 Private Function SplitUrls(ByVal s As String, ByVal urls As Collection) As String
-    Dim i As Long, n As Long, out As String, e As Long, u As String, found As Boolean, q As Long, ch As String
+    Dim i As Long, n As Long, out As String, e As Long, uu As String, found As Boolean, q As Long, ch As String
     n = Len(s)
     i = 1
     Do While i <= n
@@ -451,14 +451,14 @@ Private Function SplitUrls(ByVal s As String, ByVal urls As Collection) As Strin
                     If IsWs(ch) Or ch = "<" Or ch = ">" Or ch = """" Or ch = "'" Then Exit Do
                     e = e + 1
                 Loop
-                u = Mid$(s, i, e - i)
-                Do While Len(u) > 0 And InStr(".,;:!?)]", Right$(u, 1)) > 0
-                    u = Left$(u, Len(u) - 1)
+                uu = Mid$(s, i, e - i)
+                Do While Len(uu) > 0 And InStr(".,;:!?)]", Right$(uu, 1)) > 0
+                    uu = Left$(uu, Len(uu) - 1)
                 Loop
-                If Len(u) > 4 Then
-                    urls.Add u
+                If Len(uu) > 4 Then
+                    urls.Add uu
                     found = True
-                    i = i + Len(u)
+                    i = i + Len(uu)
                     GoTo nextCh
                 End If
             End If
@@ -495,7 +495,7 @@ End Function
 
 ' [text](url) -> text; first usable url returned through linkUrl
 Private Function MdLinks(ByVal s As String, ByRef linkUrl As String) As String
-    Dim i As Long, q As Long, e As Long, out As String, txt As String, u As String, e2 As Long
+    Dim i As Long, q As Long, e As Long, out As String, txt As String, uu As String, e2 As Long
     i = 1
     Do
         q = InStr(i, s, "[")
@@ -505,10 +505,10 @@ Private Function MdLinks(ByVal s As String, ByRef linkUrl As String) As String
         e2 = InStr(e + 2, s, ")")
         If e2 = 0 Then Exit Do
         txt = Mid$(s, q + 1, e - q - 1)
-        u = TrimX(Replace(Replace(Mid$(s, e + 2, e2 - e - 2), "<", ""), ">", ""))
-        If SafeHref(u) <> "" And InStr(txt, "]") = 0 Then
+        uu = TrimX(Replace(Replace(Mid$(s, e + 2, e2 - e - 2), "<", ""), ">", ""))
+        If SafeHref(uu) <> "" And InStr(txt, "]") = 0 Then
             out = out & Mid$(s, i, q - i) & txt
-            If linkUrl = "" Then linkUrl = SafeHref(u)
+            If linkUrl = "" Then linkUrl = SafeHref(uu)
         Else
             out = out & Mid$(s, i, e2 - i + 1)
         End If
@@ -519,16 +519,16 @@ End Function
 
 ' appends one line to the rich text builder. returns the url of a link (first one), extra urls into urls
 Public Sub RBLine(ByVal lineTxt As String, ByVal size As Double, ByRef linkUrl As String, ByVal urls As Collection, Optional ByVal noTime As Boolean = False)
-    Dim body As String, tl As Long, myUrls As New Collection, u As Variant, first As Boolean
+    Dim body As String, tl As Long, myUrls As New Collection, uu As Variant, first As Boolean
     body = SplitUrls(lineTxt, myUrls)
     body = AtPlace(body)
     body = MdLinks(Replace(body, "`", ""), linkUrl)
     first = True
-    For Each u In myUrls
+    For Each uu In myUrls
         If linkUrl = "" And first Then
-            linkUrl = SafeHref(CStr(u))
+            linkUrl = SafeHref(CStr(uu))
         Else
-            urls.Add CStr(u)
+            urls.Add CStr(uu)
         End If
         first = False
     Next

@@ -95,7 +95,7 @@ Public Sub BuildA4()
     DoBuild
     EndWork
     On Error Resume Next
-    ThisWorkbook.Worksheets(SH_A4).Activate
+    HostBook().Worksheets(SH_A4).Activate
     Exit Sub
 fail:
     EndWork
@@ -104,13 +104,13 @@ End Sub
 
 Public Sub GoInput()
     On Error Resume Next
-    ThisWorkbook.Worksheets(SH_IN).Activate
+    HostBook().Worksheets(SH_IN).Activate
 End Sub
 
 Public Sub PrintPreviewA4()
     On Error Resume Next
-    ThisWorkbook.Worksheets(SH_A4).Activate
-    ThisWorkbook.Worksheets(SH_A4).PrintPreview
+    HostBook().Worksheets(SH_A4).Activate
+    HostBook().Worksheets(SH_A4).PrintPreview
     If Err.Number <> 0 Then Info U("\uC778\uC1C4 \uBBF8\uB9AC\uBCF4\uAE30\uB97C \uC5F4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. A4 \uC2DC\uD2B8\uC5D0\uC11C Ctrl+P\uB85C \uC778\uC1C4\uD558\uC138\uC694.")
 End Sub
 
@@ -184,7 +184,7 @@ End Function
 
 Private Function ExecSheetList() As Collection
     Dim c As New Collection, ws As Object
-    For Each ws In ThisWorkbook.Worksheets
+    For Each ws In HostBook().Worksheets
         If IsExecSheet(ws) Then
             If c.Count < NX Then c.Add ws
         End If
@@ -201,9 +201,9 @@ Public Sub LoadExecs()
         If c.Count > 0 Then
             Set after = c(c.Count)
         Else
-            Set after = ThisWorkbook.Worksheets(ThisWorkbook.Worksheets.Count)
+            Set after = HostBook().Worksheets(HostBook().Worksheets.Count)
         End If
-        Set nws = ThisWorkbook.Worksheets.Add(, after)
+        Set nws = HostBook().Worksheets.Add(, after)
         SetupExecSheet nws, "", "", Empty
         nws.Name = UniqueSheetName(U("\uC784\uC6D0") & (c.Count + 1), nws)
         Set c = ExecSheetList()
@@ -239,7 +239,7 @@ Private Function UniqueSheetName(ByVal want As String, ByVal self As Object) As 
     n = 2
     Do
         clash = False
-        For Each ws In ThisWorkbook.Worksheets
+        For Each ws In HostBook().Worksheets
             If ws.Name <> selfName Then
                 If LCase$(ws.Name) = LCase$(nm) Then clash = True
             End If
@@ -1038,7 +1038,7 @@ Public Sub DoBuild()
     If ok And gFoot <> "" Then y = gH - footH
     LayFoot y, True
     Dim ws As Object, lastR As Long, lastC As Long
-    Set ws = ThisWorkbook.Worksheets(SH_A4)
+    Set ws = HostBook().Worksheets(SH_A4)
     gStep = "realize"
     Realize ws, gFont, lastR, lastC
     gStep = "page setup"
@@ -1077,7 +1077,7 @@ Private Sub ShowStatus(ByVal st As String, ByVal ok As Boolean)
     End If
     On Error Resume Next
     Dim ws As Object, shp As Object
-    Set ws = ThisWorkbook.Worksheets(SH_A4)
+    Set ws = HostBook().Worksheets(SH_A4)
     Set shp = ws.Shapes("a4status")
     If Not shp Is Nothing Then
         shp.TextFrame.Characters.Text = IIf(ok, U("\uB9DE\uCDA4 \uC644\uB8CC: "), U("\uB118\uCE68: ")) & st

@@ -73,7 +73,7 @@ End Sub
 
 Private Sub SetupAll()
     Dim wb As Object, ws As Object, k As Long
-    Set wb = ThisWorkbook
+    Set wb = HostBook()
     Application.DisplayAlerts = False
     On Error Resume Next
     wb.Styles("Normal").Font.Name = U("\uB9D1\uC740 \uACE0\uB515")
@@ -564,7 +564,7 @@ Public Function TestAll() As String
     LoadExecs
     r = r & "afterUndo items1=" & exItems(1).Count & "; "
     gStep = "paste"
-    Set ws = ThisWorkbook.Worksheets(SH_PASTE)
+    Set ws = HostBook().Worksheets(SH_PASTE)
     ws.Range("A3:C3").Value = Array(U("\uC131\uBA85"), U("\uC2DC\uAC04"), U("\uB0B4\uC6A9"))
     ws.Range("A4:C4").Value = Array(U("\uD55C\uC18C\uC601"), "10:00", U("\uBD99\uC5EC\uB123\uAE30 \uC2DC\uD5D8"))
     ImportPasted
