@@ -157,6 +157,25 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .ex-sum { font-size: 11px; color: var(--sub); margin-top: 5px; }
 .ex-sum.warn { color: var(--warn); }
 .btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+/* 형광펜 */
+.hl-btn .hl-sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: #ffeb5a; border: 1px solid #d9b400; }
+.hl-btn.on { background: #fff6bf; border-color: #d9b400; font-weight: 700; }
+body.hl-mode .sheet .ex, body.hl-mode .sheet .xt { cursor: text; }
+body.hl-mode .sheet .ex:hover, body.hl-mode .sheet .xt:hover { box-shadow: none; }
+body.hl-mode .sheet ::selection { background: rgba(255, 214, 0, .6); }
+.chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.xt-slot { width: 100%; margin-top: 4px; min-height: 34px; flex-direction: row; gap: 6px; }
+.xt-slot .s-meta { white-space: normal; }
+#xtPanel { scroll-margin-top: 8px; }
+#xtPanel.flash { animation: flash 1s ease-out; }
+.xt-ed + .xt-ed { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
+.xt-ed-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.xt-ed-top .xt-label { flex: 1; min-width: 0; font-weight: 700; }
+.xt-n { font-size: 11px; color: var(--sub); white-space: nowrap; }
+.xt-cell { display: flex; gap: 6px; align-items: flex-start; margin-top: 5px; }
+.xt-cell .xt-head { width: 104px; flex: none; }
+.xt-cell textarea { flex: 1; min-width: 0; border: 1px solid var(--line2); border-radius: 6px; padding: 5px 8px; line-height: 1.55; resize: vertical; min-height: 30px; background: #fff; }
+.xt-off { font-size: 12px; color: var(--warn); margin: 0 0 8px; }
 .size-sum { font-size: 12px; line-height: 1.7; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; margin-top: 8px; font-variant-numeric: tabular-nums; }
 .size-sum b { font-weight: 700; }
 .size-sum .tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 9px; background: #e3f4ea; color: var(--ok); margin-left: 4px; }
@@ -245,7 +264,12 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   border-top: 2px dashed #e53935; color: #e53935; font: 700 12px var(--ui-font); padding: 4px 8px; background: rgba(255,235,235,.9);
 }
 .sheet-inner { position: absolute; top: 0; right: 0; bottom: 0; left: 0; padding: var(--margin); display: flex; flex-direction: column; }
-.doc-head { flex: none; margin-bottom: 3mm; border-bottom: 2px solid #000; padding-bottom: 1.6mm; }
+.doc-head { flex: none; margin-bottom: 3mm; border-bottom: 2px solid #000; padding-bottom: 1.6mm; position: relative; }
+.secret {
+  position: absolute; top: 0; right: 0; border: 1.5px solid #d40000; color: #d40000; background: #fff;
+  font-weight: 800; font-size: 9.5pt; line-height: 1.25; padding: .5mm 2.2mm; letter-spacing: .15em; white-space: nowrap;
+}
+.secret[hidden] { display: none; }
 .doc-title { font-size: var(--title-fs); font-weight: 800; letter-spacing: .06em; line-height: 1.3; text-align: center; }
 .doc-title[hidden] { display: none; }
 .doc-meta { display: flex; justify-content: space-between; align-items: flex-end; gap: 4mm; margin-top: 1.2mm; font-size: var(--meta-fs); line-height: 1.3; }
@@ -309,9 +333,21 @@ body.resizing .ex:hover { box-shadow: none; }
 .ex-ref .rf + .rf { margin-top: .08em; }
 .ex-ref .rm { flex: none; margin-right: .25em; }
 .ex-ref .rt { flex: 1 1 auto; min-width: 0; }
+
+/* 맨 밑 표 4개 (인접회사활동 · 휴가 · 출장/방문 · 근무): 왼쪽 이름 칸 폭을 같게 맞춰 쌓음 */
+.xts { flex: none; display: flex; flex-direction: column; gap: var(--ggap); font-size: .95em; line-height: 1.38; }
+.xt { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.xt col.xc-lb { width: var(--xlw, 6em); }
+.xt th, .xt td { border: 1px solid #222; padding: calc(var(--padv) * .55) calc(var(--padh) * .8); vertical-align: top; text-align: left; font-weight: 400; }
+.xt th.lb { background: #e7e9ec; font-weight: 800; text-align: center; vertical-align: middle; white-space: nowrap; padding-left: .25em; padding-right: .25em; }
+.xt th.hd { background: #f3f4f6; font-weight: 700; text-align: center; }
+.xt .xl + .xl { margin-top: .05em; }
+.xt .xl.star { display: flex; font-size: max(calc(1em - 1.5pt), .75em, 6pt); }
+.xt .xl.star .mk { flex: none; margin-right: .3em; }
+.xt .xtm { font-variant-numeric: tabular-nums; }
 .sheet b { font-weight: 700; }
 .sheet .imp { color: #c40000; font-weight: 700; }
-.sheet mark { background: #ffe680; color: inherit; padding: 0 .1em; }
+.sheet mark { background: #ffeb5a; color: inherit; padding: 0 .08em; }
 .sheet u { text-underline-offset: .15em; }
 
 /* 화면에서만: 칸에 마우스를 올리면 표시, 누르면 그 임원 입력칸으로 */
@@ -319,6 +355,9 @@ body.resizing .ex:hover { box-shadow: none; }
   .ex { cursor: pointer; }
   .ex:hover { box-shadow: 0 0 0 2px #9db8f0; }
   .ex.is-focus { box-shadow: 0 0 0 2px var(--accent); }
+  .xt { cursor: pointer; }
+  .xt:hover { box-shadow: 0 0 0 2px #9db8f0; }
+  .xt.is-focus { box-shadow: 0 0 0 2px var(--accent); }
 }
 
 /* =========================================================
@@ -335,8 +374,56 @@ body.resizing .ex:hover { box-shadow: none; }
   .doc-body { overflow: hidden; }
 }
 </style>
+<style id="lock-style">
+/* 비밀번호 잠금 화면 (맞는 비밀번호를 넣기 전에는 화면 코드가 실행되지 않음) */
+body.locked > *:not(.lock) { display: none !important; }
+.lock {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 200;
+  display: grid; place-items: center; padding: 16px; background: #eceff3;
+  font-family: "맑은 고딕", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+.lock[hidden] { display: none; }
+.lock.pw-dialog { background: rgba(20,26,34,.45); }
+.lock-box {
+  width: min(340px, 100%); background: #fff; border: 1px solid #dde1e7; border-radius: 10px;
+  padding: 22px 22px 18px; box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: #1d232b;
+}
+.lock-title { font-size: 16px; font-weight: 700; }
+.lock-desc { margin: 0; color: #5d6875; line-height: 1.55; }
+.lock-box label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5d6875; }
+.lock-box input { height: 34px; border: 1px solid #c6ccd5; border-radius: 6px; padding: 0 10px; font: inherit; font-size: 14px; color: #1d232b; }
+.lock-box input:focus { outline: 2px solid #2257c5; outline-offset: -1px; border-color: #2257c5; }
+.lock-msg { min-height: 18px; color: #c2362b; font-size: 12px; font-weight: 700; }
+.lock-btn { height: 34px; padding: 0 14px; border: 1px solid #2257c5; background: #2257c5; color: #fff; border-radius: 6px; font: inherit; font-weight: 700; cursor: pointer; }
+.lock-btn.sub { background: #fff; color: #1d232b; border-color: #c6ccd5; font-weight: 400; }
+.lock-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.lock-box.shake { animation: lockShake .35s; }
+@keyframes lockShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+@media print { body.locked { display: none; } .lock { display: none !important; } }
+</style>
 </head>
-<body>
+<body class="locked">
+<div class="lock" id="lockScreen">
+  <form class="lock-box" id="lockForm" autocomplete="off">
+    <div class="lock-title" id="lockTitle"></div>
+    <p class="lock-desc">비밀번호를 넣어야 열립니다.</p>
+    <input type="password" id="lockPw" aria-label="비밀번호" placeholder="비밀번호">
+    <div class="lock-msg" id="lockMsg" role="alert"></div>
+    <button type="submit" class="lock-btn">열기</button>
+  </form>
+</div>
+<div class="lock pw-dialog" id="pwDialog" hidden>
+  <form class="lock-box" id="pwForm" autocomplete="off">
+    <div class="lock-title">비밀번호 바꾸기</div>
+    <p class="lock-desc">새 비밀번호가 들어간 이 파일을 내려받습니다. 지금 쓰는 파일을 내려받은 파일로 바꿔 쓰세요.</p>
+    <label>지금 비밀번호<input type="password" id="pwOld"></label>
+    <label>새 비밀번호 (4자 이상)<input type="password" id="pwNew"></label>
+    <label>새 비밀번호 확인<input type="password" id="pwNew2"></label>
+    <div class="lock-msg" id="pwMsg" role="alert"></div>
+    <div class="lock-actions"><button type="button" class="lock-btn sub" data-pw-close>취소</button><button type="submit" class="lock-btn">새 파일로 저장</button></div>
+  </form>
+</div>
 <div class="app">
   <header class="topbar">
     <div class="brand">임원 일일 예정사항 <small>8명 · A4 한 장 자동 맞춤</small></div>
@@ -385,10 +472,12 @@ body.resizing .ex:hover { box-shadow: none; }
           <section class="panel">
             <h2>배치</h2>
             <div class="lay map" id="map"></div>
+            <button type="button" class="slot xt-slot" id="mapTables" title="누르면 맨 밑 표 입력칸으로"></button>
             <p class="hint">칸을 누르면 그 임원 입력칸으로 갑니다. 칸을 <b>끌어다 다른 칸에 놓으면</b> 두 임원의 자리가 바뀝니다.</p>
           </section>
 
           <div id="execList"></div>
+          <section class="panel" id="xtPanel"></section>
         </div>
 
         <!-- 서식 -->
@@ -427,7 +516,17 @@ body.resizing .ex:hover { box-shadow: none; }
           </section>
           <section class="panel">
             <h2>기타</h2>
+            <label class="chk" style="margin-bottom:8px"><input type="checkbox" data-bind="style.showTables"> 맨 밑 표 4개 넣기 (인접회사활동 · 휴가 · 출장/방문 · 근무)</label>
+            <div class="grid2" style="margin-bottom:10px;align-items:center">
+              <label class="chk"><input type="checkbox" data-bind="style.showSecret"> 오른쪽 위 빨간 상자</label>
+              <input type="text" data-bind="style.secretText" placeholder="비공개" aria-label="오른쪽 위 상자 문구">
+            </div>
             <label class="fld"><span>일정이 없는 칸에 쓸 문구</span><input type="text" data-bind="style.emptyText" placeholder="비워 두면 빈칸"></label>
+          </section>
+          <section class="panel">
+            <h2>비밀번호</h2>
+            <p class="hint" style="margin-top:0">이 파일은 열 때마다 비밀번호를 묻습니다. 바꾸면 새 비밀번호가 들어간 파일을 내려받으니, 지금 쓰는 파일을 내려받은 파일로 바꿔 쓰세요.</p>
+            <div class="btn-row"><button type="button" class="btn small" id="btnPw">비밀번호 바꾸기</button></div>
           </section>
         </div>
 
@@ -450,6 +549,13 @@ body.resizing .ex:hover { box-shadow: none; }
             </table>
           </section>
           <section class="panel">
+            <h3>형광펜</h3>
+            <ul>
+              <li>미리보기 위 <b>[형광펜]</b>을 누른 뒤 A4 위의 글자를 마우스로 끌어 고르면 노랗게 칠해집니다. 칠한 곳을 다시 고르면 지워집니다. 끝낼 때는 단추를 한 번 더 누르거나 <kbd>Esc</kbd>.</li>
+              <li>글자를 먼저 고르고 [형광펜]을 눌러도 됩니다.</li>
+              <li>입력칸에서는 글자를 고르고 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>. 입력칸에는 <code>==글자==</code>로 보입니다(직접 써도 됨).</li>
+              <li>시간·<code>*</code>·<code>@장소</code> 같은 기호는 칠하는 범위에서 알아서 빼서, 일정이 깨지지 않습니다.</li>
+            </ul>
             <h3>※ 참고 칸</h3>
             <ul>
               <li>임원마다 일정 칸 아래에 있는 <b>※ 칸</b>에 씁니다. 한 줄마다 ※가 붙어 그 임원 칸 <b>맨 밑</b>에 인쇄됩니다.</li>
@@ -491,6 +597,7 @@ body.resizing .ex:hover { box-shadow: none; }
     <section class="preview-pane">
       <div class="preview-bar">
         <div class="status" id="status" role="status" aria-live="polite"></div>
+        <button type="button" class="btn small hl-btn" id="btnMark" aria-pressed="false" title="형광펜 (Ctrl+Shift+H) — 누른 뒤 미리보기 글자를 끌어 고르면 칠해지고, 칠한 곳을 다시 고르면 지워집니다. 글자를 먼저 고르고 눌러도 됩니다."><span class="hl-sw"></span>형광펜</button>
         <select id="zoomSel" aria-label="미리보기 배율">
           <option value="page">전체 보기</option>
           <option value="width">폭 맞춤</option>
@@ -505,6 +612,7 @@ body.resizing .ex:hover { box-shadow: none; }
           <div class="sheet" id="sheet">
             <div class="sheet-inner">
               <div class="doc-head">
+                <div class="secret" id="docSecret">비공개</div>
                 <div class="doc-title" id="docTitle"></div>
                 <div class="doc-meta"><span class="doc-sub" id="docSub"></span><span class="doc-date" id="docDate"></span></div>
               </div>
@@ -552,7 +660,7 @@ body.resizing .ex:hover { box-shadow: none; }
 <div class="drop" id="dropOverlay" hidden>엑셀(.xlsx)이나 작업 파일(.json)을 놓으면 불러옵니다</div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button type="button" id="toastAct" hidden></button></div>
 
-<script>
+<script type="text/plain" id="app-code">
 (function () {
   'use strict';
 
@@ -621,7 +729,22 @@ body.resizing .ex:hover { box-shadow: none; }
   var STORE_KEY = 'exec-daily-schedule.v1';
   /* cols: 줄마다 칸 폭 비율 / rows: 세 줄 높이 비율(null = 자동) / split: 가운데 줄 오른쪽 위 칸 높이 비율(null = 자동) */
   var DEFAULT_COLS = { r1: [1, 1, 1], r2: [2, 1], r3: [1, 1] };
-  var DEFAULT_STYLE = { orientation: 'portrait', margin: 10, font: 'malgun', maxFont: 12, minFont: 7, emptyText: '일정 없음', cols: DEFAULT_COLS, rows: null, split: null };
+  var DEFAULT_STYLE = { orientation: 'portrait', margin: 10, font: 'malgun', maxFont: 12, minFont: 7, emptyText: '일정 없음', showTables: true, showSecret: true, secretText: '비공개', cols: DEFAULT_COLS, rows: null, split: null };
+
+  /* 맨 밑 표 4개: 표마다 한 줄, 칸 수는 고정 */
+  var TABLES = [
+    { label: '인접회사활동', n: 5, heads: true, headPh: '회사명', textPh: '10:00 사장 주간회의' },
+    { label: '휴가', n: 1, textPh: '상무 한소영 오전 반차' },
+    { label: '출장/방문', n: 1, textPh: '부사장 박서연: 부산지사 (14:00~17:00)' },
+    { label: '근무', n: 2, heads: true, headPh: '칸 제목(선택)', textPh: '총무팀 과장' }
+  ];
+  function defaultTables() {
+    return TABLES.map(function (d) {
+      var cells = [];
+      for (var j = 0; j < d.n; j++) cells.push({ head: d.n === 5 ? String.fromCharCode(65 + j) + '사' : '', text: '' });
+      return { label: d.label, cells: cells };
+    });
+  }
   function normFracs(a, n) {
     if (!Array.isArray(a) || a.length !== n) return null;
     var v = a.map(function (x) { return parseFloat(x); });
@@ -693,13 +816,25 @@ body.resizing .ex:hover { box-shadow: none; }
           '* 주제: 친환경 경영',
           '15:00 사회공헌 위원회'
         ], ['내일 오전 반차'])
+      ],
+      tables: [
+        { label: '인접회사활동', cells: [
+          { head: 'A사', text: '10:00 사장 주간회의\n14:00 노사협의회' },
+          { head: 'B사', text: '임원 워크숍 (1박 2일)' },
+          { head: 'C사', text: '특이사항 없음' },
+          { head: 'D사', text: '15:00 신제품 발표회\n* 본사 강당' },
+          { head: 'E사', text: '11:00 대표 언론 인터뷰' }
+        ] },
+        { label: '휴가', cells: [{ head: '', text: '상무 한소영 (11/10 오전 반차) · 기획팀장 (11/9~11/11 연차)' }] },
+        { label: '출장/방문', cells: [{ head: '', text: '부사장 박서연: 부산지사 현장 점검 (14:00~17:00) · 상무 강태준: 서울사무소 (종일)' }] },
+        { label: '근무', cells: [{ head: '당직', text: '총무팀 과장 (18:00~익일 09:00)' }, { head: '비상대기', text: '비서실장' }] }
       ]
     };
   }
 
   function normalizeState(s) {
     s = s && typeof s === 'object' ? s : {};
-    var out = { doc: defaultDoc(), style: clone(DEFAULT_STYLE), execs: [] };
+    var out = { doc: defaultDoc(), style: clone(DEFAULT_STYLE), execs: [], tables: [] };
     var d = s.doc || {};
     ['title', 'date', 'subtitle', 'footer'].forEach(function (k) { if (d[k] != null) out.doc[k] = String(d[k]); });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(out.doc.date)) out.doc.date = todayISO();
@@ -722,6 +857,20 @@ body.resizing .ex:hover { box-shadow: none; }
     delete out.style.bigWidth;
     if (!FONTS.some(function (f) { return f.id === out.style.font; })) out.style.font = 'malgun';
     out.style.emptyText = String(out.style.emptyText == null ? '' : out.style.emptyText);
+    out.style.showTables = out.style.showTables !== false && out.style.showTables !== 'false';
+    out.style.showSecret = out.style.showSecret !== false && out.style.showSecret !== 'false';
+    out.style.secretText = String(out.style.secretText == null ? '비공개' : out.style.secretText);
+    var tb = Array.isArray(s.tables) ? s.tables : [], defT = defaultTables();
+    out.tables = defT.map(function (def, k) {
+      var t = tb[k] || {}, cs = Array.isArray(t.cells) ? t.cells : [];
+      return {
+        label: t.label != null ? String(t.label) : def.label,
+        cells: def.cells.map(function (dc, j) {
+          var c = cs[j] || {};
+          return { head: c.head != null ? String(c.head) : dc.head, text: String(c.text == null ? '' : c.text).replace(/\r\n?/g, '\n') };
+        })
+      };
+    });
     var ex = Array.isArray(s.execs) ? s.execs : [];
     for (var i = 0; i < N; i++) {
       var e = ex[i] || {};
@@ -979,21 +1128,47 @@ body.resizing .ex:hover { box-shadow: none; }
     s.setProperty('--title-fs', clamp(v.fs * 1.75, 15, 21).toFixed(2) + 'pt');
     s.setProperty('--meta-fs', clamp(v.fs * 0.95, 8.5, 11).toFixed(2) + 'pt');
   }
+  /* 맨 밑 표 */
+  function xtLine(l) {
+    var t = l.trim();
+    if (!t) return '';
+    if (/^※/.test(t)) return '<div class="xl">' + inline(t) + '</div>';
+    if (/^[*＊]/.test(t)) return '<div class="xl star"><span class="mk">*</span><span class="tx">' + inline(t.replace(/^[*＊]+\s*/, '')) + '</span></div>';
+    var sp = splitTime(t);
+    if (sp) return '<div class="xl"><b class="xtm">' + esc(sp.time) + '</b>' + (sp.rest ? ' ' + mainLine(sp.rest) : '') + '</div>';
+    return '<div class="xl">' + mainLine(t) + '</div>';
+  }
+  function xtCellHTML(text) { return String(text || '').replace(/\t+/g, ' ').split('\n').map(xtLine).join('') || '&nbsp;'; }
+  function tablesHTML() {
+    return '<div class="xts">' + state.tables.map(function (t, k) {
+      var heads = TABLES[k].heads && t.cells.some(function (c) { return c.head.trim(); });
+      var lb = '<th class="lb" scope="row"' + (heads ? ' rowspan="2"' : '') + '>' + (esc(t.label) || '&nbsp;') + '</th>';
+      return '<table class="xt" data-t="' + k + '"><colgroup><col class="xc-lb">' + t.cells.map(function () { return '<col>'; }).join('') + '</colgroup>' +
+        (heads ? '<tr>' + lb + t.cells.map(function (c, j) { return '<th class="hd" data-c="' + j + '">' + (esc(c.head) || '&nbsp;') + '</th>'; }).join('') + '</tr>' : '') +
+        '<tr>' + (heads ? '' : lb) + t.cells.map(function (c, j) { return '<td data-c="' + j + '">' + xtCellHTML(c.text) + '</td>'; }).join('') + '</tr></table>';
+    }).join('') + '</div>';
+  }
+  function textWidthEm(s) {
+    return String(s).split('').reduce(function (w, ch) { return w + (/[\u1100-\u11ff\u3000-\u303f\u3130-\u318f\u4e00-\u9fff\uac00-\ud7af\uff00-\uffef]/.test(ch) ? 1 : 0.58); }, 0);
+  }
+
   function frs(a) { return a.map(function (x) { return 'minmax(0,' + x.toFixed(4) + 'fr)'; }).join(' '); }
   function gridHTML(st) {
     var c = function (i) { return cardHTML(state.execs[i], i, st); };
     return '<div class="band" style="grid-template-columns:' + frs(st.cols.r1) + '">' + c(0) + c(1) + c(2) + '</div>' +
       '<div class="band" style="grid-template-columns:' + frs(st.cols.r2) + '">' + c(3) + '<div class="stack">' + c(4) + c(5) + '</div></div>' +
-      '<div class="band" style="grid-template-columns:' + frs(st.cols.r3) + '">' + c(6) + c(7) + '</div>';
+      '<div class="band" style="grid-template-columns:' + frs(st.cols.r3) + '">' + c(6) + c(7) + '</div>' +
+      (st.showTables ? tablesHTML() : '');
   }
-  function bands() { return Array.prototype.slice.call(grid.children); }
+  function bands() { return Array.prototype.filter.call(grid.children, function (el) { return el.classList.contains('band'); }); }
   function cardEl(i) { return grid.querySelector('.ex[data-i="' + i + '"]'); }
   function gapPx() { return parseFloat(getComputedStyle(grid).rowGap) || 0; }
 
   /* 글자크기 v에서 줄마다 내용상 꼭 필요한 높이(req)를 재고, A4 한 장에 들어가는지 본다 */
   function measure(v, st) {
     applyVars(v);
-    var nat = [], gap = gapPx(), avail = docBody.clientHeight, inner = avail - 2 * gap;
+    var nat = [], gap = gapPx(), xt = grid.querySelector('.xts');
+    var avail = docBody.clientHeight - (xt ? xt.offsetHeight + gap : 0), inner = avail - 2 * gap;   // 맨 밑 표는 내용 높이 그대로
     for (var i = 0; i < N; i++) nat[i] = cardEl(i).offsetHeight;
     var s = st.split;
     var req = [
@@ -1079,10 +1254,16 @@ body.resizing .ex:hover { box-shadow: none; }
     title.hidden = !doc.title.trim();
     $('#docSub').textContent = doc.subtitle;
     $('#docDate').textContent = fmtDate(doc.date);
+    var sec = $('#docSecret');
+    sec.textContent = st.secretText.trim() || '비공개';
+    sec.hidden = !st.showSecret;
     var foot = $('#docFoot');
     foot.textContent = doc.footer;
     foot.hidden = !doc.footer.trim();
 
+    var lw = 0;
+    state.tables.forEach(function (t) { String(t.label).split(/\s+/).forEach(function (w) { lw = Math.max(lw, textWidthEm(w)); }); });
+    sheet.style.setProperty('--xlw', (clamp(lw * 1.06, 2, 8) + 1).toFixed(2) + 'em');
     grid.innerHTML = gridHTML(st);
     fit(st);
     placeHandles();
@@ -1327,10 +1508,63 @@ body.resizing .ex:hover { box-shadow: none; }
   function renderEditor() {
     execList.innerHTML = state.execs.map(editorCardHTML).join('');
     $$('textarea', execList).forEach(autosize);
+    renderTablesEditor();
     renderMap();
     markFocus();
   }
+
+  /* 맨 밑 표 입력칸 */
+  var xtPanel = $('#xtPanel'), xtFocus = -1;
+  function renderTablesEditor() {
+    xtPanel.innerHTML = '<h2>맨 밑 표</h2>' +
+      (state.style.showTables ? '' : '<p class="xt-off">서식 탭에서 꺼 두어 인쇄되지 않습니다.</p>') +
+      state.tables.map(function (t, k) {
+        var d = TABLES[k];
+        return '<div class="xt-ed" data-t="' + k + '" id="xted-' + k + '">' +
+          '<div class="xt-ed-top"><input type="text" class="xt-label" data-x="label" value="' + esc(t.label) + '" placeholder="표 이름" aria-label="' + (k + 1) + '번째 표 이름">' +
+          '<span class="xt-n">' + (d.n > 1 ? '한 줄 ' + d.n + '칸' : '한 줄') + '</span></div>' +
+          t.cells.map(function (c, j) {
+            return '<div class="xt-cell" data-c="' + j + '">' +
+              (d.heads ? '<input type="text" class="xt-head" data-x="head" value="' + esc(c.head) + '" placeholder="' + esc(d.headPh) + '" aria-label="' + esc(d.label) + ' ' + (j + 1) + '번째 칸 제목">' : '') +
+              '<textarea data-x="text" rows="1" spellcheck="false" placeholder="' + esc(d.textPh) + '" aria-label="' + esc(d.label) + ' ' + (j + 1) + '번째 칸 내용">' + esc(c.text) + '</textarea></div>';
+          }).join('') + '</div>';
+      }).join('') +
+      '<p class="hint">칸마다 여러 줄을 쓸 수 있습니다. <code>10:00 회의</code>처럼 시간으로 시작하면 시간이 굵게, <code>* </code>로 시작하면 작은 글씨입니다. 표 이름·회사명도 고칠 수 있고, 근무 칸 제목은 비워 두면 제목 줄 없이 나옵니다.</p>';
+    $$('textarea', xtPanel).forEach(autosize);
+  }
+  xtPanel.addEventListener('input', function (e) {
+    var el = e.target, x = el.getAttribute('data-x');
+    if (!x) return;
+    var t = state.tables[+el.closest('.xt-ed').getAttribute('data-t')];
+    if (x === 'label') t.label = el.value;
+    else t.cells[+el.closest('.xt-cell').getAttribute('data-c')][x] = el.value;
+    if (el.tagName === 'TEXTAREA') autosize(el);
+    renderMap();
+    changed();
+    scheduleRender();
+  });
+  xtPanel.addEventListener('focusin', function (e) {
+    var box = e.target.closest('.xt-ed');
+    if (!box) return;
+    focusIdx = -1; xtFocus = +box.getAttribute('data-t'); markFocus();
+  });
+  function goToTable(k, j, what) {
+    showTab('input');
+    var box = $('#xted-' + k);
+    if (!box) return;
+    box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    xtPanel.classList.remove('flash'); void xtPanel.offsetWidth; xtPanel.classList.add('flash');
+    var el = what === 'label' ? box.querySelector('.xt-label')
+      : box.querySelector('.xt-cell[data-c="' + (j || 0) + '"] ' + (what === 'head' ? '.xt-head' : 'textarea'));
+    if (el) { try { el.focus({ preventScroll: true }); } catch (err) { el.focus(); } }
+    focusIdx = -1; xtFocus = k; markFocus();
+  }
+  $('#mapTables').addEventListener('click', function () { goToTable(0, 0, 'text'); });
   function renderMap() {
+    var mt = $('#mapTables'), filled = state.tables.filter(function (t) { return t.cells.some(function (c) { return c.text.trim(); }); }).length;
+    mt.innerHTML = '<span class="s-pos">맨 밑 표</span><span class="s-meta' + (state.style.showTables ? '' : ' none') + '">' +
+      esc(state.tables.map(function (t) { return t.label.trim() || '(이름 없음)'; }).join(' · ')) +
+      (state.style.showTables ? ' — ' + filled + '/' + state.tables.length + '개 입력' : ' — 인쇄 안 함') + '</span>';
     mapEl.innerHTML = state.execs.map(function (ex, i) {
       var nm = (ex.pos + ' ' + ex.name).trim() || '(비어 있음)', n = countItems(ex);
       return '<button type="button" class="slot" draggable="true" data-i="' + i + '" style="grid-area:' + SLOTS[i].area + '" title="' + esc(SLOTS[i].label) + ' — 누르면 입력칸으로, 끌어다 놓으면 자리 바꾸기">' +
@@ -1348,6 +1582,8 @@ body.resizing .ex:hover { box-shadow: none; }
     $$('.ex', grid).forEach(function (el) { el.classList.toggle('is-focus', +el.getAttribute('data-i') === focusIdx); });
     $$('.slot', mapEl).forEach(function (el) { el.classList.toggle('is-focus', +el.getAttribute('data-i') === focusIdx); });
     $$('.ex-card', execList).forEach(function (el) { el.classList.toggle('is-focus', +el.getAttribute('data-i') === focusIdx); });
+    if (focusIdx >= 0) xtFocus = -1;
+    $$('.xt', grid).forEach(function (el) { el.classList.toggle('is-focus', +el.getAttribute('data-t') === xtFocus); });
   }
 
   function autosize(ta) {
@@ -1472,10 +1708,192 @@ body.resizing .ex:hover { box-shadow: none; }
 
   /* 미리보기에서 칸을 누르면 그 임원 입력칸으로 */
   grid.addEventListener('click', function (e) {
+    if (hlMode) return;
+    var gs = window.getSelection();
+    if (gs && !gs.isCollapsed && grid.contains(gs.anchorNode)) return;     // 글자를 끌어 고른 경우
+    var xt = e.target.closest('.xt');
+    if (xt) {
+      var cell = e.target.closest('[data-c]'), th = e.target.closest('th');
+      goToTable(+xt.getAttribute('data-t'), cell ? +cell.getAttribute('data-c') : 0, th ? (th.classList.contains('lb') ? 'label' : 'head') : 'text');
+      return;
+    }
     var c = e.target.closest('.ex');
     if (!c) return;
     var i = +c.getAttribute('data-i');
     goToExec(i, e.target.closest('.ex-ref') ? '.f-ref' : (e.target.closest('.ex-head') ? '.f-pos' : '.f-sched'));
+  });
+
+
+  /* ------------------------------------------------------------------
+     형광펜 (==글자==)
+     ------------------------------------------------------------------ */
+  /* 한 줄에서 칠할 수 있는 부분: 앞의 기호(※ * - ○…)·시간과 끝의 '@장소'는 빼야 일정 해석이 그대로 */
+  function contentRange(line) {
+    var a = line.length - line.replace(/^\s+/, '').length, t = line.slice(a), m, k = t.indexOf('\t');
+    if (k > 0 && k <= 16 && !RE_BULLET.test(t)) a += k + 1;
+    else if ((m = /^(※|[*＊]+)\s*/.exec(t))) a += m[0].length;
+    else {
+      if ((m = RE_BULLET.exec(t))) { a += m[0].length; t = t.slice(m[0].length); }
+      var r = splitTime(t);
+      if (r) a += t.replace(/\s+$/, '').length - r.rest.length;
+    }
+    var b = line.replace(/\s+$/, '').length;
+    var pm = /\s+@\s*[^@\s][^@]*$/.exec(line.slice(0, b));
+    if (pm && pm.index >= a) b = pm.index;
+    return [a, Math.max(a, b)];
+  }
+  /* [s, e)를 칠하거나, 이미 칠한 곳과 겹치면 지운다. 바뀐 글과 새 선택 범위를 돌려줌 */
+  function toggleMark(text, s, e) {
+    if (e < s) { var tmp = s; s = e; e = tmp; }
+    var spans = [], re = /==(.+?)==/g, m;
+    while ((m = re.exec(text))) spans.push([m.index, m.index + m[0].length]);
+    var hit = spans.filter(function (sp) { return s === e ? (s > sp[0] && s < sp[1]) : (s < sp[1] && e > sp[0]); });
+    if (hit.length) {
+      var out = text;
+      for (var i = hit.length - 1; i >= 0; i--) {
+        out = out.slice(0, hit[i][1] - 2) + out.slice(hit[i][1]);
+        out = out.slice(0, hit[i][0]) + out.slice(hit[i][0] + 2);
+      }
+      return { text: out, s: hit[0][0], e: hit[hit.length - 1][1] - 4 * hit.length, removed: true };
+    }
+    if (s === e) return null;
+    var lines = [], pos = s;
+    for (;;) {
+      var la = text.lastIndexOf('\n', pos - 1) + 1, lb = text.indexOf('\n', pos);
+      if (lb < 0) lb = text.length;
+      lines.push([la, lb]);
+      if (lb >= e || lb >= text.length) break;
+      pos = lb + 1;
+    }
+    var nt = text, ns = -1, ne = -1, added = 0;
+    for (var j = lines.length - 1; j >= 0; j--) {
+      var L = lines[j], cr = contentRange(text.slice(L[0], L[1]));
+      var a = Math.max(L[0] + cr[0], s), b = Math.min(L[0] + cr[1], e);
+      while (a < b && /\s/.test(text.charAt(a))) a++;
+      while (b > a && /\s/.test(text.charAt(b - 1))) b--;
+      if (b <= a) continue;
+      nt = nt.slice(0, b) + '==' + nt.slice(b);
+      nt = nt.slice(0, a) + '==' + nt.slice(a);
+      if (ne < 0) ne = b + 4;
+      ns = a; added++;
+    }
+    if (!added) return null;
+    return { text: nt, s: ns, e: ne + 4 * (added - 1), removed: false };
+  }
+  /* 입력칸 글 전체를 바꾸되, 바뀐 부분만 넣어서 Ctrl+Z로 되돌릴 수 있게 */
+  function replaceValue(ta, nv) {
+    var ov = ta.value, a = 0, b1 = ov.length, b2 = nv.length;
+    while (a < b1 && a < b2 && ov.charAt(a) === nv.charAt(a)) a++;
+    while (b1 > a && b2 > a && ov.charAt(b1 - 1) === nv.charAt(b2 - 1)) { b1--; b2--; }
+    ta.focus();
+    ta.setSelectionRange(a, b1);
+    var ok = false;
+    try { ok = document.execCommand('insertText', false, nv.slice(a, b2)); } catch (err) { ok = false; }
+    if (!ok || ta.value !== nv) { ta.value = nv; ta.dispatchEvent(new Event('input', { bubbles: true })); }
+  }
+  function markTextarea(ta) {
+    var r = toggleMark(ta.value, ta.selectionStart, ta.selectionEnd);
+    if (!r) { toast('칠할 글자를 먼저 마우스로 고르세요. (칠한 곳에 커서를 두고 누르면 지워집니다)'); return; }
+    replaceValue(ta, r.text);
+    ta.setSelectionRange(r.s, r.e);
+  }
+
+  /* 미리보기에서 고른 글자 → 입력 글에서 찾아 칠하기 */
+  function stripMarks(text) {     // 꾸밈 기호(== ** __ !!)를 뺀 글과, 각 글자의 원래 위치
+    var out = '', map = [], i = 0;
+    while (i < text.length) {
+      var two = text.substr(i, 2);
+      if (two === '==' || two === '**' || two === '__' || two === '!!') { i += 2; continue; }
+      out += text.charAt(i); map.push(i); i++;
+    }
+    return { t: out, map: map };
+  }
+  function findPiece(text, piece) {
+    var st = stripMarks(text), tries = [piece], core = piece.replace(/^(※|[*＊-])\s*/, ''), sp = splitTime(core);
+    if (sp && sp.rest) core = sp.rest;
+    tries.push(core, core.replace(/\s*\([^()]*\)$/, ''));
+    for (var k = 0; k < tries.length; k++) {
+      var q = tries[k].trim();
+      if (!q) continue;
+      var i = st.t.indexOf(q);
+      if (i >= 0) return [st.map[i], st.map[i + q.length - 1] + 1];
+    }
+    return null;
+  }
+  function syncField(sel, v) { var ta = $(sel); if (ta) { ta.value = v; autosize(ta); } }
+  function fieldsAt(node) {
+    var el = node && (node.nodeType === 1 ? node : node.parentNode);
+    if (!el || !el.closest || !grid.contains(el)) return null;
+    if (el.closest('.ex-head, .xt th')) return { box: el.closest('.ex-head, .xt th'), fields: [] };
+    var td = el.closest('.xt td');
+    if (td) {
+      var k = +td.closest('.xt').getAttribute('data-t'), c = +td.getAttribute('data-c');
+      return { box: td, fields: [{
+        get: function () { return state.tables[k].cells[c].text; },
+        set: function (v) { state.tables[k].cells[c].text = v; syncField('#xted-' + k + ' .xt-cell[data-c="' + c + '"] textarea', v); }
+      }] };
+    }
+    var ex = el.closest('.ex');
+    if (!ex) return null;
+    var i = +ex.getAttribute('data-i');
+    var sched = {
+      get: function () { return state.execs[i].sched; },
+      set: function (v) { state.execs[i].sched = v; syncField('#exed-' + i + ' .f-sched', v); updateCardSum(i); }
+    };
+    var ref = {
+      get: function () { return state.execs[i].ref; },
+      set: function (v) { state.execs[i].ref = v; syncField('#exed-' + i + ' .f-ref', v); updateCardSum(i); }
+    };
+    var inRef = el.closest('.ex-ref');
+    return { box: inRef || ex.querySelector('.ex-body'), fields: inRef ? [ref, sched] : [sched] };
+  }
+  function paintSelection() {
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount || !grid.contains(sel.getRangeAt(0).commonAncestorContainer)) return false;
+    var A = fieldsAt(sel.anchorNode), F = fieldsAt(sel.focusNode), pieces = sel.toString().split(/\n+/);
+    sel.removeAllRanges();
+    if (!A || !F || A.box !== F.box) { toast('형광펜은 한 칸 안에서만 칠할 수 있습니다.'); return true; }
+    if (!A.fields.length) { toast('이름·제목 칸에는 형광펜을 칠할 수 없습니다.'); return true; }
+    var done = 0, fail = 0, removed = false;
+    pieces.map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (pc) {
+      for (var f = 0; f < A.fields.length; f++) {
+        var fld = A.fields[f], text = fld.get(), at = findPiece(text, pc);
+        if (!at) continue;
+        var r = toggleMark(text, at[0], at[1]);
+        if (r) { fld.set(r.text); done++; removed = removed || r.removed; }
+        return;
+      }
+      fail++;
+    });
+    if (done) { renderMap(); changed(); renderPreview(); }
+    if (fail && !done) toast('이 글자는 입력칸의 글과 모양이 달라 칠하지 못했습니다. 입력칸에서 고른 뒤 Ctrl+Shift+H를 누르세요.');
+    else if (done && !hlMode) toast(removed ? '형광펜을 지웠습니다.' : '형광펜을 칠했습니다.');
+    return true;
+  }
+
+  var hlMode = false, btnMark = $('#btnMark');
+  function setHlMode(on) {
+    hlMode = on;
+    document.body.classList.toggle('hl-mode', on);
+    btnMark.classList.toggle('on', on);
+    btnMark.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) toast('형광펜: 미리보기에서 글자를 끌어 고르면 칠해집니다. 칠한 곳을 다시 고르면 지워집니다. (끝내기: 단추 다시 누르기 또는 Esc)', null, null, 6000);
+  }
+  btnMark.addEventListener('mousedown', function (e) { e.preventDefault(); });    // 고른 글자·입력칸 선택이 풀리지 않게
+  btnMark.addEventListener('click', function () {
+    var a = document.activeElement;
+    if (a && a.tagName === 'TEXTAREA' && (execList.contains(a) || xtPanel.contains(a)) && a.selectionStart !== a.selectionEnd) { markTextarea(a); return; }
+    if (paintSelection()) return;
+    setHlMode(!hlMode);
+  });
+  grid.addEventListener('mouseup', function () { if (hlMode) setTimeout(paintSelection, 0); });
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && (e.key === 'h' || e.key === 'H')) {
+      e.preventDefault();
+      var a = document.activeElement;
+      if (a && a.tagName === 'TEXTAREA' && (execList.contains(a) || xtPanel.contains(a))) markTextarea(a);
+      else if (!paintSelection()) setHlMode(!hlMode);
+    } else if (e.key === 'Escape' && hlMode) setHlMode(false);
   });
 
   /* 문서 정보·서식 입력 */
@@ -1484,13 +1902,14 @@ body.resizing .ex:hover { box-shadow: none; }
   function syncInputs() {
     $$('[data-bind]').forEach(function (el) {
       var v = getPath(el.getAttribute('data-bind'));
-      el.value = v == null ? '' : v;
+      if (el.type === 'checkbox') el.checked = !!v;
+      else el.value = v == null ? '' : v;
     });
   }
   function onBind(e) {
     var el = e.target, path = el.getAttribute('data-bind');
     if (!path) return;
-    var v = el.value;
+    var v = el.type === 'checkbox' ? el.checked : el.value;
     if (el.hasAttribute('data-num')) {
       var k = path.split('.')[1], n = parseFloat(v);
       if (!isFinite(n)) return;
@@ -1500,6 +1919,7 @@ body.resizing .ex:hover { box-shadow: none; }
     }
     if (path === 'doc.date' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
     setPath(path, v);
+    if (path === 'style.showTables') { renderTablesEditor(); renderMap(); }
     changed();
     scheduleRender();
   }
@@ -1571,10 +1991,12 @@ body.resizing .ex:hover { box-shadow: none; }
   $('#btnSave').addEventListener('click', saveJSON);
   $('#fileInput').addEventListener('change', function (e) { openFiles(e.target.files); e.target.value = ''; });
   $('#btnPrint').addEventListener('click', function () { renderPreview(); window.print(); });
+  $('#btnPw').addEventListener('click', function () { if (window.__lock) window.__lock.change(); });
   $('#btnNew').addEventListener('click', function () {
-    if (!confirm('8명 모두의 일정·※ 참고 내용을 비웁니다.\n(직위·성명·서식은 그대로 두고, 날짜는 오늘로 바뀝니다)')) return;
+    if (!confirm('8명 모두의 일정·※ 참고 내용과 맨 밑 표 내용을 비웁니다.\n(직위·성명·회사명·표 이름·서식은 그대로 두고, 날짜는 오늘로 바뀝니다)')) return;
     var prev = clone(state);
     state.execs.forEach(function (ex) { ex.sched = ''; ex.ref = ''; });
+    state.tables.forEach(function (t) { t.cells.forEach(function (c) { c.text = ''; }); });
     state.doc.date = todayISO();
     syncInputs(); renderEditor(); renderPreview(); changed();
     toast('내용을 비웠습니다.', '되돌리기', function () {
@@ -2234,7 +2656,110 @@ body.resizing .ex:hover { box-shadow: none; }
   }
 
   /* 확인용 */
-  window.__execSchedule = { importPasted: importPasted, parseSched: parseSched, tsvToLines: tsvToLines, splitTime: splitTime, fit: function () { return lastFit; }, state: function () { return state; } };
+  window.__execSchedule = { toggleMark: toggleMark, findPiece: findPiece, importPasted: importPasted, parseSched: parseSched, tsvToLines: tsvToLines, splitTime: splitTime, fit: function () { return lastFit; }, state: function () { return state; } };
+})();
+</script>
+<script>
+/* 비밀번호 잠금: 맞는 비밀번호를 넣어야 위의 화면 코드(app-code)가 실행됩니다.
+   파일에는 비밀번호 원문이 아니라 해시값만 들어 있습니다. 바꾸려면 화면의 [비밀번호 바꾸기]를 쓰세요. */
+(function () {
+  'use strict';
+  var PW_SALT = 'doc-lock-v1';
+  var PW_HASH = '7b7fec2af76bba6869114cef9577a7c27ab274f4738c5428bbea27920550849a';
+  var ROUNDS = 3000;
+  window.__PRISTINE_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;   // 손대기 전의 이 파일 (잠긴 상태 그대로)
+
+  var K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2];
+  function rotr(x, n) { return (x >>> n) | (x << (32 - n)); }
+  function sha256hex(str) {
+    var b = new TextEncoder().encode(str), l = b.length, n = ((l + 9 + 63) >> 6) << 6;
+    var m = new Uint8Array(n); m.set(b); m[l] = 0x80;
+    var dv = new DataView(m.buffer);
+    dv.setUint32(n - 8, Math.floor(l / 0x20000000)); dv.setUint32(n - 4, (l * 8) >>> 0);
+    var H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    var w = new Array(64), i, o;
+    for (o = 0; o < n; o += 64) {
+      for (i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4);
+      for (i = 16; i < 64; i++) {
+        var s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+        var s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+      }
+      var a = H[0], c1 = H[1], c2 = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+      for (i = 0; i < 64; i++) {
+        var t1 = (h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0;
+        var t2 = ((rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & c1) ^ (a & c2) ^ (c1 & c2))) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0; d = c2; c2 = c1; c1 = a; a = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + c1) | 0; H[2] = (H[2] + c2) | 0; H[3] = (H[3] + d) | 0;
+      H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    return H.map(function (v) { return ('0000000' + (v >>> 0).toString(16)).slice(-8); }).join('');
+  }
+  function pwHash(pw) { var h = PW_SALT + ':' + pw; for (var i = 0; i < ROUNDS; i++) h = sha256hex(h); return h; }
+  function el(id) { return document.getElementById(id); }
+
+  var started = false;
+  function start() {
+    if (started) return;
+    started = true;
+    document.body.classList.remove('locked');
+    el('lockScreen').hidden = true;
+    var s = document.createElement('script');
+    s.text = el('app-code').textContent;
+    document.body.appendChild(s);      // 여기서 화면 코드가 실행됨
+    document.body.removeChild(s);
+  }
+  el('lockTitle').textContent = document.title;
+  el('lockForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var inp = el('lockPw');
+    if (pwHash(inp.value) === PW_HASH) { inp.value = ''; start(); return; }
+    el('lockMsg').textContent = '비밀번호가 맞지 않습니다.';
+    var box = el('lockForm');
+    box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+    inp.select();
+  });
+  setTimeout(function () { try { el('lockPw').focus(); } catch (err) { /* 무시 */ } }, 0);
+
+  /* 비밀번호 바꾸기: 새 비밀번호의 해시값을 넣은 이 파일을 내려받음 */
+  function fileName() {
+    var n = '';
+    try { n = decodeURIComponent(location.pathname.split('/').pop() || ''); } catch (err) { n = ''; }
+    return /\.html?$/i.test(n) ? n : (document.title || '문서') + '.html';
+  }
+  function openChange() {
+    ['pwOld', 'pwNew', 'pwNew2'].forEach(function (id) { el(id).value = ''; });
+    el('pwMsg').textContent = '';
+    el('pwDialog').hidden = false;
+    el('pwOld').focus();
+  }
+  el('pwForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var o = el('pwOld').value, nw = el('pwNew').value, msg = el('pwMsg');
+    if (pwHash(o) !== PW_HASH) { msg.textContent = '지금 비밀번호가 맞지 않습니다.'; el('pwOld').select(); return; }
+    if (nw.length < 4) { msg.textContent = '새 비밀번호는 4자 이상으로 해 주세요.'; el('pwNew').focus(); return; }
+    if (nw !== el('pwNew2').value) { msg.textContent = '새 비밀번호 두 칸이 서로 다릅니다.'; el('pwNew2').select(); return; }
+    var html = window.__PRISTINE_HTML.replace(/var PW_HASH = '[0-9a-f]{64}';/, "var PW_HASH = '" + pwHash(nw) + "';");
+    var name = fileName(), url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), a = document.createElement('a');
+    a.href = url; a.download = name; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
+    el('pwDialog').hidden = true;
+    alert('새 비밀번호가 들어간 파일(' + name + ')을 내려받았습니다.\n지금 쓰는 파일을 내려받은 파일로 바꿔 쓰세요.\n(바꾸기 전까지 이 파일은 예전 비밀번호로 열립니다)');
+  });
+  el('pwDialog').addEventListener('click', function (e) {
+    if (e.target === this || e.target.hasAttribute('data-pw-close')) this.hidden = true;
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') el('pwDialog').hidden = true; });
+  window.__lock = { change: openChange, hash: pwHash };
 })();
 </script>
 </body>
