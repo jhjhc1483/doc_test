@@ -1,0 +1,699 @@
+' 임원 일일 예정사항 - 모듈 2 / 7
+' 한셀 매크로 편집기에 이 파일 전체를 붙여넣고, 맨 아래 Check2 를 실행해 확인하세요.
+' (원본: hancell/src, 만드는 도구: hancell/tools/build.py)
+Option Explicit
+
+Public Sub RBInline(ByVal s As String, Optional ByVal bold As Boolean = False, Optional ByVal size As Double = 0, Optional ByVal color As Long = -1, Optional ByVal allowStrike As Boolean = False)
+    Dim i As Long, n As Long, buf As String, k As Long, mk As String
+    Dim f() As Boolean
+    ReDim f(1 To 5)
+    n = Len(s)
+    i = 1
+    Do While i <= n
+        mk = Mid$(s, i, 2)
+        k = 0
+        If mk = "**" Then
+            k = 1
+        ElseIf mk = "__" Then
+            k = 2
+        ElseIf mk = "!!" Then
+            k = 3
+        ElseIf mk = "==" Then
+            k = 4
+        ElseIf mk = "~~" And allowStrike Then
+            k = 5
+        End If
+        If k > 0 Then
+            If f(k) Then
+                RBFlush buf, f, bold, size, color
+                buf = ""
+                f(k) = False
+                i = i + 2
+                GoTo nextCh
+            ElseIf InStr(i + 3, s, mk) > 0 Then
+                RBFlush buf, f, bold, size, color
+                buf = ""
+                f(k) = True
+                i = i + 2
+                GoTo nextCh
+            End If
+        End If
+        buf = buf & Mid$(s, i, 1)
+        i = i + 1
+nextCh:
+    Loop
+    RBFlush buf, f, bold, size, color
+End Sub
+
+Public Function PlainInline(ByVal s As String) As String
+    RBReset
+    RBInline s, False, 0, -1, True
+    PlainInline = rbTxt
+End Function
+
+Public Sub ApplyRuns(ByVal cell As Object, ByVal runs As String)
+    If Len(runs) = 0 Then Exit Sub
+    Dim parts As Variant, f As Variant, i As Long
+    parts = Split(runs, ";")
+    On Error Resume Next
+    For i = 0 To UBound(parts)
+        f = Split(parts(i), ",")
+        With cell.Characters(CLng(f(0)), CLng(f(1))).Font
+            If f(2) = "1" Then .Bold = True
+            If f(3) = "1" Then .Underline = 2
+            If CLng(f(4)) >= 0 Then .Color = CLng(f(4))
+            If CLng(f(5)) > 0 Then .Size = CLng(f(5)) / 10
+            If f(6) = "1" Then .Strikethrough = True
+            If UBound(f) >= 7 Then
+                If f(7) = "1" Then .Italic = True
+            End If
+        End With
+    Next
+    On Error GoTo 0
+End Sub
+
+Public Sub ElReset()
+    elN = 0
+    elCap = 64
+    ReDim elK(1 To elCap)
+    ReDim elX(1 To elCap)
+    ReDim elY(1 To elCap)
+    ReDim elW(1 To elCap)
+    ReDim elH(1 To elCap)
+    ReDim elTxt(1 To elCap)
+    ReDim elRun(1 To elCap)
+    ReDim elSize(1 To elCap)
+    ReDim elBold(1 To elCap)
+    ReDim elHal(1 To elCap)
+    ReDim elAlV(1 To elCap)
+    ReDim elWrap(1 To elCap)
+    ReDim elFillC(1 To elCap)
+    ReDim elColor(1 To elCap)
+    ReDim elLinkT(1 To elCap)
+    ReDim elNoteT(1 To elCap)
+    ReDim elBOn(1 To 4 * elCap)
+    ReDim elBSt(1 To 4 * elCap)
+    ReDim elBWt(1 To 4 * elCap)
+    ReDim elBCol(1 To 4 * elCap)
+End Sub
+
+Private Sub ElGrow()
+    elCap = elCap * 2
+    ReDim Preserve elK(1 To elCap)
+    ReDim Preserve elX(1 To elCap)
+    ReDim Preserve elY(1 To elCap)
+    ReDim Preserve elW(1 To elCap)
+    ReDim Preserve elH(1 To elCap)
+    ReDim Preserve elTxt(1 To elCap)
+    ReDim Preserve elRun(1 To elCap)
+    ReDim Preserve elSize(1 To elCap)
+    ReDim Preserve elBold(1 To elCap)
+    ReDim Preserve elHal(1 To elCap)
+    ReDim Preserve elAlV(1 To elCap)
+    ReDim Preserve elWrap(1 To elCap)
+    ReDim Preserve elFillC(1 To elCap)
+    ReDim Preserve elColor(1 To elCap)
+    ReDim Preserve elLinkT(1 To elCap)
+    ReDim Preserve elNoteT(1 To elCap)
+    ReDim Preserve elBOn(1 To 4 * elCap)
+    ReDim Preserve elBSt(1 To 4 * elCap)
+    ReDim Preserve elBWt(1 To 4 * elCap)
+    ReDim Preserve elBCol(1 To 4 * elCap)
+End Sub
+
+Private Function ElNew(ByVal kind As Long, ByVal x As Double, ByVal y As Double, ByVal w As Double, ByVal h As Double) As Long
+    Dim i As Long, e As Long
+    If elCap = 0 Then ElReset
+    elN = elN + 1
+    If elN > elCap Then ElGrow
+    i = elN
+    elK(i) = kind
+    elX(i) = x
+    elY(i) = y
+    elW(i) = w
+    elH(i) = h
+    elTxt(i) = ""
+    elRun(i) = ""
+    elSize(i) = 0
+    elBold(i) = False
+    elHal(i) = -4131
+    elAlV(i) = -4160
+    elWrap(i) = True
+    elFillC(i) = -1
+    elColor(i) = 0
+    elLinkT(i) = ""
+    elNoteT(i) = ""
+    For e = 1 To 4
+        elBOn((i - 1) * 4 + e) = False
+    Next
+    ElNew = i
+End Function
+
+Public Function ElText(ByVal x As Double, ByVal y As Double, ByVal w As Double, ByVal h As Double, ByVal txt As String, ByVal runs As String, ByVal size As Double, Optional ByVal bold As Boolean = False, Optional ByVal hal As Long = -4131, Optional ByVal vAlign As Long = -4160, Optional ByVal color As Long = 0, Optional ByVal wrap As Boolean = True) As Long
+    Dim i As Long
+    i = ElNew(1, x, y, w, h)
+    elTxt(i) = txt
+    elRun(i) = runs
+    elSize(i) = size
+    elBold(i) = bold
+    elHal(i) = hal
+    elAlV(i) = vAlign
+    elColor(i) = color
+    elWrap(i) = wrap
+    ElText = i
+End Function
+
+Public Function ElBox(ByVal x As Double, ByVal y As Double, ByVal w As Double, ByVal h As Double, Optional ByVal fill As Long = -1) As Long
+    Dim i As Long
+    i = ElNew(2, x, y, w, h)
+    elFillC(i) = fill
+    ElBox = i
+End Function
+
+Public Sub ElBorder(ByVal i As Long, ByVal edge As Long, ByVal style As Long, ByVal weight As Long, Optional ByVal color As Long = 0)
+    Dim k As Long
+    k = (i - 1) * 4 + edge + 1
+    elBOn(k) = True
+    elBSt(k) = style
+    elBWt(k) = weight
+    elBCol(k) = color
+End Sub
+
+Public Sub ElBorderAll(ByVal i As Long, ByVal style As Long, ByVal weight As Long, Optional ByVal color As Long = 0)
+    Dim e As Long
+    For e = 0 To 3
+        ElBorder i, e, style, weight, color
+    Next
+End Sub
+
+Public Sub ElFill(ByVal i As Long, ByVal color As Long)
+    elFillC(i) = color
+End Sub
+
+Public Sub ElLink(ByVal i As Long, ByVal url As String)
+    elLinkT(i) = url
+End Sub
+
+Public Sub ElNote(ByVal i As Long, ByVal note As String)
+    elNoteT(i) = note
+End Sub
+
+Public Function SnapPx(ByVal v As Double) As Double
+    SnapPx = Int(v / 0.75 + 0.5) * 0.75
+End Function
+
+Private Sub AddEdge(ByRef arr() As Double, ByRef n As Long, ByVal v As Double)
+    Dim i As Long, j As Long, pos As Long
+    v = SnapPx(v)
+    pos = n + 1
+    For i = 1 To n
+        If Abs(arr(i) - v) < 0.01 Then Exit Sub
+        If arr(i) > v Then
+            pos = i
+            Exit For
+        End If
+    Next
+    If n + 1 > UBound(arr) Then Exit Sub
+    n = n + 1
+    For j = n To pos + 1 Step -1
+        arr(j) = arr(j - 1)
+    Next
+    arr(pos) = v
+End Sub
+
+Private Function EdgeIdx(ByRef arr() As Double, ByVal n As Long, ByVal v As Double) As Long
+    Dim lo As Long, hi As Long, m As Long
+    lo = 1
+    hi = n
+    Do While hi - lo > 1
+        m = (lo + hi) \ 2
+        If arr(m) <= v Then
+            lo = m
+        Else
+            hi = m
+        End If
+    Loop
+    If Abs(arr(hi) - v) < Abs(arr(lo) - v) Then
+        EdgeIdx = hi
+    Else
+        EdgeIdx = lo
+    End If
+End Function
+
+Private Sub ClusterEdges(ByRef arr() As Double, ByRef n As Long, ByVal minGap As Double)
+    Dim i As Long, k As Long
+    If n < 2 Then Exit Sub
+    k = 1
+    For i = 2 To n
+        If arr(i) - arr(k) >= minGap Then
+            k = k + 1
+            arr(k) = arr(i)
+        ElseIf i = n Then
+            arr(k) = arr(i)
+        End If
+    Next
+    n = k
+End Sub
+
+Public Sub AddLink(ByVal ws As Object, ByVal cell As Object, ByVal url As String, Optional ByVal keepColor As Long = -1)
+    On Error Resume Next
+    If Left$(url, 1) = "#" Then
+        ws.Hyperlinks.Add cell, "", Mid$(url, 2)
+    Else
+        ws.Hyperlinks.Add cell, url
+    End If
+    If keepColor >= 0 Then
+        cell.Font.Color = keepColor
+        cell.Font.Underline = -4142
+    End If
+    On Error GoTo 0
+End Sub
+
+Private Function ElRange(ByVal ws As Object, ByVal i As Long, xs() As Double, ByVal nEx As Long, ys() As Double, ByVal nEy As Long, ByRef rg As Object) As Boolean
+    Dim r1 As Long, r2 As Long, c1 As Long, c2 As Long
+    c1 = EdgeIdx(xs, nEx, elX(i))
+    c2 = EdgeIdx(xs, nEx, elX(i) + elW(i)) - 1
+    r1 = EdgeIdx(ys, nEy, elY(i))
+    r2 = EdgeIdx(ys, nEy, elY(i) + elH(i)) - 1
+    If c2 < c1 Or r2 < r1 Then Exit Function
+    Set rg = ws.Range(ws.Cells(r1, c1), ws.Cells(r2, c2))
+    ElRange = True
+End Function
+
+Public Sub ClearSheet(ByVal ws As Object)
+    On Error Resume Next
+    ws.Cells.UnMerge
+    ws.Cells.ClearComments
+    ws.Hyperlinks.Delete
+    ws.Cells.Clear
+    ws.Cells.RowHeight = 15
+    ws.Cells.ColumnWidth = 8.43
+    On Error GoTo 0
+End Sub
+
+Public Sub SetColPts(ByVal ws As Object, ByVal col As Long, ByVal pts As Double)
+    Dim w As Double, a As Double, it As Long, k As Double
+    k = msK
+    If k <= 0 Then k = 5.5
+    w = pts / k
+    If w < 0 Then w = 0
+    If w > 254 Then w = 254
+    gTrace = "SetColPts col=" & col & " pts=" & pts & " w=" & w & " k=" & k
+    ws.Columns(col).ColumnWidth = w
+    For it = 1 To 4
+        a = ws.Columns(col).Width
+        If Abs(a - pts) < 0.4 Then Exit For
+        w = w + (pts - a) / k
+        If w < 0 Then w = 0
+        If w > 254 Then w = 254
+        ws.Columns(col).ColumnWidth = w
+    Next
+End Sub
+
+Public Sub Realize(ByVal ws As Object, ByVal fontName As String, ByRef lastR As Long, ByRef lastC As Long)
+    Dim xs() As Double, ys() As Double, nEx As Long, nEy As Long, i As Long
+    ReDim xs(1 To 2 * elN + 16)
+    ReDim ys(1 To 2 * elN + 80)
+    AddEdge xs, nEx, 0
+    AddEdge ys, nEy, 0
+    For i = 1 To elN
+        If SnapPx(elX(i) + elW(i)) - SnapPx(elX(i)) >= 0.75 And SnapPx(elY(i) + elH(i)) - SnapPx(elY(i)) >= 0.75 Then
+            AddEdge xs, nEx, elX(i)
+            AddEdge xs, nEx, elX(i) + elW(i)
+            AddEdge ys, nEy, elY(i)
+            AddEdge ys, nEy, elY(i) + elH(i)
+        End If
+    Next
+    If Len(gDbg) > 4000 Then gDbg = Right$(gDbg, 1000)
+    gDbg = gDbg & " edges raw nEx=" & nEx & " nEy=" & nEy
+    ClusterEdges xs, nEx, 4.6
+    gDbg = gDbg & " clustered nEx=" & nEx & " first=" & xs(1) & "," & xs(2) & "," & xs(3) & " last=" & xs(nEx) & " elN=" & elN
+    i = 1
+    Do While i < nEy
+        If ys(i + 1) - ys(i) > 400 Then AddEdge ys, nEy, ys(i) + 300
+        i = i + 1
+    Loop
+    ClearSheet ws
+    Dim cum As Double, target As Double
+    cum = 0
+    For i = 1 To nEx - 1
+        target = xs(i + 1) - cum
+        If target < 0.75 Then target = 0.75
+        SetColPts ws, i, target
+        cum = cum + ws.Columns(i).Width
+    Next
+    cum = 0
+    For i = 1 To nEy - 1
+        target = ys(i + 1) - cum
+        If target < 0.75 Then target = 0.75
+        If target > 409 Then target = 409
+        ws.Rows(i).RowHeight = target
+        cum = cum + ws.Rows(i).RowHeight
+    Next
+    lastC = nEx - 1
+    lastR = nEy - 1
+    Dim r1 As Long, r2 As Long, c1 As Long, c2 As Long, rg As Object
+    For i = 1 To elN
+        If elK(i) = 2 And elFillC(i) >= 0 Then
+            If ElRange(ws, i, xs, nEx, ys, nEy, rg) Then rg.Interior.Color = elFillC(i)
+        End If
+    Next
+    Application.DisplayAlerts = False
+    For i = 1 To elN
+        If elK(i) = 1 Then
+            If ElRange(ws, i, xs, nEx, ys, nEy, rg) Then
+                If rg.Cells.Count > 1 Then rg.Merge
+                rg.NumberFormat = "@"
+                With rg.Font
+                    .Name = fontName
+                    .Size = elSize(i)
+                    .Bold = elBold(i)
+                    .Color = elColor(i)
+                End With
+                rg.HorizontalAlignment = elHal(i)
+                rg.VerticalAlignment = elAlV(i)
+                rg.WrapText = elWrap(i)
+                If elFillC(i) >= 0 Then rg.Interior.Color = elFillC(i)
+                rg.Cells(1, 1).Value = elTxt(i)
+                ApplyRuns rg.Cells(1, 1), elRun(i)
+                If Len(elLinkT(i)) > 0 Then AddLink ws, rg.Cells(1, 1), elLinkT(i), elColor(i)
+                If Len(elNoteT(i)) > 0 Then
+                    On Error Resume Next
+                    rg.Cells(1, 1).AddComment elNoteT(i)
+                    On Error GoTo 0
+                End If
+            End If
+        End If
+    Next
+    Application.DisplayAlerts = True
+    Dim k As Long, bi As Long
+    For i = 1 To elN
+        If ElRange(ws, i, xs, nEx, ys, nEy, rg) Then
+            For k = 0 To 3
+                bi = (i - 1) * 4 + k + 1
+                If elBOn(bi) Then
+                    With rg.Borders(Choose(k + 1, 8, 9, 7, 10))
+                        .LineStyle = elBSt(bi)
+                        .Weight = elBWt(bi)
+                        .Color = elBCol(bi)
+                    End With
+                End If
+            Next
+        End If
+    Next
+End Sub
+
+Private Sub CacheReset()
+    ReDim hHead(0 To 2039 - 1)
+    ReDim hNext(1 To 256)
+    ReDim hKey(1 To 256)
+    ReDim hVal(1 To 256)
+    hN = 0
+End Sub
+
+Private Function KeyHash(ByVal k As String) As Long
+    Dim i As Long, h As Long
+    For i = 1 To Len(k)
+        h = (h * 31 + CodeOf(Mid$(k, i, 1))) Mod 1000003
+    Next
+    KeyHash = h Mod 2039
+End Function
+
+Private Function CacheGet(ByVal k As String, ByRef v As Double) As Boolean
+    Dim i As Long
+    If hN = 0 Then Exit Function
+    i = hHead(KeyHash(k))
+    Do While i > 0
+        If hKey(i) = k Then
+            v = hVal(i)
+            CacheGet = True
+            Exit Function
+        End If
+        i = hNext(i)
+    Loop
+End Function
+
+Private Sub CachePut(ByVal k As String, ByVal v As Double)
+    Dim b As Long
+    b = KeyHash(k)
+    hN = hN + 1
+    If hN > UBound(hKey) Then
+        ReDim Preserve hKey(1 To hN * 2)
+        ReDim Preserve hVal(1 To hN * 2)
+        ReDim Preserve hNext(1 To hN * 2)
+    End If
+    hKey(hN) = k
+    hVal(hN) = v
+    hNext(hN) = hHead(b)
+    hHead(b) = hN
+End Sub
+
+Public Function ColK(ByVal ws As Object) As Double
+    Dim a As Double, b As Double, old As Double
+    old = ws.Columns(1).ColumnWidth
+    ws.Columns(1).ColumnWidth = 10
+    a = ws.Columns(1).Width
+    ws.Columns(1).ColumnWidth = 20
+    b = ws.Columns(1).Width
+    ws.Columns(1).ColumnWidth = old
+    ColK = (b - a) / 10
+    If ColK <= 0 Then ColK = 5.5
+End Function
+
+Public Function NewSheet(ByVal wb As Object) As Object
+    Dim n As Long, ws As Object
+    n = wb.Worksheets.Count
+    Set ws = Nothing
+    On Error Resume Next
+    Set ws = wb.Worksheets.Add
+    On Error GoTo 0
+    If wb.Worksheets.Count <= n Then Err.Raise 1004, "NewSheet", "새 시트를 만들 수 없습니다"
+    If ws Is Nothing Then Set ws = wb.ActiveSheet
+    Set NewSheet = ws
+End Function
+
+Public Function HostBook() As Object
+    Dim w As Object
+    If Not mWBok Then
+        On Error Resume Next
+        Set w = Nothing
+        Set w = ThisWorkbook
+        If w Is Nothing Then Set w = ActiveWorkbook
+        If w Is Nothing Then Set w = Application.ActiveWorkbook
+        On Error GoTo 0
+        If Not w Is Nothing Then
+            Set mWB = w
+            mWBok = True
+        End If
+        Set HostBook = w
+        Exit Function
+    End If
+    Set HostBook = mWB
+End Function
+
+Public Function ScratchSheet(ByVal sheetName As String) As Object
+    Dim ws As Object
+    On Error Resume Next
+    Set ws = HostBook().Worksheets(sheetName)
+    On Error GoTo 0
+    If ws Is Nothing Then
+        Set ws = NewSheet(HostBook())
+        ws.Name = sheetName
+        ws.Visible = 0
+    End If
+    Set ScratchSheet = ws
+End Function
+
+Public Sub MsInit(ByVal sheetName As String)
+    Set msWs = ScratchSheet(sheetName)
+    msWs.Cells.Clear
+    msK = ColK(msWs)
+    CacheReset
+    msW1 = -1
+    msW2 = -1
+End Sub
+
+Public Function MeasureH(ByVal txt As String, ByVal runs As String, ByVal widthPt As Double, ByVal fontName As String, ByVal size As Double, Optional ByVal bold As Boolean = False) As Double
+    If Len(txt) = 0 Then Exit Function
+    Dim key As String, v As Double
+    widthPt = Int(widthPt * 4 + 0.5) / 4
+    key = "H|" & fontName & "|" & size & "|" & IIf(bold, 1, 0) & "|" & widthPt & "|" & runs & "|" & txt
+    If CacheGet(key, v) Then
+        MeasureH = v
+        Exit Function
+    End If
+    gTrace = "MeasureH w=" & widthPt & " size=" & size & " font=" & fontName
+    If Abs(widthPt - msW1) > 0.01 Then
+        SetColPts msWs, 1, MaxD(widthPt - 4.6, 4.6)
+        msW1 = widthPt
+    End If
+    With msWs.Cells(1, 1)
+        .Clear
+        .NumberFormat = "@"
+        .WrapText = True
+        .VerticalAlignment = -4160
+        .Font.Name = fontName
+        .Font.Size = size
+        .Font.Bold = bold
+        .Value = txt
+    End With
+    If gHostLO Then Application.Run "LoShimFont", msWs.Name, "A1", fontName, size, bold
+    ApplyRuns msWs.Cells(1, 1), runs
+    msWs.Rows(1).AutoFit
+    MeasureH = msWs.Rows(1).RowHeight
+    CachePut key, MeasureH
+End Function
+
+Public Function MeasureW(ByVal txt As String, ByVal fontName As String, ByVal size As Double, Optional ByVal bold As Boolean = False) As Double
+    If Len(txt) = 0 Then Exit Function
+    Dim key As String, v As Double
+    key = "W|" & fontName & "|" & size & "|" & IIf(bold, 1, 0) & "|" & txt
+    If CacheGet(key, v) Then
+        MeasureW = v
+        Exit Function
+    End If
+    gTrace = "MeasureW size=" & size & " font=" & fontName
+    With msWs.Cells(1, 2)
+        .Clear
+        .NumberFormat = "@"
+        .WrapText = False
+        .Font.Name = fontName
+        .Font.Size = size
+        .Font.Bold = bold
+        .Value = txt
+    End With
+    If gHostLO Then Application.Run "LoShimFont", msWs.Name, "B1", fontName, size, bold
+    msWs.Columns(2).AutoFit
+    MeasureW = msWs.Columns(2).Width
+    CachePut key, MeasureW
+End Function
+
+Public Function Ask(ByVal msg As String, Optional ByVal def As String = "") As String
+    If gQuiet Then
+        gDbg = gDbg & " [Ask] " & Left$(msg, 60) & " -> " & def
+        Ask = def
+    Else
+        Ask = InputBox(msg, "입력", def)
+    End If
+End Function
+
+Public Function PickFiles(ByVal title As String, ByVal filterText As String, ByVal multi As Boolean) As Variant
+    Dim f As Variant, fd As Object, i As Long, out() As String, s As String, parts As Variant, n As Long, shown As Long
+    PickFiles = Empty
+    On Error Resume Next
+    Err.Clear
+    f = Application.GetOpenFilename(filterText, 1, title, "", multi)
+    If Err.Number = 0 Then
+        On Error GoTo 0
+        If IsArray(f) Then
+            PickFiles = f
+        ElseIf VarType(f) = vbString Then
+            If f <> "" And LCase$(f) <> "false" Then PickFiles = Array(f)
+        End If
+        Exit Function
+    End If
+    Err.Clear
+    Set fd = Nothing
+    Set fd = Application.FileDialog(3)
+    If Not fd Is Nothing Then
+        fd.Title = title
+        fd.AllowMultiSelect = multi
+        Err.Clear
+        shown = fd.Show
+        If Err.Number = 0 Then
+            If shown = -1 Then
+                n = fd.SelectedItems.Count
+                If n > 0 Then
+                    ReDim out(0 To n - 1)
+                    For i = 1 To n
+                        out(i - 1) = fd.SelectedItems(i)
+                    Next
+                    PickFiles = out
+                End If
+            End If
+            On Error GoTo 0
+            Exit Function
+        End If
+    End If
+    Err.Clear
+    On Error GoTo 0
+    s = Ask(title & vbLf & vbLf & "파일 고르기 창을 열 수 없어 파일 경로를 직접 받습니다." & vbLf & "파일 탐색기에서 파일을 Shift+오른쪽 단추 → '경로로 복사'한 뒤 여기에 붙여넣으세요. 여러 개는 ; 로 나눕니다.", "")
+    s = Replace(s, """", "")
+    If TrimX(s) = "" Then Exit Function
+    parts = Split(s, ";")
+    ReDim out(0 To UBound(parts))
+    n = 0
+    For i = 0 To UBound(parts)
+        If TrimX(CStr(parts(i))) <> "" Then
+            out(n) = TrimX(CStr(parts(i)))
+            n = n + 1
+        End If
+    Next
+    If n = 0 Then Exit Function
+    ReDim Preserve out(0 To n - 1)
+    PickFiles = out
+End Function
+
+Public Function PickSavePath(ByVal defaultName As String, ByVal filterText As String) As String
+    Dim f As Variant, fd As Object, shown As Long, folder As String
+    On Error Resume Next
+    Err.Clear
+    f = Application.GetSaveAsFilename(defaultName, filterText)
+    If Err.Number = 0 Then
+        On Error GoTo 0
+        If VarType(f) = vbString Then
+            If f <> "" And LCase$(f) <> "false" Then PickSavePath = f
+        End If
+        Exit Function
+    End If
+    Err.Clear
+    Set fd = Nothing
+    Set fd = Application.FileDialog(2)
+    If Not fd Is Nothing Then
+        fd.InitialFileName = defaultName
+        Err.Clear
+        shown = fd.Show
+        If Err.Number = 0 Then
+            If shown = -1 Then PickSavePath = fd.SelectedItems(1)
+            On Error GoTo 0
+            Exit Function
+        End If
+    End If
+    Err.Clear
+    folder = HostBook().Path
+    On Error GoTo 0
+    If folder <> "" Then folder = folder & "\"
+    PickSavePath = TrimX(Replace(Ask("저장할 파일의 전체 경로를 쓰세요.", folder & defaultName), """", ""))
+End Function
+
+Public Function SheetByName(ByVal nm As String) As Object
+    On Error Resume Next
+    Set SheetByName = HostBook().Worksheets(nm)
+    On Error GoTo 0
+End Function
+
+Public Function NameRange(ByVal nm As String) As Object
+    On Error Resume Next
+    Set NameRange = HostBook().Names(nm).RefersToRange
+    On Error GoTo 0
+End Function
+
+Public Function ModOk2() As Long
+    ModOk2 = 2
+End Function
+
+Public Sub Check2()
+    Dim n As Long, msg As String
+    msg = "2번 모듈을 읽었습니다 (전체 7개)."
+    On Error Resume Next
+    n = ModOk1() + ModOk2()
+    If Err.Number <> 0 Or n <> 3 Then
+        msg = msg & vbLf & "그런데 앞 모듈을 부르지 못했습니다: " & Err.Description
+    Else
+        msg = msg & vbLf & "다음: 3번 파일을 새 모듈에 붙여넣으세요."
+    End If
+    On Error GoTo 0
+    MsgBox msg, 0, "확인"
+End Sub
+
+' ==== 모듈 2 끝 ====

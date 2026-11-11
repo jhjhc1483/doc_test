@@ -1,0 +1,1224 @@
+Attribute VB_Name = "HcExec"
+Option Explicit
+' ===========================================================================
+' HcExec - 임원 일일 예정사항 (8명 · A4 한 장) for Hancell
+'   sheets: 입력, A4, one sheet per executive (tab order = seat 1..8),
+'           맨밑표, 서식, 입력방법, 붙여넣기, hidden _측정 / _백업
+' ===========================================================================
+
+Public Const NX As Long = 8
+Private Const COL_LINE As Long = 2236962      ' #222222
+Public Const COL_HEAD As Long = 15526375     ' #e7e9ec
+Private Const COL_HEAD2 As Long = 16184563    ' #f3f4f6
+Private Const COL_DOT As Long = 11119017      ' #a9a9a9
+Private Const COL_DASH As Long = 6710886      ' #666666
+Public Const COL_GRAY As Long = 9079434      ' #8a8a8a
+Private Const COL_RED As Long = 212           ' #d40000
+Private Const COL_MARK As Long = 5958655      ' #ffeb5a
+Private Const COL_OK As Long = 4422942
+Private Const COL_BAD As Long = 2832066
+Public Const COL_SOFT As Long = 16381942     ' #f6f7f9
+Private Const COL_ACCENT As Long = 12932898   ' #2257c5
+Public Const COL_INLINE As Long = 14011590   ' #c6ccd5
+Private Const CELLPAD As Double = 1.5
+
+' ---- sheet names --------------------------------------------------------
+Public Function SH_IN() As String
+    SH_IN = "입력"
+End Function
+Public Function SH_A4() As String
+    SH_A4 = "A4"
+End Function
+Public Function SH_TBL() As String
+    SH_TBL = "맨밑표"
+End Function
+Public Function SH_FMT() As String
+    SH_FMT = "서식"
+End Function
+Public Function SH_HELP() As String
+    SH_HELP = "입력방법"
+End Function
+Public Function SH_PASTE() As String
+    SH_PASTE = "붙여넣기"
+End Function
+Public Function SH_MS() As String
+    SH_MS = "_측정"
+End Function
+Public Function SH_BAK() As String
+    SH_BAK = "_백업"
+End Function
+
+' ---- settings (read by LoadSettings) ------------------------------------
+Private gLandscape As Boolean, gMargin As Double, gFont As String
+Private gC1(1 To 3) As Double, gC2(1 To 2) As Double, gC3(1 To 2) As Double
+Private gRowsSet As Boolean, gRows(1 To 3) As Double, gSplit As Double
+Private gMaxF As Double, gMinF As Double
+Private gShowTables As Boolean, gShowSecret As Boolean, gSecretText As String, gEmptyText As String
+Public gTitle As String, gDate As String, gSub As String, gFoot As String
+Private gW As Double, gH As Double, gGap As Double
+
+' ---- executives ----------------------------------------------------------
+Public exWs(1 To 8) As Object
+Public exPos(1 To 8) As String, exName(1 To 8) As String
+Public exItems(1 To 8) As String, exRefs(1 To 8) As String
+
+' ---- bottom tables -------------------------------------------------------
+Private tbLabel(1 To 4) As String
+Private tbHead(1 To 4, 1 To 5) As String, tbText(1 To 4, 1 To 5) As String
+
+' ---- current fit -----------------------------------------------------------
+Public gFS As Double, gU As Double
+
+Public Function TblN(ByVal k As Long) As Long
+    TblN = Choose(k, 5, 1, 1, 2)
+End Function
+
+Public Function TblHasHeads(ByVal k As Long) As Boolean
+    TblHasHeads = (k = 1 Or k = 4)
+End Function
+
+Public Function TblRow0(ByVal k As Long) As Long
+    TblRow0 = Choose(k, 0, 5, 6, 7)
+End Function
+
+Public Function SlotLabel(ByVal i As Long) As String
+    SlotLabel = Choose(i, "윗줄 왼쪽", "윗줄 가운데", "윗줄 오른쪽", "가운데 줄 왼쪽 (큰 칸)", _
+        "가운데 줄 오른쪽 위", "가운데 줄 오른쪽 아래", "아랫줄 왼쪽", "아랫줄 오른쪽")
+End Function
+
+' ===========================================================================
+' Buttons
+' ===========================================================================
+Public Sub BuildA4()
+    On Error GoTo fail
+    BeginWork
+    DoBuild
+    EndWork
+    On Error Resume Next
+    HostBook().Worksheets(SH_A4).Activate
+    Exit Sub
+fail:
+    EndWork
+    Info "A4를 만들다가 문제가 생겼습니다." & vbLf & Err.Description & vbLf & "(" & gStep & ")"
+End Sub
+
+Public Sub GoInput()
+    On Error Resume Next
+    HostBook().Worksheets(SH_IN).Activate
+End Sub
+
+Public Sub PrintPreviewA4()
+    On Error Resume Next
+    HostBook().Worksheets(SH_A4).Activate
+    HostBook().Worksheets(SH_A4).PrintPreview
+    If Err.Number <> 0 Then Info "인쇄 미리보기를 열 수 없습니다. A4 시트에서 Ctrl+P로 인쇄하세요."
+End Sub
+
+' ===========================================================================
+' Settings
+' ===========================================================================
+Private Sub NormFracs(ByRef dst() As Double, ByVal n As Long, vals As Variant, defs As Variant)
+    Dim i As Long, s As Double, ok As Boolean
+    ok = True
+    For i = 1 To n
+        If vals(i - 1) <= 0 Then ok = False
+    Next
+    For i = 1 To n
+        If ok Then
+            dst(i) = vals(i - 1)
+        Else
+            dst(i) = defs(i - 1)
+        End If
+        s = s + dst(i)
+    Next
+    For i = 1 To n
+        dst(i) = dst(i) / s
+    Next
+End Sub
+
+Public Sub LoadSettings()
+    gLandscape = (NStr("s_orient") = "A4 가로")
+    gMargin = NNum("s_margin", 10, 5, 25)
+    gFont = NStr("s_font")
+    If gFont = "" Then gFont = "맑은 고딕"
+    NormFracs gC1, 3, Array(NOptNum("s_c1a"), NOptNum("s_c1b"), NOptNum("s_c1c")), Array(1, 1, 1)
+    NormFracs gC2, 2, Array(NOptNum("s_c2a"), NOptNum("s_c2b")), Array(2, 1)
+    NormFracs gC3, 2, Array(NOptNum("s_c3a"), NOptNum("s_c3b")), Array(1, 1)
+    Dim h1 As Double, h2 As Double, h3 As Double
+    h1 = NOptNum("s_h1"): h2 = NOptNum("s_h2"): h3 = NOptNum("s_h3")
+    gRowsSet = (h1 > 0 And h2 > 0 And h3 > 0)
+    If gRowsSet Then
+        gRows(1) = h1 / (h1 + h2 + h3): gRows(2) = h2 / (h1 + h2 + h3): gRows(3) = h3 / (h1 + h2 + h3)
+    End If
+    gSplit = NOptNum("s_split")
+    If gSplit < 0.1 Or gSplit > 0.9 Then gSplit = -1
+    gMaxF = NNum("s_max", 12, 6, 20)
+    gMinF = NNum("s_min", 7, 5, 16)
+    gShowTables = NBool("s_tables", True)
+    gShowSecret = NBool("s_secret", True)
+    gSecretText = NStr("s_secretText")
+    If gSecretText = "" Then gSecretText = "비공개"
+    gEmptyText = NStr("s_empty")
+    gTitle = NStr("d_title")
+    gDate = DateValueIso(NVal("d_date"))
+    If gDate = "" Then gDate = IsoOf(Date)
+    gSub = NStr("d_sub")
+    gFoot = NStr("d_foot")
+    If gLandscape Then
+        gW = (297 - 2 * gMargin) * PT_MM
+        gH = (210 - 2 * gMargin) * PT_MM
+    Else
+        gW = (210 - 2 * gMargin) * PT_MM
+        gH = (297 - 2 * gMargin) * PT_MM
+    End If
+    gGap = 2.4 * PT_MM
+End Sub
+
+' ===========================================================================
+' Executive sheets
+' ===========================================================================
+Private Function IsExecSheet(ByVal ws As Object) As Boolean
+    On Error Resume Next
+    IsExecSheet = (CStr(ws.Cells(1, 1).Value) = "직위" And CStr(ws.Cells(1, 3).Value) = "성명")
+End Function
+
+' indexes of the executive sheets in tab order (at most NX). returns the count
+Private Function ExecSheetIdx(ByRef idx() As Long) As Long
+    Dim wb As Object, i As Long, n As Long
+    Set wb = HostBook()
+    ReDim idx(1 To NX)
+    For i = 1 To wb.Worksheets.Count
+        If n < NX Then
+            If IsExecSheet(wb.Worksheets(i)) Then
+                n = n + 1
+                idx(n) = i
+            End If
+        End If
+    Next
+    ExecSheetIdx = n
+End Function
+
+Public Sub LoadExecs()
+    Dim idx() As Long, n As Long, k As Long, nws As Object
+    Dim sched As String, refc As String, its As String, rfs As String
+    StepTo "execs: list"
+    n = ExecSheetIdx(idx)
+    Do While n < NX
+        Set nws = NewSheet(HostBook())
+        SetupExecSheet nws, "", "", Empty
+        nws.Name = UniqueSheetName("임원" & (n + 1), nws)
+        k = n
+        n = ExecSheetIdx(idx)
+        If n <= k Then Err.Raise 1004, "LoadExecs", "임원 시트를 만들 수 없습니다"
+    Loop
+    For k = 1 To NX
+        StepTo "execs: sheet " & k
+        Set exWs(k) = HostBook().Worksheets(idx(k))
+        exPos(k) = CellText(exWs(k).Cells(1, 2).Value)
+        exName(k) = CellText(exWs(k).Cells(1, 4).Value)
+        sched = ""
+        refc = ""
+        StepTo "execs: read " & k
+        ReadExecRows exWs(k), sched, refc
+        StepTo "execs: parse " & k
+        ParseSched sched, its, rfs
+        exItems(k) = its
+        exRefs(k) = refc & rfs
+    Next
+End Sub
+
+Private Function UniqueSheetName(ByVal want As String, ByVal self As Object) As String
+    Dim nm As String, n As Long, i As Long, clash As Boolean, selfName As String, wb As Object
+    Set wb = HostBook()
+    If Not self Is Nothing Then selfName = self.Name
+    want = SafeSheetName(want)
+    If want = "" Then want = "임원"
+    nm = want
+    n = 2
+    Do
+        clash = False
+        For i = 1 To wb.Worksheets.Count
+            If wb.Worksheets(i).Name <> selfName Then
+                If LCase$(wb.Worksheets(i).Name) = LCase$(nm) Then clash = True
+            End If
+        Next
+        If Not clash Then Exit Do
+        nm = Left$(want, 27) & "(" & n & ")"
+        n = n + 1
+    Loop
+    UniqueSheetName = nm
+End Function
+
+' tab names follow 직위 성명
+Private Sub SyncExecNames()
+    Dim k As Long, want As String
+    On Error Resume Next
+    For k = 1 To NX
+        want = TrimX(exPos(k) & " " & exName(k))
+        If want = "" Then want = "임원" & k
+        want = UniqueSheetName(want, exWs(k))
+        If exWs(k).Name <> want Then exWs(k).Name = want
+    Next
+    On Error GoTo 0
+End Sub
+
+Public Function UsedLast(ByVal ws As Object, ByRef lastR As Long, ByRef lastC As Long) As Boolean
+    Dim ur As Object
+    Set ur = ws.UsedRange
+    lastR = ur.Row + ur.Rows.Count - 1
+    lastC = ur.Column + ur.Columns.Count - 1
+    UsedLast = True
+End Function
+
+Private Sub ReadExecRows(ByVal ws As Object, ByRef sched As String, ByRef refc As String)
+    Dim lastR As Long, lastC As Long, v As Variant, r As Long, c As Long
+    UsedLast ws, lastR, lastC
+    If lastC < 4 Then lastC = 4
+    If lastR < 4 Then Exit Sub
+    v = ws.Range(ws.Cells(1, 1), ws.Cells(lastR, lastC)).Value
+    Dim roles() As String, labels() As String, cells() As String, anyV As Boolean
+    ReDim roles(0 To lastC - 1)
+    ReDim labels(0 To lastC - 1)
+    ReDim cells(0 To lastC - 1)
+    For c = 1 To lastC
+        HeadRole CellText(v(3, c)), roles(c - 1), labels(c - 1)
+    Next
+    For r = 4 To lastR
+        anyV = False
+        For c = 1 To lastC
+            cells(c - 1) = CellText(v(r, c), roles(c - 1) = "time")
+            If cells(c - 1) <> "" Then anyV = True
+        Next
+        If anyV Then
+            If Not IsHeaderRow(cells) Then RowLines cells, roles, labels, True, sched, refc
+        End If
+    Next
+End Sub
+
+' ===========================================================================
+' Excel columns -> roles (port of headRole)
+' ===========================================================================
+Private Function InList(ByVal k As String, ByVal list As String) As Boolean
+    InList = (InStr("|" & list & "|", "|" & k & "|") > 0)
+End Function
+
+Public Sub HeadRole(ByVal h As String, ByRef role As String, ByRef label As String)
+    Dim k As String
+    label = ""
+    k = LCase$(RemoveChars(RemoveParens(h), ""))
+    If k = "" Then
+        role = "skip"
+    ElseIf InList(k, "시간|시각|일시|time") Then
+        role = "time"
+    ElseIf InList(k, "내용|일정|일정내용|주요일정|주요내용|예정사항|주요예정사항|행사|행사명|업무|content") Then
+        role = "content"
+    ElseIf InList(k, "장소|위치|place") Then
+        role = "place"
+    ElseIf InList(k, "※|참고|참고사항|※참고|※참고사항") Then
+        role = "ref"
+    ElseIf InList(k, "비고|설명|부가설명|메모|note") Then
+        role = "star"
+    ElseIf InList(k, "성명|이름|임원|임원명|name") Then
+        role = "exec"
+    ElseIf InList(k, "직위|직책|직급") Then
+        role = "pos"
+    ElseIf InList(k, "날짜|일자|date") Then
+        role = "date"
+    ElseIf InList(k, "순번|번호|no|no.|연번") Then
+        role = "skip"
+    Else
+        role = "star"
+        label = TrimX(h)
+    End If
+End Sub
+
+Public Function IsHeaderRow(cells() As String) As Boolean
+    Dim i As Long, r As String, lb As String, hasC As Boolean, hasT As Boolean
+    For i = LBound(cells) To UBound(cells)
+        HeadRole cells(i), r, lb
+        If r = "content" Then hasC = True
+        If r = "time" Or r = "exec" Then hasT = True
+    Next
+    IsHeaderRow = hasC And hasT
+End Function
+
+' one spreadsheet row -> schedule lines and ※ lines (port of rowLines)
+Public Sub RowLines(cells() As String, roles() As String, labels() As String, ByVal hasRoles As Boolean, ByRef sched As String, ByRef refc As String)
+    Dim tm As String, content As String, place As String, stars As String, i As Long, c As String
+    Dim ro As String, n As Long, st As Long, ls As Variant, j As Long, t As String, sa As Variant, k As Long
+    If hasRoles Then
+        For i = LBound(cells) To UBound(cells)
+            c = cells(i)
+            If c <> "" Then
+                ro = "star"
+                If i <= UBound(roles) Then ro = roles(i)
+                Select Case ro
+                    Case "time"
+                        tm = c
+                    Case "content"
+                        If content <> "" Then content = content & vbLf
+                        content = content & c
+                    Case "place"
+                        place = c
+                    Case "ref"
+                        ls = Split(c, vbLf)
+                        For j = 0 To UBound(ls)
+                            t = TrimX(CStr(ls(j)))
+                            If t <> "" Then LAdd refc, StripLead(t, "※")
+                        Next
+                    Case "star"
+                        t = c
+                        If i <= UBound(labels) Then
+                            If labels(i) <> "" Then t = labels(i) & ": " & c
+                        End If
+                        LAdd stars, t
+                End Select
+            End If
+        Next
+    Else
+        n = UBound(cells)
+        Do While n >= LBound(cells)
+            If cells(n) <> "" Then Exit Do
+            n = n - 1
+        Loop
+        st = LBound(cells)
+        If n - st + 1 >= 2 Then
+            If cells(st) = "" Or IsTimeCell(cells(st)) Then
+                tm = cells(st)
+                st = st + 1
+            End If
+        End If
+        If st <= n Then
+            content = cells(st)
+            st = st + 1
+        End If
+        For i = st To n
+            If cells(i) <> "" Then LAdd stars, cells(i)
+        Next
+    End If
+    ' content lines: the first one goes on the time line, the others below it
+    Dim lines As String, first As String, nl As Long, tmS As String, sp As String, rest As String, ln As String
+    ls = Split(content, vbLf)
+    For j = 0 To UBound(ls)
+        t = TrimX(CStr(ls(j)))
+        If t <> "" Then
+            If first = "" And lines = "" And Not FirstIn(t, "*＊※") Then
+                first = t
+            Else
+                LAdd lines, t
+            End If
+        End If
+    Next
+    If tm <> "" Then
+        If SplitTime(tm, sp, rest) And rest = "" Then
+            tmS = sp & " "
+        Else
+            tmS = tm & vbTab
+        End If
+    End If
+    If first <> "" Or tmS <> "" Then
+        ln = tmS & first
+        If place <> "" Then ln = ln & " @" & place
+        If Right$(ln, 1) = " " Then ln = Left$(ln, Len(ln) - 1)
+        LAdd sched, ln
+    ElseIf place <> "" Then
+        LAdd sched, "@" & place
+    End If
+    nl = LCount(lines)
+    If nl > 0 Then
+        ls = LItems(lines)
+        For j = 0 To nl - 1
+            t = CStr(ls(j))
+            If Left$(t, 1) = "※" Then
+                LAdd refc, StripLead(t, "※")
+            ElseIf FirstIn(t, "*＊-·•") Then
+                LAdd sched, t
+            Else
+                LAdd sched, "  " & t
+            End If
+        Next
+    End If
+    nl = LCount(stars)
+    If nl > 0 Then
+        sa = LItems(stars)
+        For k = 0 To nl - 1
+            ls = Split(CStr(sa(k)), vbLf)
+            For j = 0 To UBound(ls)
+                t = TrimX(CStr(ls(j)))
+                If t <> "" Then
+                    If FirstIn(t, "*＊") Then t = TrimX(Mid$(t, 2))
+                    LAdd sched, "* " & t
+                End If
+            Next
+        Next
+    End If
+End Sub
+
+' ===========================================================================
+' Schedule lines -> items (port of parseSched)
+' ===========================================================================
+Public Function IsBullet(ByVal t As String) As Boolean
+    IsBullet = FirstIn(t, "-–○●◦·•▶▷□■")
+End Function
+
+Public Sub ParseSched(ByVal lines As String, ByRef items As String, ByRef refs As String)
+    Dim has As Boolean, cTm As String, cMains As String, cSubs As String
+    Dim ls As Variant, li As Long, nL As Long
+    Dim raw As String, t As String, k As Long, pre As String, body As String
+    Dim sp As String, rest As String, after As String, s As String
+    items = ""
+    refs = ""
+    nL = LCount(lines)
+    If nL = 0 Then Exit Sub
+    ls = LItems(lines)
+    For li = 0 To nL - 1
+        raw = CStr(ls(li))
+        If InStr(raw, vbLf) > 0 Then raw = Replace(raw, vbLf, " ")
+        t = TrimX(raw)
+        If t = "" Then GoTo nextLine
+        If Left$(t, 1) = "※" Then
+            LAdd refs, StripLead(t, "※")
+            GoTo nextLine
+        End If
+        If FirstIn(t, "*＊") Then
+            s = StripLead(t, "*＊")
+            If Not has Then SchedNew items, has, cTm, cMains, cSubs, ""
+            LAddS cSubs, "star" & SepD() & s, SepC()
+            GoTo nextLine
+        End If
+        k = InStr(t, vbTab)
+        If k > 1 And k <= 17 And Not IsBullet(t) Then
+            pre = TrimX(Left$(t, k - 1))
+            If SplitTime(pre, sp, rest) And rest = "" Then
+                SchedNew items, has, cTm, cMains, cSubs, sp
+            Else
+                SchedNew items, has, cTm, cMains, cSubs, pre
+            End If
+            body = TrimX(TabsToSpace(Mid$(t, k + 1)))
+            If body <> "" Then LAddS cMains, body, SepC()
+            GoTo nextLine
+        End If
+        t = TabsToSpace(t)
+        If IsBullet(t) Then
+            after = TrimX(Mid$(t, 2))
+            If SplitTime(after, sp, rest) Then
+                SchedNew items, has, cTm, cMains, cSubs, sp
+                If rest <> "" Then LAddS cMains, rest, SepC()
+            ElseIf has And FirstIn(t, "-–·•") Then
+                LAddS cSubs, "dash" & SepD() & after, SepC()
+            Else
+                SchedNew items, has, cTm, cMains, cSubs, ""
+                LAddS cMains, after, SepC()
+            End If
+            GoTo nextLine
+        End If
+        If SplitTime(t, sp, rest) Then
+            SchedNew items, has, cTm, cMains, cSubs, sp
+            If rest <> "" Then LAddS cMains, rest, SepC()
+            GoTo nextLine
+        End If
+        If has And (Left$(raw, 1) = " " Or Left$(raw, 1) = "　") Then
+            If cSubs <> "" Then
+                ' continues the text of the last sub line
+                cSubs = cSubs & vbLf & t
+            Else
+                LAddS cMains, t, SepC()
+            End If
+            GoTo nextLine
+        End If
+        SchedNew items, has, cTm, cMains, cSubs, ""
+        LAddS cMains, t, SepC()
+nextLine:
+    Next
+    If has Then LAdd items, cTm & SepB() & cMains & SepB() & cSubs
+End Sub
+
+' close the current item (if any) and start a new one with time tm
+Private Sub SchedNew(ByRef items As String, ByRef has As Boolean, ByRef cTm As String, ByRef cMains As String, ByRef cSubs As String, ByVal tm As String)
+    If has Then LAdd items, cTm & SepB() & cMains & SepB() & cSubs
+    cTm = tm
+    cMains = ""
+    cSubs = ""
+    has = True
+End Sub
+
+' ===========================================================================
+' Rich text pieces
+' ===========================================================================
+' "내용 @장소" -> 내용 (장소)
+Private Sub RBMainLine(ByVal s As String, Optional ByVal size As Double = 0)
+    Dim p As Long, place As String, m1 As String
+    p = InStrRev(s, "@")
+    If p > 0 Then
+        place = TrimX(Mid$(s, p + 1))
+        If place <> "" Then
+            If p = 1 Then
+                RBAdd "(", False, False, -1, size
+                RBInline place, False, size
+                RBAdd ")", False, False, -1, size
+                Exit Sub
+            ElseIf IsWs(Mid$(s, p - 1, 1)) Then
+                m1 = RTrimX(Left$(s, p - 1))
+                RBInline m1, False, size
+                If m1 <> "" Then RBAdd " ", False, False, -1, size
+                RBAdd "(", False, False, -1, size
+                RBInline place, False, size
+                RBAdd ")", False, False, -1, size
+                Exit Sub
+            End If
+        End If
+    End If
+    RBInline s, False, size
+End Sub
+
+' cell text of a bottom table (port of xtCellHTML)
+Private Sub RBTableCell(ByVal txt As String, ByVal fs As Double)
+    Dim ls As Variant, j As Long, t As String, n As Long, sp As String, rest As String, sfs As Double
+    sfs = R5(MaxD(MaxD(fs - 1.5, 0.75 * fs), 6))
+    ls = SplitLines(TabsToSpace(txt))
+    For j = 0 To UBound(ls)
+        t = TrimX(CStr(ls(j)))
+        If t <> "" Then
+            If n > 0 Then RBAdd vbLf
+            n = n + 1
+            If Left$(t, 1) = "※" Then
+                RBInline t
+            ElseIf FirstIn(t, "*＊") Then
+                RBAdd "* ", False, False, -1, sfs
+                RBInline StripLead(t, "*＊"), False, sfs
+            ElseIf SplitTime(t, sp, rest) Then
+                RBAdd sp, True
+                If rest <> "" Then
+                    RBAdd " "
+                    RBMainLine rest
+                End If
+            Else
+                RBMainLine t
+            End If
+        End If
+    Next
+End Sub
+
+' ===========================================================================
+' Layout
+' ===========================================================================
+Private Function PadV() As Double
+    PadV = (0.22 + 0.3 * gU) * gFS
+End Function
+Private Function PadH() As Double
+    PadH = (0.4 + 0.2 * gU) * gFS
+End Function
+Private Function RowPad() As Double
+    RowPad = (0.08 + 0.2 * gU) * gFS
+End Function
+
+Private Function TitleFs() As Double
+    TitleFs = R5(Clamp(gFS * 1.75, 15, 21))
+End Function
+Private Function MetaFs() As Double
+    MetaFs = R5(Clamp(gFS * 0.95, 8.5, 11))
+End Function
+
+' header block (title, secret box, sub/date line). returns height incl. the space below
+Private Function LayHead(ByVal doRender As Boolean) As Double
+    Dim tH As Double, secW As Double, secH As Double, tx As Double, y As Double, mfs As Double, mH As Double, idx As Long
+    Dim dTxt As String
+    gTrace = "LayHead start"
+    mfs = MetaFs()
+    gTrace = "LayHead mfs"
+    If gShowSecret Then
+        secW = MeasureW(gSecretText, gFont, 9.5, True) + 3.4 * PT_MM
+        secH = MeasureH(gSecretText, "", secW, gFont, 9.5, True) + 1 * PT_MM
+        If doRender Then
+            idx = ElText(gW - secW, 0, secW, secH, gSecretText, "", 9.5, True, XL_CENTER, XL_CENTER, COL_RED, False)
+            ElBorderAll idx, XL_CONT, XL_MEDIUM, COL_RED
+        End If
+        tx = secW + 2 * PT_MM
+    End If
+    If gTitle <> "" Then
+        tH = MeasureH(gTitle, "", gW - 2 * tx, gFont, TitleFs(), True)
+        If doRender Then ElText tx, 0, gW - 2 * tx, tH, gTitle, "", TitleFs(), True, XL_CENTER, XL_CENTER
+        y = tH
+    Else
+        y = secH
+    End If
+    y = y + 1.2 * PT_MM
+    dTxt = FmtDateK(gDate)
+    mH = MaxD(MeasureH(IIf(gSub = "", "가", gSub), "", gW * 0.62, gFont, mfs), MeasureH(dTxt, "", gW * 0.38, gFont, mfs, True))
+    If doRender Then
+        If gSub <> "" Then ElText 0, y, gW * 0.62, mH, gSub, "", mfs, False, XL_LEFT, XL_BOTTOM
+        ElText gW * 0.62, y, gW * 0.38, mH, dTxt, "", mfs, True, XL_RIGHT, XL_BOTTOM
+    End If
+    y = y + mH + 1.6 * PT_MM
+    If doRender Then
+        idx = ElBox(0, 0, gW, y)
+        ElBorder idx, 1, XL_CONT, XL_MEDIUM, 0
+    End If
+    LayHead = y + 3 * PT_MM
+End Function
+
+Private Function LayFoot(ByVal y As Double, ByVal doRender As Boolean) As Double
+    If gFoot = "" Then Exit Function
+    Dim h As Double
+    h = MeasureH(gFoot, "", gW, gFont, MetaFs())
+    If doRender Then ElText 0, y + 2.2 * PT_MM, gW, h, gFoot, "", MetaFs()
+    LayFoot = h + 2.2 * PT_MM
+End Function
+
+' width of the time column in box i
+Private Function TimeColW(ByVal i As Long) As Double
+    Dim its As Variant, n As Long, k As Long, f As Variant, ps As Variant, j As Long, w As Double
+    n = LCount(exItems(i))
+    If n = 0 Then Exit Function
+    its = LItems(exItems(i))
+    For k = 0 To n - 1
+        f = Split(CStr(its(k)), SepB())
+        If CStr(f(0)) <> "" Then
+            ps = Split(TimePieces(CStr(f(0))), vbLf)
+            For j = 0 To UBound(ps)
+                w = MaxD(w, MeasureW(CStr(ps(j)), gFont, gFS, True))
+            Next
+        End If
+    Next
+    TimeColW = w
+End Function
+
+Private Function TimePieces(ByVal t As String) As String
+    TimePieces = Replace(t, "~", "~" & vbLf)
+End Function
+
+' one executive box. returns natural height; when doRender, draws it with height h
+Private Function LayBox(ByVal i As Long, ByVal x As Double, ByVal y As Double, ByVal w As Double, ByVal h As Double, ByVal doRender As Boolean) As Double
+    Dim fs As Double, pv As Double, ph As Double, rp As Double
+    fs = gFS
+    pv = PadV()
+    ph = PadH()
+    rp = RowPad()
+    Dim hfs As Double, headTxt As String, headH As Double, idx As Long
+    hfs = R5(fs * 1.06)
+    headTxt = TrimX(exPos(i) & " " & exName(i))
+    headH = MeasureH(IIf(headTxt = "", "가", headTxt), "", w - 2 * ph, gFont, hfs, True) + 1.4 * pv
+    If doRender Then
+        idx = ElText(x, y, w, headH, headTxt, "", hfs, True, XL_CENTER, XL_CENTER)
+        ElFill idx, COL_HEAD
+        ElBorder idx, 1, XL_CONT, XL_MEDIUM, COL_LINE
+        idx = ElBox(x, y, w, h)
+        ElBorderAll idx, XL_CONT, XL_THIN, COL_LINE
+    End If
+    Dim x0 As Double, bw As Double, yy As Double, tw As Double, cx As Double, cw As Double
+    x0 = x + ph - CELLPAD
+    bw = w - 2 * ph + 2 * CELLPAD
+    yy = y + headH + 0.5 * pv
+    tw = TimeColW(i)
+    If tw > 0 Then
+        tw = tw + MIN_COL
+        cx = x0 + tw + 0.15 * fs
+    Else
+        cx = x0
+    End If
+    cw = x0 + bw - cx
+    Dim k As Long, m As Long, itemTop As Double, y1 As Double, cy As Double
+    Dim tTxt As String, tH As Double, mTxt As String, mRuns As String, mMark As Boolean, mH As Double
+    Dim sfs As Double, mk As String, mkW As Double, sTxt As String, sRuns As String, sMark As Boolean, sH As Double
+    Dim n As Long, itemH As Double, nh As Double
+    Dim its As Variant, nIt As Long, f As Variant, ma As Variant, nM As Long, sa As Variant, nS As Long, sb As Variant, ls As Variant, j As Long, q As Long
+    nIt = LCount(exItems(i))
+    If nIt > 0 Then its = LItems(exItems(i))
+    For k = 1 To nIt
+        itemTop = yy
+        y1 = yy + rp
+        f = Split(CStr(its(k - 1)), SepB())
+        tTxt = TimePieces(CStr(f(0)))
+        tH = 0
+        If tTxt <> "" Then tH = MeasureH(tTxt, "", tw, gFont, fs, True)
+        RBReset
+        nM = LCountS(CStr(f(1)), SepC())
+        If nM > 0 Then
+            ma = LItemsS(CStr(f(1)), SepC())
+            For m = 1 To nM
+                If m > 1 Then RBAdd vbLf
+                RBMainLine CStr(ma(m - 1))
+            Next
+        End If
+        mTxt = RBText()
+        mRuns = RBRuns()
+        mMark = rbMark
+        mH = MeasureH(mTxt, mRuns, cw, gFont, fs)
+        If doRender And mTxt <> "" Then
+            idx = ElText(cx, y1, cw, mH, mTxt, mRuns, fs)
+            If mMark Then ElFill idx, COL_MARK
+        End If
+        cy = y1 + mH
+        nS = LCountS(CStr(f(2)), SepC())
+        If nS > 0 Then sa = LItemsS(CStr(f(2)), SepC())
+        For q = 1 To nS
+            sb = Split(CStr(sa(q - 1)), SepD())
+            If CStr(sb(0)) = "star" Then
+                sfs = R5(MaxD(MaxD(fs - 2, 0.75 * fs), 6))
+                mk = "*"
+                cy = cy + 0.06 * fs
+            Else
+                sfs = fs
+                mk = "-"
+                cy = cy + 0.02 * fs
+            End If
+            mkW = MeasureW(mk, gFont, sfs) + 0.1 * sfs
+            RBReset
+            n = 0
+            ls = Split(CStr(sb(1)), vbLf)
+            For j = 0 To UBound(ls)
+                If n > 0 Then RBAdd vbLf
+                n = n + 1
+                RBInline CStr(ls(j))
+            Next
+            sTxt = RBText()
+            sRuns = RBRuns()
+            sMark = rbMark
+            sH = MeasureH(sTxt, sRuns, cw - mkW, gFont, sfs)
+            If doRender Then
+                ElText cx, cy, mkW, sH, mk, "", sfs
+                idx = ElText(cx + mkW, cy, cw - mkW, sH, sTxt, sRuns, sfs)
+                If sMark Then ElFill idx, COL_MARK
+            End If
+            cy = cy + sH
+        Next
+        itemH = MaxD(tH, cy - y1) + 2 * rp
+        If doRender Then
+            If tTxt <> "" Then ElText x0, y1, tw, tH, tTxt, "", fs, True
+            If k > 1 Then
+                idx = ElBox(x0, itemTop, bw, itemH)
+                ElBorder idx, 0, XL_DOT, XL_HAIR, COL_DOT
+            End If
+        End If
+        yy = itemTop + itemH
+    Next
+    If nIt = 0 And gEmptyText <> "" Then
+        nh = MeasureH(gEmptyText, "", bw, gFont, fs)
+        If doRender Then ElText x0, yy + 0.5 * fs, bw, nh, gEmptyText, "", fs, False, XL_CENTER, XL_TOP, COL_GRAY
+        yy = yy + nh + fs
+    End If
+    yy = yy + 0.5 * pv
+    ' ※ lines at the bottom of the box
+    Dim refH As Double, rfs As Double, rmW As Double, rTop As Double, rH() As Double, rT() As String, rR() As String, rM() As Boolean
+    Dim nR As Long, ra As Variant
+    nR = LCount(exRefs(i))
+    If nR > 0 Then
+        ra = LItems(exRefs(i))
+        rfs = R5(0.93 * fs)
+        rmW = MeasureW("※", gFont, rfs)
+        ReDim rH(1 To nR)
+        ReDim rT(1 To nR)
+        ReDim rR(1 To nR)
+        ReDim rM(1 To nR)
+        refH = 0.8 * pv + 0.9 * pv
+        For n = 1 To nR
+            RBReset
+            RBInline CStr(ra(n - 1))
+            rT(n) = RBText()
+            rR(n) = RBRuns()
+            rM(n) = rbMark
+            rH(n) = MeasureH(rT(n), rR(n), bw - rmW, gFont, rfs)
+            refH = refH + rH(n)
+            If n > 1 Then refH = refH + 0.08 * fs
+        Next
+        If doRender Then
+            rTop = y + h - refH
+            idx = ElBox(x0, rTop, bw, refH)
+            ElBorder idx, 0, XL_DASH, XL_HAIR, COL_DASH
+            cy = rTop + 0.8 * pv
+            For n = 1 To nR
+                If n > 1 Then cy = cy + 0.08 * fs
+                ElText x0, cy, rmW, rH(n), "※", "", rfs
+                idx = ElText(x0 + rmW, cy, bw - rmW, rH(n), rT(n), rR(n), rfs)
+                If rM(n) Then ElFill idx, COL_MARK
+                cy = cy + rH(n)
+            Next
+        End If
+    End If
+    LayBox = (yy - y) + refH
+End Function
+
+' bottom tables. returns total height
+Private Function LayTables(ByVal y0 As Double, ByVal doRender As Boolean) As Double
+    Dim tf As Double, pvT As Double, phT As Double, lw As Double, k As Long, j As Long, n As Long, y As Double
+    Dim colW As Double, heads As Boolean, hRow As Double, cRow As Double, hh As Double, idx As Long
+    tf = R5(0.95 * gFS)
+    pvT = (0.22 + 0.3 * gU) * 0.55 * tf
+    phT = (0.4 + 0.2 * gU) * 0.8 * tf
+    For k = 1 To 4
+        lw = MaxD(lw, MeasureW(IIf(tbLabel(k) = "", "가", tbLabel(k)), gFont, tf, True))
+    Next
+    lw = Clamp(lw + 0.6 * tf, 3 * tf, 10 * tf)
+    y = y0
+    Dim cT(1 To 5) As String, cR(1 To 5) As String, cM(1 To 5) As Boolean, cH As Double
+    For k = 1 To 4
+        If k > 1 Then y = y + gGap
+        n = TblN(k)
+        colW = (gW - lw) / n
+        heads = False
+        If TblHasHeads(k) Then
+            For j = 1 To n
+                If tbHead(k, j) <> "" Then heads = True
+            Next
+        End If
+        hRow = 0
+        If heads Then
+            For j = 1 To n
+                hRow = MaxD(hRow, MeasureH(IIf(tbHead(k, j) = "", "가", tbHead(k, j)), "", colW - 2 * phT, gFont, tf, True))
+            Next
+            hRow = hRow + 2 * pvT
+        End If
+        cRow = MeasureH("가", "", colW - 2 * phT, gFont, tf)
+        For j = 1 To n
+            RBReset
+            RBTableCell tbText(k, j), tf
+            cT(j) = RBText(): cR(j) = RBRuns(): cM(j) = rbMark
+            cRow = MaxD(cRow, MeasureH(cT(j), cR(j), colW - 2 * phT + 2 * CELLPAD, gFont, tf))
+        Next
+        cRow = cRow + 2 * pvT
+        If doRender Then
+            idx = ElText(0, y, lw, hRow + cRow, tbLabel(k), "", tf, True, XL_CENTER, XL_CENTER, 0, False)
+            ElFill idx, COL_HEAD
+            ElBorderAll idx, XL_CONT, XL_THIN, COL_LINE
+            For j = 1 To n
+                If heads Then
+                    idx = ElText(lw + (j - 1) * colW, y, colW, hRow, tbHead(k, j), "", tf, True, XL_CENTER, XL_CENTER)
+                    ElFill idx, COL_HEAD2
+                    ElBorderAll idx, XL_CONT, XL_THIN, COL_LINE
+                End If
+                idx = ElBox(lw + (j - 1) * colW, y + hRow, colW, cRow)
+                ElBorderAll idx, XL_CONT, XL_THIN, COL_LINE
+                If cT(j) <> "" Then
+                    idx = ElText(lw + (j - 1) * colW + phT - CELLPAD, y + hRow + pvT, colW - 2 * phT + 2 * CELLPAD, cRow - 2 * pvT, cT(j), cR(j), tf)
+                    If cM(j) Then ElFill idx, COL_MARK
+                End If
+            Next
+        End If
+        y = y + hRow + cRow
+    Next
+    LayTables = y - y0
+End Function
+
+' box widths for seat i
+Private Sub SeatGeom(ByVal i As Long, ByRef x As Double, ByRef w As Double)
+    Dim a As Double
+    Select Case i
+        Case 1, 2, 3
+            a = gW - 2 * gGap
+            x = 0
+            If i >= 2 Then x = gC1(1) * a + gGap
+            If i = 3 Then x = x + gC1(2) * a + gGap
+            w = gC1(i) * a
+        Case 4
+            x = 0: w = gC2(1) * (gW - gGap)
+        Case 5, 6
+            x = gC2(1) * (gW - gGap) + gGap: w = gC2(2) * (gW - gGap)
+        Case 7
+            x = 0: w = gC3(1) * (gW - gGap)
+        Case 8
+            x = gC3(1) * (gW - gGap) + gGap: w = gC3(2) * (gW - gGap)
+    End Select
+End Sub
+
+Private Sub FitEval(ByVal fs As Double, ByVal lo As Double, ByVal hi As Double, ByRef ok As Boolean, ByRef need As Double, ByRef avail As Double, _
+        ByRef req() As Double, ByRef nat() As Double, ByRef headH As Double, ByRef tabH As Double, ByRef footH As Double)
+    Dim i As Long, x As Double, w As Double
+    gTrace = "FitEval start fs=" & fs
+    gFS = fs
+    gTrace = "FitEval gFS"
+    If hi > lo Then
+        gU = Clamp((fs - lo) / (hi - lo), 0, 1)
+    Else
+        gU = 1
+    End If
+    gTrace = "FitEval head"
+    headH = LayHead(False)
+    gTrace = "FitEval foot"
+    footH = LayFoot(0, False)
+    tabH = 0
+    If gShowTables Then tabH = LayTables(0, False)
+    avail = gH - headH - footH
+    If gShowTables Then avail = avail - tabH - gGap
+    For i = 1 To NX
+        SeatGeom i, x, w
+        nat(i) = LayBox(i, x, 0, w, 0, False)
+    Next
+    req(1) = MaxD(MaxD(nat(1), nat(2)), nat(3))
+    If gSplit < 0 Then
+        req(2) = MaxD(nat(4), nat(5) + gGap + nat(6))
+    Else
+        req(2) = MaxD(MaxD(nat(4), nat(5) / gSplit + gGap), nat(6) / (1 - gSplit) + gGap)
+    End If
+    req(3) = MaxD(nat(7), nat(8))
+    Dim inner As Double, t As Double, k As Long
+    inner = avail - 2 * gGap
+    If Not gRowsSet Then
+        need = req(1) + req(2) + req(3) + 2 * gGap
+        ok = (need <= avail - 1.5)
+    Else
+        ok = True
+        need = 2 * gGap
+        For k = 1 To 3
+            t = gRows(k) * (inner - 1)
+            If req(k) > t Then ok = False
+            need = need + MaxD(req(k), t)
+        Next
+    End If
+End Sub
+
+Public Sub DoBuild()
+    StepTo "settings"
+    LoadSettings
+    StepTo "execs"
+    LoadExecs
+    StepTo "sync names"
+    SyncExecNames
+    StepTo "tables"
+    LoadTables
+    StepTo "measure init"
+    ' row AutoFit (used to measure text) needs screen updating on in some hosts;
+    ' only the hidden scratch sheet changes while measuring
+    SetScreen True
+    MsInit SH_MS
+    StepTo "fit"
+    Dim lo As Double, hi As Double, fs As Double, ok As Boolean, need As Double, avail As Double
+    Dim req() As Double, nat() As Double, headH As Double, tabH As Double, footH As Double, h() As Double
+    Dim a As Long, b As Long, md As Long
+    ReDim req(1 To 3): ReDim nat(1 To 8): ReDim h(1 To 3)
+    gTrace = "fit lo/hi"
+    lo = MinD(gMinF, gMaxF): hi = MaxD(gMinF, gMaxF)
+    lo = R5(lo): hi = R5(hi)
+    gTrace = "fit call"
+    FitEval hi, lo, hi, ok, need, avail, req, nat, headH, tabH, footH
+    If ok Then
+        fs = hi
+    Else
+        FitEval lo, lo, hi, ok, need, avail, req, nat, headH, tabH, footH
+        fs = lo
+        If ok Then
+            a = CLng(lo * 2): b = CLng(hi * 2)
+            Do While b - a > 1
+                md = (a + b) \ 2
+                FitEval md / 2, lo, hi, ok, need, avail, req, nat, headH, tabH, footH
+                If ok Then
+                    a = md
+                Else
+                    b = md
+                End If
+            Loop
+            fs = a / 2
+            FitEval fs, lo, hi, ok, need, avail, req, nat, headH, tabH, footH
+        End If
+    End If
+    ' heights of the three rows
+    Dim inner As Double, extra As Double, k As Long, in2 As Double, ex2 As Double, hE As Double, hF As Double
+    inner = avail - 2 * gGap
+    If ok Then
+        If Not gRowsSet Then
+            extra = MaxD(0, inner - 1 - req(1) - req(2) - req(3))
+            h(1) = req(1) + extra / 4: h(2) = req(2) + extra / 2: h(3) = req(3) + extra / 4
+        Else
+            For k = 1 To 3
+                h(k) = gRows(k) * (inner - 1)
+            Next
+        End If
+    Else
+        For k = 1 To 3
+            h(k) = req(k)
+            If gRowsSet Then h(k) = MaxD(req(k), gRows(k) * (inner - 1))
+        Next
+    End If
+    in2 = h(2) - gGap
+    If gSplit < 0 Then
+        ex2 = MaxD(0, in2 - nat(5) - nat(6))
+        hE = nat(5) + ex2 / 2: hF = nat(6) + ex2 / 2
+    Else
+        hE = MaxD(gSplit * in2, nat(5)): hF = MaxD(in2 - gSplit * in2, nat(6))
+    End If
+    h(2) = MaxD(MaxD(h(2), hE + gGap + hF), nat(4))
+    ' draw
+    StepTo "render"
+    SetScreen False
+    ElReset
+    Dim y As Double, x As Double, w As Double, i As Long
+    y = LayHead(True)
+    For i = 1 To 3
+        SeatGeom i, x, w
+        LayBox i, x, y, w, h(1), True
+    Next
+    y = y + h(1) + gGap
+    SeatGeom 4, x, w: LayBox 4, x, y, w, h(2), True
+    SeatGeom 5, x, w: LayBox 5, x, y, w, hE, True
+    SeatGeom 6, x, w: LayBox 6, x, y + hE + gGap, w, h(2) - hE - gGap, True
+    y = y + h(2) + gGap
+    SeatGeom 7, x, w: LayBox 7, x, y, w, h(3), True
+    SeatGeom 8, x, w: LayBox 8, x, y, w, h(3), True
+    y = y + h(3)
+    If gShowTables Then
+        y = y + gGap
+        y = y + LayTables(y, True)
+    End If
+    If ok And gFoot <> "" Then y = gH - footH
+    LayFoot y, True
+    Dim ws As Object, lastR As Long, lastC As Long
+    Set ws = HostBook().Worksheets(SH_A4)
+    StepTo "realize"
+    Realize ws, gFont, lastR, lastC
+    StepTo "page setup"
+    PageSetupA4 ws, gLandscape, gMargin, lastR, lastC
+    StepTo "status"
+    ' status
+    Dim st As String
+    If ok Then
+        st = "A4 한 장 자동 맞춤 · 글자 " & NumStr(fs) & "pt"
+        If Not gRowsSet And gSplit < 0 And fs >= hi Then st = st & " · 최대 글자크기 · 여유 " & Format$((avail - need) / PT_MM, "0") & "mm (칸을 늘려 채움)"
+        If gRowsSet Or gSplit >= 0 Then st = st & " · 칸 높이 직접 조정"
+    Else
+        st = "A4 한 장을 " & Format$(-Int(-(need - avail) / PT_MM), "0") & "mm 넘습니다 (글자 " & NumStr(fs) & "pt). "
+        If gRowsSet Or gSplit >= 0 Then
+            st = st & "높이를 직접 정한 칸에 내용이 넘칩니다. 서식 시트에서 [높이만 자동으로]를 누르세요."
+        Else
+            st = st & "내용을 줄이거나 서식 시트에서 최소 글자크기·여백을 줄여 보세요. 지금 인쇄하면 한 장에 맞게 줄여 찍힙니다."
+        End If
+    End If
+    ShowStatus st, ok
+    StepTo "sizes"
+    UpdateSizes h, hE, hF
+    StepTo "map"
+    UpdateMap
+    StepTo "a4 buttons"
+    PlaceA4Buttons ws, lastC
+    StepTo "done"
+End Sub
+
+Private Sub ShowStatus(ByVal st As String, ByVal ok As Boolean)
+    Dim r As Object
+    Set r = NameRange("d_status")
+    If Not r Is Nothing Then
+        r.Cells(1, 1).Value = IIf(ok, "맞춤 완료: ", "넘침: ") & st
+        r.Cells(1, 1).Font.Color = IIf(ok, COL_OK, COL_BAD)
+    End If
+    On Error Resume Next
+    Dim ws As Object, shp As Object
+    Set ws = HostBook().Worksheets(SH_A4)
+    Set shp = ws.Shapes("a4status")
+    If Not shp Is Nothing Then
+        shp.TextFrame.Characters.Text = IIf(ok, "맞춤 완료: ", "넘침: ") & st
+        shp.TextFrame.Characters.Font.Color = IIf(ok, COL_OK, COL_BAD)
+    End If
+    On Error GoTo 0
+End Sub
+
+Private Sub PlaceA4Buttons(ByVal ws As Object, ByVal lastC As Long)
+    Dim x As Double, shp As Object, y As Double, i As Long
+    On Error Resume Next
+    x = ws.Cells(1, lastC + 1).Left + 18
+    y = 6
+    For i = 1 To ws.Shapes.Count
+        Set shp = ws.Shapes(i)
+        If shp.Name = "a4status" Then
+            shp.Left = x
+            shp.Top = 6
+        Else
+            shp.Left = x
+            shp.Top = 80 + y
+            y = y + shp.Height + 6
+        End If
+    Next
+    On Error GoTo 0
+End Sub
+
+Private Sub UpdateSizes(h() As Double, ByVal hE As Double, ByVal hF As Double)
+    Dim r As Object, a As Double, b As Double
+    Set r = NameRange("s_sizes")
+    If r Is Nothing Then Exit Sub
+    a = (gW - 2 * gGap) / PT_MM
+    b = (gW - gGap) / PT_MM
+    r.Cells(1, 1).Value = "윗줄 " & Format$(gC1(1) * a, "0") & " · " & Format$(gC1(2) * a, "0") & " · " & Format$(gC1(3) * a, "0") & _
+        "mm / 가운데 줄 " & Format$(gC2(1) * b, "0") & " · " & Format$(gC2(2) * b, "0") & _
+        "mm / 아랫줄 " & Format$(gC3(1) * b, "0") & " · " & Format$(gC3(2) * b, "0") & "mm" & vbLf & _
+        "높이: 윗줄 " & Format$(h(1) / PT_MM, "0") & " · 가운데 줄 " & Format$(h(2) / PT_MM, "0") & " (오른쪽 위 " & Format$(hE / PT_MM, "0") & _
+        " · 아래 " & Format$(hF / PT_MM, "0") & ") · 아랫줄 " & Format$(h(3) / PT_MM, "0") & "mm"
+End Sub
+
+' seat map on the 입력 sheet
+Private Sub UpdateMap()
+    Dim r As Object, ws As Object, i As Long, rr As Long, c1 As Long, c2 As Long, r2 As Long, rg As Object, txt As String
+    Set r = NameRange("d_map")
+    If r Is Nothing Then Exit Sub
+    Set ws = r.Worksheet
+    Application.DisplayAlerts = False
+    For i = 1 To NX
+        Select Case i
+            Case 1: rr = 0: r2 = 0: c1 = 0: c2 = 3
+            Case 2: rr = 0: r2 = 0: c1 = 4: c2 = 7
+            Case 3: rr = 0: r2 = 0: c1 = 8: c2 = 11
+            Case 4: rr = 1: r2 = 2: c1 = 0: c2 = 7
+            Case 5: rr = 1: r2 = 1: c1 = 8: c2 = 11
+            Case 6: rr = 2: r2 = 2: c1 = 8: c2 = 11
+            Case 7: rr = 3: r2 = 3: c1 = 0: c2 = 5
+            Case 8: rr = 3: r2 = 3: c1 = 6: c2 = 11
+        End Select
+        Set rg = ws.Range(r.Offset(rr, c1), r.Offset(r2, c2))
+        On Error Resume Next
+        rg.Hyperlinks.Delete
+        On Error GoTo 0
+        If rg.Cells.Count > 1 And Not rg.MergeCells Then rg.Merge
+        txt = i & ". " & TrimX(exPos(i) & " " & exName(i))
+        txt = txt & vbLf & "일정 " & LCount(exItems(i)) & "건"
+        If LCount(exRefs(i)) > 0 Then txt = txt & " · ※ " & LCount(exRefs(i)) & "줄"
+        rg.Cells(1, 1).Value = txt
+        rg.HorizontalAlignment = XL_CENTER
+        rg.VerticalAlignment = XL_CENTER
+        rg.WrapText = True
+        rg.Font.Name = "맑은 고딕"
+        rg.Font.Size = 9
+        rg.Font.Color = 0
+        rg.Interior.Color = IIf(LCount(exItems(i)) = 0, COL_SOFT, 16777215)
+        rg.Borders.LineStyle = XL_CONT
+        rg.Borders.Color = COL_INLINE
+        AddLink ws, rg.Cells(1, 1), "#'" & exWs(i).Name & "'!B4", 0
+        If Len(txt) > 0 Then rg.Cells(1, 1).Characters(1, InStr(txt, vbLf) - 1).Font.Bold = True
+    Next
+    Application.DisplayAlerts = True
+    ' bottom tables line
+    Dim t As Object, filled As Long, k As Long, j As Long
+    Set t = r.Offset(4, 0)
+    For k = 1 To 4
+        For j = 1 To TblN(k)
+            If TrimX(tbText(k, j)) <> "" Then
+                filled = filled + 1
+                Exit For
+            End If
+        Next
+    Next
+    t.Value = "맨 밑 표: 인접회사활동 · 휴가 · 출장/방문 · 근무 — " & filled & "/4개 입력" & IIf(gShowTables, "", " (서식에서 꺼 둠)")
+    AddLink ws, t, "#'" & SH_TBL & "'!D4", COL_ACCENT
+End Sub
+
+' ===========================================================================
+' Bottom tables (맨밑표 sheet)
+' ===========================================================================
+Private Sub LoadTables()
+    Dim r As Object, k As Long, j As Long, row As Long
+    Set r = NameRange("t_top")
+    For k = 1 To 4
+        For j = 1 To 5
+            tbHead(k, j) = "": tbText(k, j) = ""
+        Next
+        tbLabel(k) = Choose(k, "인접회사활동", "휴가", "출장/방문", "근무")
+        If Not r Is Nothing Then
+            row = TblRow0(k)
+            tbLabel(k) = CellText(r.Offset(row, 0).Value)
+            For j = 1 To TblN(k)
+                If TblHasHeads(k) Then tbHead(k, j) = CellText(r.Offset(row + j - 1, 2).Value)
+                tbText(k, j) = CellText(r.Offset(row + j - 1, 3).Value)
+            Next
+        End If
+    Next
+End Sub
+
+' 이 모듈을 한셀이 읽었는지 확인 (실행했을 때 창이 뜨면 정상)
+Public Sub CheckHcExec()
+    MsgBox "HcExec OK"
+End Sub
