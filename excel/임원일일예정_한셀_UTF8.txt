@@ -1,5 +1,6 @@
 ' ※ 이 파일은 임원일일예정_한셀.bas 와 같은 코드입니다 (UTF-8, 읽기·복사용).
 ' 임원 일일 예정사항 - 한셀·엑셀 공통 (셀로만 그림, A4 한 장)
+' ★ 표시 줄: 한셀 '라이브러리가 등록되지 않았습니다' 오류를 피하려고 형식을 밝혀 쓴 곳
 ' 1) Setup 한 번 실행  2) 설정 시트에 직위·성명, 입력 시트에 일정  3) MakeDashboard 실행
 Option Explicit
 
@@ -11,11 +12,11 @@ Dim ln(1 To 8, 1 To 80) As String, kd(1 To 8, 1 To 80) As Long, tl(1 To 8, 1 To 
 Dim n(1 To 8) As Long, fails As String
 
 Sub Setup()
-    Dim ws As Object, i As Long, a As Variant
+    Dim ws As Worksheet, i As Long, a As Variant   ' ★
     Set ws = GetSheet(CFG)
     a = Split("제목,날짜,왼쪽 위 문구,용지 방향 (세로/가로),글자크기 최대,글자크기 최소,여백 (mm),줄 높이 보정 (글이 잘리면 크게)", ",")
     For i = 0 To 7
-        ws.Cells(i + 1, 1).Value = a(i)
+        ws.Range("A" & (i + 1)).Value = a(i)   ' ★
     Next
     ws.Range("B1").Value = "임원 일일 예정사항"
     ws.Range("B2").Value = Date
@@ -25,26 +26,26 @@ Sub Setup()
     ws.Range("B7").Value = 10
     ws.Range("B8").Value = 1.7
     a = Split("윗줄 왼쪽,윗줄 가운데,윗줄 오른쪽,가운데 큰 칸,가운데 오른쪽 위,가운데 오른쪽 아래,아랫줄 왼쪽,아랫줄 오른쪽", ",")
-    ws.Columns(1).ColumnWidth = 28
+    ws.Range("A:A").ColumnWidth = 28   ' ★
     ws.Range("A9").Value = "자리"
     ws.Range("B9").Value = "직위"
     ws.Range("C9").Value = "성명"
     ws.Range("D9").Value = "위치"
     For i = 1 To 8
-        ws.Cells(9 + i, 1).Value = i
-        ws.Cells(9 + i, 4).Value = a(i - 1)
+        ws.Range("A" & (9 + i)).Value = i   ' ★
+        ws.Range("D" & (9 + i)).Value = a(i - 1)   ' ★
     Next
     Set ws = GetSheet(INP)
     a = Split("자리 (1~8),시간,내용,비고 (작은 글씨 *),※ 참고", ",")
     For i = 0 To 4
-        ws.Cells(1, i + 1).Value = a(i)
+        ws.Range(Chr(65 + i) & "1").Value = a(i)   ' ★
     Next
     GetSheet DASH
     MsgBox "설정 시트에 직위·성명을, 입력 시트에 일정을 쓰고 MakeDashboard 를 실행하세요."
 End Sub
 
 Sub MakeDashboard()
-    Dim c As Object, wi As Object, d As Object, r As Long, k As Long, i As Long, j As Long, p As Long
+    Dim c As Worksheet, wi As Worksheet, d As Worksheet, r As Long, k As Long, i As Long, j As Long, p As Long   ' ★
     Dim a As Variant, s As String, tm As String, first As String, st As Long, rf(1 To 8) As String
     Dim fs As Double, fMax As Double, fMin As Double, mg As Double, pw As Double, ph As Double
     Dim cw As Double, hh As Double, ratio As Double, e(1 To 8) As Double, tot As Double, ex As Double
@@ -58,10 +59,10 @@ Sub MakeDashboard()
 
     ' 입력 시트 → 칸마다 줄
     For r = 2 To 500
-        k = Val(Txt(wi.Cells(r, 1).Value))
+        k = Val(Txt(wi.Range("A" & r).Value))   ' ★
         If k >= 1 And k <= 8 Then
-            tm = TimeText(wi.Cells(r, 2).Value)
-            a = Split(Txt(wi.Cells(r, 3).Value), vbLf)
+            tm = TimeText(wi.Range("B" & r).Value)   ' ★
+            a = Split(Txt(wi.Range("C" & r).Value), vbLf)   ' ★
             first = ""
             st = 0
             If UBound(a) >= 0 Then
@@ -86,11 +87,11 @@ Sub MakeDashboard()
                     AddLn k, "       " & Place(s), 0, 0
                 End If
             Next
-            a = Split(Txt(wi.Cells(r, 4).Value), vbLf)
+            a = Split(Txt(wi.Range("D" & r).Value), vbLf)   ' ★
             For i = 0 To UBound(a)
                 If Trim(a(i)) <> "" Then AddLn k, "   * " & Trim(a(i)), 1, 0
             Next
-            a = Split(Txt(wi.Cells(r, 5).Value), vbLf)
+            a = Split(Txt(wi.Range("E" & r).Value), vbLf)   ' ★
             For i = 0 To UBound(a)
                 s = Trim(a(i))
                 If Left(s, 1) = "※" Then s = Trim(Mid(s, 2))
@@ -155,18 +156,18 @@ Sub MakeDashboard()
     d.Range("A1:L30").UnMerge
     d.Range("A1:L30").Clear
     Chk "지우기"
-    d.Columns(1).ColumnWidth = 10
-    ratio = d.Columns(1).Width / 10
+    d.Range("A:A").ColumnWidth = 10   ' ★
+    ratio = d.Range("A:A").Width / 10   ' ★
     If Err.Number <> 0 Or ratio <= 0 Then ratio = 5.6
     Err.Clear
     For i = 1 To 12
-        d.Columns(i).ColumnWidth = cw / ratio
+        d.Range(Chr(64 + i) & ":" & Chr(64 + i)).ColumnWidth = cw / ratio   ' ★
     Next
     Chk "열너비"
     a = Array(30, 18, 4, hh, r5, 6, hh, r8, hh, r2 - r8, 6, hh, r13)
     For i = 0 To 12
         If a(i) > 409 Then a(i) = 409
-        d.Rows(i + 1).RowHeight = a(i)
+        d.Range((i + 1) & ":" & (i + 1)).RowHeight = a(i)   ' ★
     Next
     Chk "행높이"
 
@@ -183,7 +184,7 @@ Sub MakeDashboard()
     hdr = Split("A4:D4,E4:H4,I4:L4,A7:H7,I7:L7,I9:L9,A12:F12,G12:L12", ",")
     bdy = Split("A5:D5,E5:H5,I5:L5,A8:H10,I8:L8,I10:L10,A13:F13,G13:L13", ",")
     For k = 1 To 8
-        s = Trim(Txt(c.Cells(9 + k, 2).Value) & " " & Txt(c.Cells(9 + k, 3).Value))
+        s = Trim(Txt(c.Range("B" & (9 + k)).Value) & " " & Txt(c.Range("C" & (9 + k)).Value))   ' ★
         PutBox d.Range(hdr(k - 1)), s, fs * 1.05, True, -4108, RGB(231, 233, 236), True
         s = ""
         For j = 1 To n(k)
@@ -194,8 +195,8 @@ Sub MakeDashboard()
         ' 시간 굵게, * 줄·※ 줄 작게 (안 되면 그냥 넘어감)
         p = 1
         For j = 1 To n(k)
-            If tl(k, j) > 0 Then d.Range(bdy(k - 1)).Cells(1, 1).Characters(p + 1, tl(k, j)).Font.Bold = True
-            If kd(k, j) >= 1 Then d.Range(bdy(k - 1)).Cells(1, 1).Characters(p, Len(ln(k, j))).Font.Size = fs * 0.88
+            If tl(k, j) > 0 Then d.Range(bdy(k - 1)).Resize(1, 1).Characters(p + 1, tl(k, j)).Font.Bold = True   ' ★
+            If kd(k, j) >= 1 Then d.Range(bdy(k - 1)).Resize(1, 1).Characters(p, Len(ln(k, j))).Font.Size = fs * 0.88   ' ★
             p = p + Len(ln(k, j)) + 1
         Next
         Err.Clear
@@ -231,8 +232,8 @@ Sub MakeDashboard()
 End Sub
 
 ' 칸 하나 그리기: 서식을 먼저 입히고 병합한 뒤 값을 넣음 (fill < 0 이면 배경 없음)
-Sub PutBox(ByVal rg As Object, ByVal v As String, ByVal sz As Double, ByVal bd As Boolean, _
-           ByVal ha As Long, ByVal fill As Long, ByVal edge As Boolean)
+Sub PutBox(ByVal rg As Range, ByVal v As String, ByVal sz As Double, ByVal bd As Boolean, _
+           ByVal ha As Long, ByVal fill As Long, ByVal edge As Boolean)   ' ★
     Dim b As Long
     On Error Resume Next
     rg.Font.Name = "맑은 고딕"
@@ -245,7 +246,7 @@ Sub PutBox(ByVal rg As Object, ByVal v As String, ByVal sz As Double, ByVal bd A
     Chk "글꼴"
     rg.Merge
     Chk "병합"
-    rg.Cells(1, 1).Value = v
+    rg.Resize(1, 1).Value = v   ' ★
     Chk "값"
     If edge Then
         For b = 7 To 10
@@ -271,10 +272,11 @@ Sub Chk(ByVal t As String)
     End If
 End Sub
 
-Function GetSheet(ByVal nm As String) As Object
-    Dim ws As Object, i As Long
+Function GetSheet(ByVal nm As String) As Worksheet   ' ★
+    Dim ws As Worksheet, w As Worksheet, i As Long   ' ★
     For i = 1 To ActiveWorkbook.Worksheets.Count
-        If ActiveWorkbook.Worksheets(i).Name = nm Then Set ws = ActiveWorkbook.Worksheets(i)
+        Set w = ActiveWorkbook.Worksheets(i)   ' ★
+        If w.Name = nm Then Set ws = w   ' ★
     Next
     If ws Is Nothing Then
         Set ws = ActiveWorkbook.Worksheets.Add
