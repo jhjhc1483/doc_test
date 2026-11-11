@@ -61,13 +61,17 @@ def lint(files):
     procs = proc_names(files)
     for fn in files:
         lines = open(fn, encoding='utf-8').read().replace('\r\n', '\n').split('\n')
-        # join continuation lines
-        joined, buf, starts = [], '', []
+        # join continuation lines (VBA allows at most 24 in one statement)
+        joined, buf, starts, conts = [], '', [], 0
         for i, l in enumerate(lines):
             if not buf:
                 starts.append(i + 1)
+                conts = 0
             if l.rstrip().endswith(' _'):
                 buf += l.rstrip()[:-1] + ' '
+                conts += 1
+                if conts == 21:
+                    errors.append('%s:%d: 줄 이어 쓰기( _)가 20번을 넘습니다 — VBA는 24번까지만 됩니다' % (fn, starts[-1]))
                 continue
             joined.append(buf + l)
             buf = ''

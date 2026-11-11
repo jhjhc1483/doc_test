@@ -1134,3 +1134,8 @@ Public Sub UpdateDeptList()
         NSet "d_miss", FmtDateK(gDate) & " 일일 예정사항 엑셀 미입력: " & miss
     End If
 End Sub
+
+' 이 모듈을 한셀이 읽었는지 확인 (실행했을 때 창이 뜨면 정상)
+Public Sub CheckHcDaily()
+    MsgBox "HcDaily OK"
+End Sub

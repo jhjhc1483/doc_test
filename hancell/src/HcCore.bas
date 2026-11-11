@@ -1540,3 +1540,8 @@ Public Function ElDump(ByVal n As Long) As String
     Next
     ElDump = s
 End Function
+
+' 이 모듈을 한셀이 읽었는지 확인 (실행했을 때 창이 뜨면 정상)
+Public Sub CheckHcCore()
+    MsgBox "HcCore OK"
+End Sub

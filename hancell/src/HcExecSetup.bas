@@ -470,43 +470,51 @@ Private Sub SetupHelp(ByVal ws As Object)
     SheetBase ws
     ws.Columns(1).ColumnWidth = 44
     ws.Columns(2).ColumnWidth = 60
-    Dim rows As Variant, i As Long, f As Variant
-    rows = Array("#일정 칸 — 한 줄에 일정 하나", "입력|인쇄물", _
-        "시간 칸 09:00, 내용 칸 주간 업무회의|시간 09:00 (굵게) / 내용", _
-        "14:00~16:00|시간 범위 (~ 뒤에서 줄 바꿈)", _
-        "9:30, 9시 반, 오후 2시|09:30, 09:30, 14:00 처럼 맞춰 줌", _
-        "종일, 오전 (시간 칸에)|시간 칸에 종일 / 오전", _
-        "시간 칸을 비우고 내용에 09:00 회의|시간과 내용을 알아서 나눔", _
-        "내용 끝에 @소회의실|내용 (소회의실)", _
-        "비고 칸, 또는 내용이 * 로 시작하는 줄|바로 위 일정 밑에 작은 글씨 부가 설명", _
-        "내용 칸 안에서 Alt+Enter 후 - 안건|바로 위 일정 밑에 하위 항목", _
-        "※ 참고 칸, 또는 내용이 ※ 로 시작|그 임원 칸 맨 밑 ※ 참고", _
-        "**굵게**, !!빨간 강조!!, __밑줄__, ==형광펜==|글자 꾸밈 (형광펜은 그 줄의 칸 전체가 노랗게)", _
-        "", "#단추", _
-        "A4 만들기|A4 시트에 한 장짜리 문서를 새로 만듭니다(글자크기 자동 맞춤)", _
-        "엑셀 불러오기|두레이에서 내려받은 공동편집 파일(.xlsx·.csv)을 골라 임원별로 넣습니다", _
-        "붙여넣은 표 가져오기|붙여넣기 시트에 붙인 표를 임원별로 넣습니다", _
-        "되돌리기|마지막 [엑셀 불러오기]·[붙여넣은 표 가져오기]·[새 문서] 전으로", _
-        "새 문서|일정·※ 참고·맨 밑 표 내용만 비움 (직위·성명·서식은 그대로, 날짜는 오늘)", _
-        "자리 바꾸기|두 자리의 임원을 맞바꿈 (임원 시트 탭을 끌어 순서를 바꿔도 됨)", _
-        "형광펜|고른 칸의 글자를 ==…==로 감쌈 (다시 누르면 지움, Ctrl+Shift+H)", _
-        "공동편집용 엑셀 양식 만들기|임원마다 시트가 있는 .xlsx — 두레이에 올려 함께 작성", _
-        "", "#엑셀 불러오기 규칙", _
-        "임원 찾기|시트 이름에 든 성명으로 (없으면 겹치지 않는 직위로). 못 찾으면 자리 번호를 물어봄", _
-        "한 시트에 여러 임원|'성명' 열을 두세요 (병합된 칸도 됨)", _
-        "날짜 열|문서 날짜의 줄만 가져옴. 문서 날짜에 없으면 일정이 가장 많은 날짜를 권하고, 가져오면 문서 날짜도 바뀜", _
-        "빼는 시트|빈 시트, 작성방법 같은 안내 시트, 숨긴 시트", _
-        "", "#문서 암호", _
-        "열 때 암호 묻기|서식 시트의 [문서 암호 정하기] 또는 한셀 메뉴의 문서 암호. 파일 내용이 암호화됩니다", _
-        "", "#단추가 안 보이거나 눌리지 않을 때", _
-        "Alt+F8 (매크로 목록)|BuildA4, ImportExcel, ImportPasted, UndoLast, NewDoc, SwapSeats, HighlightSel, MakeTemplate, PrintPreviewA4, SetDocPassword")
-    For i = 0 To UBound(rows)
-        If Left$(rows(i), 1) = "#" Then
-            ws.Cells(i + 1, 1).Value = Mid$(rows(i), 2)
+    Dim rows As Collection, i As Long, f As Variant, k As Long, ln As String
+    Set rows = New Collection
+    rows.Add "#일정 칸 — 한 줄에 일정 하나"
+    rows.Add "입력|인쇄물"
+    rows.Add "시간 칸 09:00, 내용 칸 주간 업무회의|시간 09:00 (굵게) / 내용"
+    rows.Add "14:00~16:00|시간 범위 (~ 뒤에서 줄 바꿈)"
+    rows.Add "9:30, 9시 반, 오후 2시|09:30, 09:30, 14:00 처럼 맞춰 줌"
+    rows.Add "종일, 오전 (시간 칸에)|시간 칸에 종일 / 오전"
+    rows.Add "시간 칸을 비우고 내용에 09:00 회의|시간과 내용을 알아서 나눔"
+    rows.Add "내용 끝에 @소회의실|내용 (소회의실)"
+    rows.Add "비고 칸, 또는 내용이 * 로 시작하는 줄|바로 위 일정 밑에 작은 글씨 부가 설명"
+    rows.Add "내용 칸 안에서 Alt+Enter 후 - 안건|바로 위 일정 밑에 하위 항목"
+    rows.Add "※ 참고 칸, 또는 내용이 ※ 로 시작|그 임원 칸 맨 밑 ※ 참고"
+    rows.Add "**굵게**, !!빨간 강조!!, __밑줄__, ==형광펜==|글자 꾸밈 (형광펜은 그 줄의 칸 전체가 노랗게)"
+    rows.Add ""
+    rows.Add "#단추"
+    rows.Add "A4 만들기|A4 시트에 한 장짜리 문서를 새로 만듭니다(글자크기 자동 맞춤)"
+    rows.Add "엑셀 불러오기|두레이에서 내려받은 공동편집 파일(.xlsx·.csv)을 골라 임원별로 넣습니다"
+    rows.Add "붙여넣은 표 가져오기|붙여넣기 시트에 붙인 표를 임원별로 넣습니다"
+    rows.Add "되돌리기|마지막 [엑셀 불러오기]·[붙여넣은 표 가져오기]·[새 문서] 전으로"
+    rows.Add "새 문서|일정·※ 참고·맨 밑 표 내용만 비움 (직위·성명·서식은 그대로, 날짜는 오늘)"
+    rows.Add "자리 바꾸기|두 자리의 임원을 맞바꿈 (임원 시트 탭을 끌어 순서를 바꿔도 됨)"
+    rows.Add "형광펜|고른 칸의 글자를 ==…==로 감쌈 (다시 누르면 지움, Ctrl+Shift+H)"
+    rows.Add "공동편집용 엑셀 양식 만들기|임원마다 시트가 있는 .xlsx — 두레이에 올려 함께 작성"
+    rows.Add ""
+    rows.Add "#엑셀 불러오기 규칙"
+    rows.Add "임원 찾기|시트 이름에 든 성명으로 (없으면 겹치지 않는 직위로). 못 찾으면 자리 번호를 물어봄"
+    rows.Add "한 시트에 여러 임원|'성명' 열을 두세요 (병합된 칸도 됨)"
+    rows.Add "날짜 열|문서 날짜의 줄만 가져옴. 문서 날짜에 없으면 일정이 가장 많은 날짜를 권하고, 가져오면 문서 날짜도 바뀜"
+    rows.Add "빼는 시트|빈 시트, 작성방법 같은 안내 시트, 숨긴 시트"
+    rows.Add ""
+    rows.Add "#문서 암호"
+    rows.Add "열 때 암호 묻기|서식 시트의 [문서 암호 정하기] 또는 한셀 메뉴의 문서 암호. 파일 내용이 암호화됩니다"
+    rows.Add ""
+    rows.Add "#단추가 안 보이거나 눌리지 않을 때"
+    rows.Add "Alt+F8 (매크로 목록)|BuildA4, ImportExcel, ImportPasted, UndoLast, NewDoc, SwapSeats, HighlightSel, MakeTemplate, PrintPreviewA4, SetDocPassword"
+    For k = 1 To rows.Count
+        i = k - 1
+        ln = rows(k)
+        If Left$(ln, 1) = "#" Then
+            ws.Cells(i + 1, 1).Value = Mid$(ln, 2)
             ws.Cells(i + 1, 1).Font.Bold = True
             ws.Cells(i + 1, 1).Font.Size = 12
-        ElseIf rows(i) <> "" Then
-            f = Split(rows(i), "|")
+        ElseIf ln <> "" Then
+            f = Split(ln, "|")
             ws.Range(ws.Cells(i + 1, 1), ws.Cells(i + 1, 2)).NumberFormat = "@"
             ws.Cells(i + 1, 1).Value = f(0)
             If UBound(f) >= 1 Then ws.Cells(i + 1, 2).Value = f(1)
@@ -595,3 +603,8 @@ fail:
     gQuiet = False
     TestAll = r & " ERROR " & Err.Number & ": " & Err.Description & " [" & gStep & "] [" & gTrace & "] " & gDbg
 End Function
+
+' 이 모듈을 한셀이 읽었는지 확인 (실행했을 때 창이 뜨면 정상)
+Public Sub CheckHcExecSetup()
+    MsgBox "HcExecSetup OK"
+End Sub

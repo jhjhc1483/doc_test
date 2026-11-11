@@ -130,7 +130,9 @@ def build(app):
     cfg = APPS[app]
     sys.path.insert(0, HERE)
     import vbalint
+    import vbacompile
     errs = vbalint.lint([os.path.join(SRC, m + '.bas') for m in cfg['modules']])
+    errs += vbacompile.check([os.path.join(SRC, m + '.bas') for m in cfg['modules']])
     if errs:
         print('\n'.join(errs))
         raise SystemExit('VBA 검사에서 문제가 나왔습니다')

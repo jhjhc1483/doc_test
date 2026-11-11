@@ -869,3 +869,8 @@ Public Function LayContent(ByVal d As Long, ByVal x As Double, ByVal y As Double
     End If
     LayContent = MaxD(hL, hR)
 End Function
+
+' 이 모듈을 한셀이 읽었는지 확인 (실행했을 때 창이 뜨면 정상)
+Public Sub CheckHcDailyMd()
+    MsgBox "HcDailyMd OK"
+End Sub

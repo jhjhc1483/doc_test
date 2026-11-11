@@ -1540,3 +1540,8 @@ Public Function ElDump(ByVal n As Long) As String
     Next
     ElDump = s
 End Function
+
+'
+Public Sub CheckHcCore()
+    MsgBox "HcCore OK"
+End Sub
