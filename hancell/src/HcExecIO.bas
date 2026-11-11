@@ -194,18 +194,8 @@ End Sub
 Public Sub ImportExcel()
     Dim f As Variant
     On Error GoTo fail
-    On Error Resume Next
-    f = Application.GetOpenFilename("엑셀 파일 (*.xlsx;*.xlsm;*.xls;*.csv),*.xlsx;*.xlsm;*.xls;*.csv", 1, "두레이에서 내려받은 엑셀 파일을 고르세요", , True)
-    If Err.Number <> 0 Then
-        Err.Clear
-        f = Application.GetOpenFilename("엑셀 파일 (*.xlsx;*.xlsm;*.xls;*.csv),*.xlsx;*.xlsm;*.xls;*.csv")
-    End If
-    On Error GoTo fail
-    If IsArray(f) Then
-        ImportFiles f
-    ElseIf VarType(f) = vbString Then
-        If f <> "" And LCase$(f) <> "false" Then ImportFiles Array(f)
-    End If
+    f = PickFiles("두레이에서 내려받은 엑셀 파일을 고르세요", "엑셀 파일 (*.xlsx;*.xlsm;*.xls;*.csv),*.xlsx;*.xlsm;*.xls;*.csv", True)
+    If IsArray(f) Then ImportFiles f
     Exit Sub
 fail:
     EndWork
@@ -219,7 +209,7 @@ Public Function ImportFiles(files As Variant) As String
     gStep = "import: reset"
     GroupsReset
     For Each p In files
-        If LCase$(CStr(p)) = LCase$(ThisWorkbook.FullName) Then
+        If LCase$(CStr(p)) = LCase$(HostBook().FullName) Then
             Info "지금 열려 있는 이 파일은 불러올 수 없습니다. 두레이에서 내려받은 공동편집 파일을 고르세요."
             Exit Function
         End If
@@ -597,17 +587,14 @@ fail:
 End Sub
 
 Public Sub MakeTemplate()
-    Dim p As Variant
+    Dim p As String
     On Error GoTo fail
-    On Error Resume Next
-    p = Application.GetSaveAsFilename("임원일일예정_공동편집양식.xlsx", "엑셀 파일 (*.xlsx),*.xlsx")
-    On Error GoTo fail
-    If VarType(p) = vbBoolean Then Exit Sub
-    If CStr(p) = "" Or LCase$(CStr(p)) = "false" Then Exit Sub
-    MakeTemplateTo CStr(p)
+    p = PickSavePath("임원일일예정_공동편집양식.xlsx", "엑셀 파일 (*.xlsx),*.xlsx")
+    If p = "" Then Exit Sub
+    MakeTemplateTo p
     Exit Sub
 fail:
-    EndWork
+    Application.DisplayAlerts = True
     Info "문제가 생겼습니다: " & Err.Description & vbLf & "(" & gStep & ")"
 End Sub
 
@@ -866,8 +853,8 @@ Public Sub SetDocPassword()
         End If
     End If
     On Error Resume Next
-    ThisWorkbook.Password = p1
-    If Err.Number = 0 Then ThisWorkbook.Save
+    HostBook().Password = p1
+    If Err.Number = 0 Then HostBook().Save
     If Err.Number <> 0 Then
         Info "매크로로 문서 암호를 정하지 못했습니다." & vbLf & "한셀 메뉴의 [문서 암호](보안·검토 메뉴나 파일 → 다른 이름으로 저장의 도구)에서 정하세요."
     ElseIf p1 = "" Then

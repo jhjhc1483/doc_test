@@ -194,18 +194,8 @@ End Sub
 Public Sub ImportExcel()
     Dim f As Variant
     On Error GoTo fail
-    On Error Resume Next
-    f = Application.GetOpenFilename(U("\uC5D1\uC140 \uD30C\uC77C (*.xlsx;*.xlsm;*.xls;*.csv),*.xlsx;*.xlsm;*.xls;*.csv"), 1, U("\uB450\uB808\uC774\uC5D0\uC11C \uB0B4\uB824\uBC1B\uC740 \uC5D1\uC140 \uD30C\uC77C\uC744 \uACE0\uB974\uC138\uC694"), , True)
-    If Err.Number <> 0 Then
-        Err.Clear
-        f = Application.GetOpenFilename(U("\uC5D1\uC140 \uD30C\uC77C (*.xlsx;*.xlsm;*.xls;*.csv),*.xlsx;*.xlsm;*.xls;*.csv"))
-    End If
-    On Error GoTo fail
-    If IsArray(f) Then
-        ImportFiles f
-    ElseIf VarType(f) = vbString Then
-        If f <> "" And LCase$(f) <> "false" Then ImportFiles Array(f)
-    End If
+    f = PickFiles(U("\uB450\uB808\uC774\uC5D0\uC11C \uB0B4\uB824\uBC1B\uC740 \uC5D1\uC140 \uD30C\uC77C\uC744 \uACE0\uB974\uC138\uC694"), U("\uC5D1\uC140 \uD30C\uC77C (*.xlsx;*.xlsm;*.xls;*.csv),*.xlsx;*.xlsm;*.xls;*.csv"), True)
+    If IsArray(f) Then ImportFiles f
     Exit Sub
 fail:
     EndWork
@@ -219,7 +209,7 @@ Public Function ImportFiles(files As Variant) As String
     gStep = "import: reset"
     GroupsReset
     For Each p In files
-        If LCase$(CStr(p)) = LCase$(ThisWorkbook.FullName) Then
+        If LCase$(CStr(p)) = LCase$(HostBook().FullName) Then
             Info U("\uC9C0\uAE08 \uC5F4\uB824 \uC788\uB294 \uC774 \uD30C\uC77C\uC740 \uBD88\uB7EC\uC62C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uB450\uB808\uC774\uC5D0\uC11C \uB0B4\uB824\uBC1B\uC740 \uACF5\uB3D9\uD3B8\uC9D1 \uD30C\uC77C\uC744 \uACE0\uB974\uC138\uC694.")
             Exit Function
         End If
@@ -597,17 +587,14 @@ fail:
 End Sub
 
 Public Sub MakeTemplate()
-    Dim p As Variant
+    Dim p As String
     On Error GoTo fail
-    On Error Resume Next
-    p = Application.GetSaveAsFilename(U("\uC784\uC6D0\uC77C\uC77C\uC608\uC815_\uACF5\uB3D9\uD3B8\uC9D1\uC591\uC2DD.xlsx"), U("\uC5D1\uC140 \uD30C\uC77C (*.xlsx),*.xlsx"))
-    On Error GoTo fail
-    If VarType(p) = vbBoolean Then Exit Sub
-    If CStr(p) = "" Or LCase$(CStr(p)) = "false" Then Exit Sub
-    MakeTemplateTo CStr(p)
+    p = PickSavePath(U("\uC784\uC6D0\uC77C\uC77C\uC608\uC815_\uACF5\uB3D9\uD3B8\uC9D1\uC591\uC2DD.xlsx"), U("\uC5D1\uC140 \uD30C\uC77C (*.xlsx),*.xlsx"))
+    If p = "" Then Exit Sub
+    MakeTemplateTo p
     Exit Sub
 fail:
-    EndWork
+    Application.DisplayAlerts = True
     Info U("\uBB38\uC81C\uAC00 \uC0DD\uACBC\uC2B5\uB2C8\uB2E4: ") & Err.Description & vbLf & "(" & gStep & ")"
 End Sub
 
@@ -866,8 +853,8 @@ Public Sub SetDocPassword()
         End If
     End If
     On Error Resume Next
-    ThisWorkbook.Password = p1
-    If Err.Number = 0 Then ThisWorkbook.Save
+    HostBook().Password = p1
+    If Err.Number = 0 Then HostBook().Save
     If Err.Number <> 0 Then
         Info U("\uB9E4\uD06C\uB85C\uB85C \uBB38\uC11C \uC554\uD638\uB97C \uC815\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.") & vbLf & U("\uD55C\uC140 \uBA54\uB274\uC758 [\uBB38\uC11C \uC554\uD638](\uBCF4\uC548\u00B7\uAC80\uD1A0 \uBA54\uB274\uB098 \uD30C\uC77C \u2192 \uB2E4\uB978 \uC774\uB984\uC73C\uB85C \uC800\uC7A5\uC758 \uB3C4\uAD6C)\uC5D0\uC11C \uC815\uD558\uC138\uC694.")
     ElseIf p1 = "" Then

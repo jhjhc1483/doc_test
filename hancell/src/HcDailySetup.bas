@@ -85,7 +85,7 @@ End Sub
 
 Public Sub SetupAll()
     Dim wb As Object, ws As Object, k As Long, a4 As Object, prev As Object, samp As Variant
-    Set wb = ThisWorkbook
+    Set wb = HostBook()
     Application.DisplayAlerts = False
     On Error Resume Next
     wb.Styles("Normal").Font.Name = "맑은 고딕"
@@ -516,7 +516,7 @@ Public Function TestAll() As String
     LoadDepts True
     r = r & "afterUndo lines1=" & dLines(1) & "; "
     gStep = "paste"
-    Set ws = ThisWorkbook.Worksheets(SH_PASTE)
+    Set ws = HostBook().Worksheets(SH_PASTE)
     ws.Range("A3:C3").Value = Array("부서", "시간", "내용")
     ws.Range("A4:C4").Value = Array("감사담당관", "10:00", "붙여넣기 시험")
     ImportPasted

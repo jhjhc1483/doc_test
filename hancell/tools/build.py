@@ -18,9 +18,12 @@ ROOT = os.path.dirname(HERE)              # hancell/
 SRC = os.path.join(ROOT, 'src')
 OUT_BAS = os.path.join(ROOT, '매크로')
 
+OUT_PASTE = os.path.join(ROOT, '붙여넣기')
+
 APPS = {
-    'exec': {'modules': ['HcCore', 'HcExec', 'HcExecIO', 'HcExecSetup'], 'book': '임원일일예정.xlsm'},
-    'daily': {'modules': ['HcCore', 'HcDaily', 'HcDailyIO', 'HcDailySetup'], 'book': '부서별일일예정.xlsm'},
+    'exec': {'modules': ['HcCore', 'HcExec', 'HcExecIO', 'HcExecSetup'], 'book': '임원일일예정.xlsm', 'paste': '임원'},
+    'daily': {'modules': ['HcCore', 'HcDaily', 'HcDailyMd', 'HcDailyIO', 'HcDailySetup'], 'book': '부서별일일예정.xlsm',
+              'paste': '부서별'},
 }
 
 
@@ -97,6 +100,21 @@ def convert_file(name):
     return dst, len(text)
 
 
+def write_paste(app, cfg):
+    """한셀 매크로 편집기에 붙여넣을 파일: Attribute 줄을 뺀 모듈, 순서대로 번호"""
+    d = os.path.join(OUT_PASTE, cfg['paste'])
+    os.makedirs(d, exist_ok=True)
+    for f in os.listdir(d):
+        if f.endswith('.txt'):
+            os.remove(os.path.join(d, f))
+    for k, m in enumerate(cfg['modules'], 1):
+        src = open(os.path.join(OUT_BAS, m + '.bas'), encoding='ascii').read()
+        lines = [ln for ln in src.split('\r\n') if not ln.startswith('Attribute VB_')]
+        with open(os.path.join(d, '%d_%s.txt' % (k, m)), 'w', encoding='ascii', newline='') as fh:
+            fh.write('\r\n'.join(lines))
+    print('paste files:', os.path.relpath(d, ROOT))
+
+
 def blank_xlsx(path):
     import openpyxl
     wb = openpyxl.Workbook()
@@ -119,9 +137,11 @@ def build(app):
         if size > 60000:
             print('  경고: 모듈이 60KB를 넘습니다. 나누는 것이 좋습니다.')
         bas.append(dst)
+    write_paste(app, cfg)
     tmp = os.path.join(tempfile.gettempdir(), 'hc_blank.xlsx')
     blank_xlsx(tmp)
-    book = os.path.join(ROOT, cfg['book'])
+    # LibreOffice로 만든 .xlsm 은 한셀이 매크로를 읽지 못하므로 시험용으로만 만든다
+    book = os.path.join(tempfile.gettempdir(), cfg['book'])
     cmd = [sys.executable, os.path.join(HERE, 'lo_run.py'), '--in', tmp]
     for b in bas:
         cmd += ['--bas', b]

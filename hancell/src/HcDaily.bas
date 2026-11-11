@@ -80,7 +80,7 @@ Public Sub BuildA4()
     DoBuild
     EndWork
     On Error Resume Next
-    ThisWorkbook.Worksheets(SH_A4).Activate
+    HostBook().Worksheets(SH_A4).Activate
     Exit Sub
 fail:
     EndWork
@@ -89,13 +89,13 @@ End Sub
 
 Public Sub GoInput()
     On Error Resume Next
-    ThisWorkbook.Worksheets(SH_IN).Activate
+    HostBook().Worksheets(SH_IN).Activate
 End Sub
 
 Public Sub PrintPreviewA4()
     On Error Resume Next
-    ThisWorkbook.Worksheets(SH_A4).Activate
-    ThisWorkbook.Worksheets(SH_A4).PrintPreview
+    HostBook().Worksheets(SH_A4).Activate
+    HostBook().Worksheets(SH_A4).PrintPreview
     If Err.Number <> 0 Then Info "인쇄 미리보기를 열 수 없습니다. A4 시트에서 Ctrl+P로 인쇄하세요."
 End Sub
 
@@ -167,7 +167,7 @@ End Function
 
 Public Function DeptSheetList() As Collection
     Dim c As New Collection, ws As Object
-    For Each ws In ThisWorkbook.Worksheets
+    For Each ws In HostBook().Worksheets
         If IsDeptSheet(ws) Then c.Add ws
     Next
     Set DeptSheetList = c
@@ -248,7 +248,7 @@ Public Function UniqueSheetName(ByVal want As String, ByVal self As Object) As S
     n = 2
     Do
         clash = False
-        For Each ws In ThisWorkbook.Worksheets
+        For Each ws In HostBook().Worksheets
             If ws.Name <> selfName Then
                 If LCase$(ws.Name) = LCase$(nm) Then clash = True
             End If
@@ -410,20 +410,20 @@ Private Function IsRawMarkdown(ByVal first As String) As Boolean
     End If
 End Function
 
-Public Function SafeHref(ByVal u As String) As String
+Public Function SafeHref(ByVal uu As String) As String
     Dim l As String
-    u = TrimX(u)
-    l = LCase$(u)
+    uu = TrimX(uu)
+    l = LCase$(uu)
     If StartsWith(l, "www.") Then
-        u = "http://" & u
+        uu = "http://" & uu
         l = "http://" & l
     End If
     If StartsWith(l, "http:") Or StartsWith(l, "https:") Or StartsWith(l, "file:") Or StartsWith(l, "ftp:") Or StartsWith(l, "mailto:") Then
-        SafeHref = u
-    ElseIf StartsWith(u, "\\") Then
-        SafeHref = "file:" & Replace(u, "\", "/")
-    ElseIf Len(u) > 2 And Mid$(u, 2, 1) = ":" And (Mid$(u, 3, 1) = "\" Or Mid$(u, 3, 1) = "/") Then
-        SafeHref = "file:///" & Replace(u, "\", "/")
+        SafeHref = uu
+    ElseIf StartsWith(uu, "\\") Then
+        SafeHref = "file:" & Replace(uu, "\", "/")
+    ElseIf Len(uu) > 2 And Mid$(uu, 2, 1) = ":" And (Mid$(uu, 3, 1) = "\" Or Mid$(uu, 3, 1) = "/") Then
+        SafeHref = "file:///" & Replace(uu, "\", "/")
     End If
 End Function
 
@@ -1003,7 +1003,7 @@ Public Sub DoBuild()
     If nU = 0 Then ElText 0, y + 20 * PT_MM, gW, 20, "표시할 부서가 없습니다. 부서 시트를 추가하세요.", "", 12, False, XL_CENTER, XL_TOP, COL_EMPTY
     If ok And gFoot <> "" Then y = gH - footH
     LayFoot y, True
-    Set ws = ThisWorkbook.Worksheets(SH_A4)
+    Set ws = HostBook().Worksheets(SH_A4)
     gStep = "realize"
     Realize ws, gFont, lastR, lastC
     gStep = "page setup"
@@ -1048,7 +1048,7 @@ Private Sub ShowStatus(ByVal st As String, ByVal ok As Boolean)
         r.Cells(1, 1).Font.Color = IIf(ok, COL_OK, COL_BAD)
     End If
     On Error Resume Next
-    Set ws = ThisWorkbook.Worksheets(SH_A4)
+    Set ws = HostBook().Worksheets(SH_A4)
     Set shp = Nothing
     Set shp = ws.Shapes("a4status")
     If Not shp Is Nothing Then

@@ -1127,10 +1127,10 @@ End Sub
 Public Function ScratchSheet(ByVal sheetName As String) As Object
     Dim ws As Object
     On Error Resume Next
-    Set ws = ThisWorkbook.Worksheets(sheetName)
+    Set ws = HostBook().Worksheets(sheetName)
     On Error GoTo 0
     If ws Is Nothing Then
-        Set ws = ThisWorkbook.Worksheets.Add(, ThisWorkbook.Worksheets(ThisWorkbook.Worksheets.Count))
+        Set ws = HostBook().Worksheets.Add(, HostBook().Worksheets(HostBook().Worksheets.Count))
         ws.Name = sheetName
         ws.Visible = XL_SHEET_HIDDEN
     End If
@@ -1205,17 +1205,135 @@ Public Function MeasureW(ByVal txt As String, ByVal fontName As String, ByVal si
 End Function
 
 ' ---------------------------------------------------------------------------
+' Workbook and file dialogs (Hancell has no GetOpenFilename / GetSaveAsFilename)
+' ---------------------------------------------------------------------------
+Private mWB As Object
+Private mWBok As Boolean
+
+' the workbook holding these macros (ThisWorkbook; the active workbook where that is missing)
+Public Function HostBook() As Object
+    Dim w As Object
+    If Not mWBok Then
+        On Error Resume Next
+        Set w = Nothing
+        Set w = ThisWorkbook
+        If w Is Nothing Then Set w = ActiveWorkbook
+        If w Is Nothing Then Set w = Application.ActiveWorkbook
+        On Error GoTo 0
+        If Not w Is Nothing Then
+            Set mWB = w
+            mWBok = True
+        End If
+        Set HostBook = w
+        Exit Function
+    End If
+    Set HostBook = mWB
+End Function
+
+' files to open: the spreadsheet dialog, the Office dialog, or a typed path. Empty when cancelled
+Public Function PickFiles(ByVal title As String, ByVal filterText As String, ByVal multi As Boolean) As Variant
+    Dim f As Variant, fd As Object, i As Long, out() As String, s As String, parts As Variant, n As Long, shown As Long
+    PickFiles = Empty
+    On Error Resume Next
+    Err.Clear
+    f = Application.GetOpenFilename(filterText, 1, title, , multi)
+    If Err.Number = 0 Then
+        On Error GoTo 0
+        If IsArray(f) Then
+            PickFiles = f
+        ElseIf VarType(f) = vbString Then
+            If f <> "" And LCase$(f) <> "false" Then PickFiles = Array(f)
+        End If
+        Exit Function
+    End If
+    Err.Clear
+    Set fd = Nothing
+    Set fd = Application.FileDialog(3)
+    If Not fd Is Nothing Then
+        fd.Title = title
+        fd.AllowMultiSelect = multi
+        Err.Clear
+        shown = fd.Show
+        If Err.Number = 0 Then
+            If shown = -1 Then
+                n = fd.SelectedItems.Count
+                If n > 0 Then
+                    ReDim out(0 To n - 1)
+                    For i = 1 To n
+                        out(i - 1) = fd.SelectedItems(i)
+                    Next
+                    PickFiles = out
+                End If
+            End If
+            On Error GoTo 0
+            Exit Function
+        End If
+    End If
+    Err.Clear
+    On Error GoTo 0
+    s = Ask(title & vbLf & vbLf & "파일 고르기 창을 열 수 없어 파일 경로를 직접 받습니다." & vbLf & _
+        "파일 탐색기에서 파일을 Shift+오른쪽 단추 → '경로로 복사'한 뒤 여기에 붙여넣으세요. 여러 개는 ; 로 나눕니다.", "")
+    s = Replace(s, """", "")
+    If TrimX(s) = "" Then Exit Function
+    parts = Split(s, ";")
+    ReDim out(0 To UBound(parts))
+    n = 0
+    For i = 0 To UBound(parts)
+        If TrimX(CStr(parts(i))) <> "" Then
+            out(n) = TrimX(CStr(parts(i)))
+            n = n + 1
+        End If
+    Next
+    If n = 0 Then Exit Function
+    ReDim Preserve out(0 To n - 1)
+    PickFiles = out
+End Function
+
+' path to save to ("" when cancelled)
+Public Function PickSavePath(ByVal defaultName As String, ByVal filterText As String) As String
+    Dim f As Variant, fd As Object, shown As Long, folder As String
+    On Error Resume Next
+    Err.Clear
+    f = Application.GetSaveAsFilename(defaultName, filterText)
+    If Err.Number = 0 Then
+        On Error GoTo 0
+        If VarType(f) = vbString Then
+            If f <> "" And LCase$(f) <> "false" Then PickSavePath = f
+        End If
+        Exit Function
+    End If
+    Err.Clear
+    Set fd = Nothing
+    Set fd = Application.FileDialog(2)
+    If Not fd Is Nothing Then
+        fd.InitialFileName = defaultName
+        Err.Clear
+        shown = fd.Show
+        If Err.Number = 0 Then
+            If shown = -1 Then PickSavePath = fd.SelectedItems(1)
+            On Error GoTo 0
+            Exit Function
+        End If
+    End If
+    Err.Clear
+    folder = HostBook().Path
+    On Error GoTo 0
+    If folder <> "" Then folder = folder & "\"
+    PickSavePath = TrimX(Replace(Ask("저장할 파일의 전체 경로를 쓰세요.", folder & defaultName), """", ""))
+End Function
+
+' ---------------------------------------------------------------------------
 ' Workbook helpers
 ' ---------------------------------------------------------------------------
 Public Function SheetByName(ByVal nm As String) As Object
     On Error Resume Next
-    Set SheetByName = ThisWorkbook.Worksheets(nm)
+    Set SheetByName = HostBook().Worksheets(nm)
     On Error GoTo 0
 End Function
 
 Public Function NameRange(ByVal nm As String) As Object
     On Error Resume Next
-    Set NameRange = ThisWorkbook.Names(nm).RefersToRange
+    Set NameRange = HostBook().Names(nm).RefersToRange
     On Error GoTo 0
 End Function
 
@@ -1286,9 +1404,9 @@ End Sub
 
 Public Sub DefName(ByVal nm As String, ByVal ws As Object, ByVal addr As String)
     On Error Resume Next
-    ThisWorkbook.Names(nm).Delete
+    HostBook().Names(nm).Delete
     On Error GoTo 0
-    ThisWorkbook.Names.Add nm, "='" & ws.Name & "'!" & addr
+    HostBook().Names.Add nm, "='" & ws.Name & "'!" & addr
 End Sub
 
 Public Function AddButton(ByVal ws As Object, ByVal x As Double, ByVal y As Double, ByVal w As Double, ByVal h As Double, _

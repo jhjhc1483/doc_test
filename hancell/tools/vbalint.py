@@ -45,9 +45,20 @@ def params(sig):
     return out
 
 
+def proc_names(files):
+    names = {}
+    for fn in files:
+        for ln in open(fn, encoding='utf-8').read().split('\n'):
+            m = PROC.match(strip_strings(ln))
+            if m:
+                names[m.group(3).lower()] = m.group(3)
+    return names
+
+
 def lint(files):
     errors = []
     public = {}
+    procs = proc_names(files)
     for fn in files:
         lines = open(fn, encoding='utf-8').read().replace('\r\n', '\n').split('\n')
         # join continuation lines
@@ -80,6 +91,8 @@ def lint(files):
                         errors.append('%s:%d: Public "%s" 가 %s 에도 있습니다' % (fn, ln, proc, public[key][0]))
                     public[key] = (fn, proc)
                 for p in params(pm.group(4)):
+                    if p.lower() in procs and p.lower() != proc.lower():
+                        errors.append('%s:%d: 인자 "%s" 가 프로시저 "%s" 를 가립니다(대소문자 무시)' % (fn, ln, p, procs[p.lower()]))
                     if p.lower() in local:
                         errors.append('%s:%d: 인자 "%s" 가 겹칩니다' % (fn, ln, p))
                     if p.lower() in RESERVED:
@@ -114,6 +127,8 @@ def lint(files):
                             errors.append('%s:%d: "%s" 가 "%s" 와 겹칩니다(대소문자 무시)' % (fn, ln, nm, local[k]))
                         if k == proc.lower():
                             errors.append('%s:%d: 변수 "%s" 가 프로시저 이름과 같습니다' % (fn, ln, nm))
+                        elif k in procs:
+                            errors.append('%s:%d: 변수 "%s" 가 프로시저 "%s" 를 가립니다(대소문자 무시)' % (fn, ln, nm, procs[k]))
                         local[k] = nm
                         if kw == 'dim' and depth > 0:
                             errors.append('%s:%d: 블록 안의 Dim "%s" — 프로시저 맨 위로 옮기세요' % (fn, ln, nm))
