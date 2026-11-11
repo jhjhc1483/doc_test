@@ -6,46 +6,77 @@
 '   2. 매크로 편집기(도구 → 매크로 → 스크립트/VBA 편집기)에서 모듈을 하나 만들고
 '      이 파일 내용을 전부 붙여넣습니다.
 '   3. HancellCheck 를 실행합니다. ("점검을 시작합니다" 창이 떠야 합니다)
-'   4. 끝나면 '점검' 시트가 생깁니다. 실패한 줄을 알려 주시거나 그 시트를 캡처해 주세요.
+'   4. 끝나면 결과 창이 몇 개 뜹니다(결과는 '점검' 시트에도 적힙니다). 창이나 시트를 캡처해 주세요.
 '   5. (선택) 점검 시트에 생긴 [단추 점검] 단추를 눌러 보고, HancellFileTest 도 실행해 보세요.
 '
 ' 일부러 한셀과 엑셀이 모두 읽는 문법만 썼습니다 (변수 형식·$ 함수·IIf 없음).
 ' ===========================================================================
 
 Sub HancellCheck()
-    Dim wb, ws, tmp, r, okN, fails, v, t, n, b, d, i
-    MsgBox "점검을 시작합니다"
+    Dim wb, ws, tmp, r, okN, fails, logS, v, t, n, b, d, i
+    MsgBox "점검을 시작합니다 (2판)"
+    On Error Resume Next
     okN = 0
     fails = ""
+    logS = ""
     r = 1
     Set ws = Nothing
-    On Error Resume Next
+    Set wb = Nothing
 
     Err.Clear
     t = Application.Name & " " & Application.Version
-    RecLine ws, r, "01 Application.Name/Version", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "01 Application.Name/Version", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     Set wb = ActiveWorkbook
-    t = wb.Name
-    RecLine ws, r, "02 ActiveWorkbook", Err.Number, Err.Description, t, okN, fails
-
+    RecLine ws, r, "02 ActiveWorkbook", Err.Number, Err.Description, TypeName(wb), okN, fails, logS
+    If wb Is Nothing Then
+        Err.Clear
+        Set wb = Application.ActiveWorkbook
+        RecLine ws, r, "02b Application.ActiveWorkbook", Err.Number, Err.Description, TypeName(wb), okN, fails, logS
+    End If
     Err.Clear
-    t = ThisWorkbook.Name
-    RecLine ws, r, "03 ThisWorkbook", Err.Number, Err.Description, t, okN, fails
+    Set d = Nothing
+    Set d = ThisWorkbook
+    RecLine ws, r, "03 ThisWorkbook", Err.Number, Err.Description, TypeName(d), okN, fails, logS
+    If wb Is Nothing Then Set wb = d
+    If wb Is Nothing Then
+        Err.Clear
+        Set wb = Application.Workbooks(1)
+        RecLine ws, r, "03b Workbooks(1)", Err.Number, Err.Description, TypeName(wb), okN, fails, logS
+    End If
 
     Err.Clear
     t = wb.Worksheets.Count
-    RecLine ws, r, "04 Worksheets.Count", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "04 Worksheets.Count", Err.Number, Err.Description, t, okN, fails, logS
+
+    Err.Clear
+    Set d = Nothing
+    Set d = ActiveSheet
+    RecLine ws, r, "04b ActiveSheet", Err.Number, Err.Description, TypeName(d), okN, fails, logS
 
     Err.Clear
     Set tmp = Nothing
     Set tmp = wb.Worksheets.Add(, wb.Worksheets(wb.Worksheets.Count))
-    RecLine ws, r, "05 Worksheets.Add(, 뒤)", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "05 Worksheets.Add(, 뒤)", Err.Number, Err.Description, TypeName(tmp), okN, fails, logS
     If tmp Is Nothing Then
         Err.Clear
         Set tmp = wb.Worksheets.Add()
-        RecLine ws, r, "05b Worksheets.Add()", Err.Number, Err.Description, "", okN, fails
+        RecLine ws, r, "05b Worksheets.Add()", Err.Number, Err.Description, TypeName(tmp), okN, fails, logS
+    End If
+    If tmp Is Nothing Then
+        Err.Clear
+        Set tmp = wb.Sheets.Add()
+        RecLine ws, r, "05c Sheets.Add()", Err.Number, Err.Description, TypeName(tmp), okN, fails, logS
+    End If
+    If tmp Is Nothing Then
+        Err.Clear
+        Set tmp = Worksheets.Add()
+        RecLine ws, r, "05d Worksheets.Add() (앞에 아무것도 없이)", Err.Number, Err.Description, TypeName(tmp), okN, fails, logS
+    End If
+    If tmp Is Nothing Then
+        Set tmp = ActiveSheet
+        RecLine ws, r, "05e 새 시트를 못 만들어 지금 시트에 씀", 1, "", "", okN, fails, logS
     End If
 
     Err.Clear
@@ -58,18 +89,20 @@ Sub HancellCheck()
     Next
     Err.Clear
     tmp.Name = n
-    RecLine ws, r, "06 시트 이름 바꾸기", Err.Number, Err.Description, tmp.Name, okN, fails
+    RecLine ws, r, "06 시트 이름 바꾸기", Err.Number, Err.Description, tmp.Name, okN, fails, logS
     Set ws = tmp
+    Err.Clear
     ws.Cells(1, 1).Value = "항목"
     ws.Cells(1, 2).Value = "결과"
     ws.Columns(1).ColumnWidth = 34
     ws.Columns(2).ColumnWidth = 70
+    RecLine ws, r, "06b 결과 적을 시트 준비", Err.Number, Err.Description, TypeName(ws), okN, fails, logS
 
     Err.Clear
     ws.Range("D1").Value = "가나다"
     ws.Cells(2, 4).Value = 123
     t = ws.Range("D1").Value & "/" & ws.Cells(2, 4).Value
-    RecLine ws, r, "07 Range/Cells 값 쓰기·읽기", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "07 Range/Cells 값 쓰기·읽기", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     ws.Range("D3").Font.Bold = True
@@ -77,41 +110,41 @@ Sub HancellCheck()
     ws.Range("D3").Font.Name = "맑은 고딕"
     ws.Range("D3").Font.Color = RGB(196, 0, 0)
     ws.Range("D3").Value = "글꼴"
-    RecLine ws, r, "08 Font (Bold/Size/Name/Color)", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "08 Font (Bold/Size/Name/Color)", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     ws.Range("D4").Interior.Color = RGB(255, 235, 90)
-    RecLine ws, r, "09 Interior.Color (칸 채우기)", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "09 Interior.Color (칸 채우기)", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     ws.Range("D5").Borders(9).LineStyle = 1
     ws.Range("D5").Borders(9).Weight = -4138
     ws.Range("D5").Borders(9).Color = RGB(0, 0, 0)
-    RecLine ws, r, "10 Borders(아래) 선", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "10 Borders(아래) 선", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     ws.Range("D6:E6").Borders.LineStyle = 1
     ws.Range("D7").Borders(8).LineStyle = -4118
-    RecLine ws, r, "11 Borders 전체·점선", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "11 Borders 전체·점선", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     ws.Range("D10:F12").Merge
     t = ws.Range("D10").MergeCells
-    RecLine ws, r, "12 Merge (병합)", Err.Number, Err.Description, "MergeCells=" & t, okN, fails
+    RecLine ws, r, "12 Merge (병합)", Err.Number, Err.Description, "MergeCells=" & t, okN, fails, logS
 
     Err.Clear
     ws.Columns(7).ColumnWidth = 20
     t = ws.Columns(7).Width
     ws.Columns(8).ColumnWidth = 0.5
     t = t & " / 0.5폭=" & ws.Columns(8).Width
-    RecLine ws, r, "13 ColumnWidth → Width(pt)", Err.Number, Err.Description, "20폭=" & t, okN, fails
+    RecLine ws, r, "13 ColumnWidth → Width(pt)", Err.Number, Err.Description, "20폭=" & t, okN, fails, logS
 
     Err.Clear
     ws.Rows(20).RowHeight = 3.75
     t = ws.Rows(20).RowHeight
     ws.Rows(21).RowHeight = 0.75
     t = t & " / " & ws.Rows(21).RowHeight
-    RecLine ws, r, "14 RowHeight 작게", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "14 RowHeight 작게", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     ws.Columns(9).ColumnWidth = 10
@@ -119,120 +152,120 @@ Sub HancellCheck()
     ws.Cells(22, 9).Value = "줄이 여러 번 바뀌도록 길게 쓴 글입니다. 자동 맞춤이 되면 줄 높이가 커집니다."
     ws.Rows(22).AutoFit
     t = ws.Rows(22).RowHeight
-    RecLine ws, r, "15 Rows.AutoFit (글 높이 재기)", Err.Number, Err.Description, "높이=" & t & " (15보다 커야 정상)", okN, fails
+    RecLine ws, r, "15 Rows.AutoFit (글 높이 재기)", Err.Number, Err.Description, "높이=" & t & " (15보다 커야 정상)", okN, fails, logS
 
     Err.Clear
     ws.Cells(23, 10).Value = "열 너비 자동 맞춤 시험 글"
     ws.Columns(10).AutoFit
     t = ws.Columns(10).Width
-    RecLine ws, r, "16 Columns.AutoFit (글 폭 재기)", Err.Number, Err.Description, "폭=" & t, okN, fails
+    RecLine ws, r, "16 Columns.AutoFit (글 폭 재기)", Err.Number, Err.Description, "폭=" & t, okN, fails, logS
 
     Err.Clear
     ws.Range("D24").Value = "09:00 회의"
     ws.Range("D24").Characters(1, 5).Font.Bold = True
     ws.Range("D24").Characters(7, 2).Font.Color = RGB(196, 0, 0)
-    RecLine ws, r, "17 Characters (칸 안 일부 굵게)", Err.Number, Err.Description, "D24 글자 일부가 굵게 보이면 정상", okN, fails
+    RecLine ws, r, "17 Characters (칸 안 일부 굵게)", Err.Number, Err.Description, "D24 글자 일부가 굵게 보이면 정상", okN, fails, logS
 
     Err.Clear
     ws.Range("D25").NumberFormat = "@"
     ws.Range("D25").Value = "09:00"
     t = TypeName(ws.Range("D25").Value) & " " & ws.Range("D25").Value
-    RecLine ws, r, "18 NumberFormat=@ (텍스트)", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "18 NumberFormat=@ (텍스트)", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     ws.Range("D26").HorizontalAlignment = -4108
     ws.Range("D26").VerticalAlignment = -4160
-    RecLine ws, r, "19 정렬 (가운데·위)", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "19 정렬 (가운데·위)", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     ws.PageSetup.PaperSize = 9
     ws.PageSetup.Orientation = 1
     ws.PageSetup.LeftMargin = 28
     ws.PageSetup.TopMargin = 28
-    RecLine ws, r, "20 PageSetup 용지·여백", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "20 PageSetup 용지·여백", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     ws.PageSetup.Zoom = False
     ws.PageSetup.FitToPagesWide = 1
     ws.PageSetup.FitToPagesTall = 1
-    RecLine ws, r, "21 PageSetup 한 페이지에 맞춤", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "21 PageSetup 한 페이지에 맞춤", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     ws.PageSetup.PrintArea = "$A$1:$F$40"
     ws.PageSetup.CenterHorizontally = True
-    RecLine ws, r, "22 PageSetup 인쇄 영역", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "22 PageSetup 인쇄 영역", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     ws.Hyperlinks.Add ws.Range("D27"), "http://www.hancom.com"
-    RecLine ws, r, "23 Hyperlinks.Add (링크)", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "23 Hyperlinks.Add (링크)", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     ws.Range("D28").AddComment "마우스를 올리면 보이는 메모"
-    RecLine ws, r, "24 AddComment (메모)", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "24 AddComment (메모)", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     wb.Names.Add "hc_test", "='" & ws.Name & "'!$D$1"
     t = wb.Names("hc_test").RefersToRange.Value
-    RecLine ws, r, "25 Names (이름 정의)", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "25 Names (이름 정의)", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     ws.Range("D29").Validation.Add 3, 1, 1, "예,아니오"
-    RecLine ws, r, "26 Validation 목록", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "26 Validation 목록", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     Set b = Nothing
     Set b = ws.Buttons.Add(420, 60, 110, 26)
     b.Caption = "단추 점검"
     b.OnAction = "HancellCheckClick"
-    RecLine ws, r, "27 Buttons.Add + OnAction", Err.Number, Err.Description, "생긴 단추를 눌러 보세요", okN, fails
+    RecLine ws, r, "27 Buttons.Add + OnAction", Err.Number, Err.Description, "생긴 단추를 눌러 보세요", okN, fails, logS
 
     Err.Clear
     Set b = Nothing
     Set b = ws.Shapes.AddShape(5, 420, 100, 110, 26)
     b.TextFrame.Characters.Text = "도형 단추 점검"
     b.OnAction = "HancellCheckClick"
-    RecLine ws, r, "28 Shapes.AddShape + OnAction", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "28 Shapes.AddShape + OnAction", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     Set b = Nothing
     Set b = ws.Shapes.AddTextbox(1, 420, 140, 160, 30)
     b.TextFrame.Characters.Text = "글상자"
-    RecLine ws, r, "29 Shapes.AddTextbox", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "29 Shapes.AddTextbox", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     Application.ScreenUpdating = False
     Application.ScreenUpdating = True
-    RecLine ws, r, "30 ScreenUpdating", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "30 ScreenUpdating", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     Application.DisplayAlerts = False
     Application.DisplayAlerts = True
-    RecLine ws, r, "31 DisplayAlerts", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "31 DisplayAlerts", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     Set d = CreateObject("Scripting.Dictionary")
     d.Add "a", 1
     t = d.Count
-    RecLine ws, r, "32 Scripting.Dictionary", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "32 Scripting.Dictionary", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     v = Split("가|나|다", "|")
     t = Join(v, ",") & " " & InStrRev("a@b@c", "@") & " " & ChrW(44032) & AscW("가") & " " & Round(2.567, 1) & " " & Weekday(DateSerial(2026, 11, 11))
-    RecLine ws, r, "33 문자열·날짜 함수", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "33 문자열·날짜 함수", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     t = FormatNumber(1234.5, 1)
-    RecLine ws, r, "34 FormatNumber", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "34 FormatNumber", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     ws.Range("D40:F40").Value = Array("가", "나", "다")
     v = ws.Range("D40:F40").Value
     t = IsArray(v) & " " & UBound(v, 2)
-    RecLine ws, r, "35 범위에 배열로 쓰기·읽기", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "35 범위에 배열로 쓰기·읽기", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     t = ws.UsedRange.Row & "," & ws.UsedRange.Rows.Count & "," & ws.UsedRange.Columns.Count
-    RecLine ws, r, "36 UsedRange", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "36 UsedRange", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     Set tmp = Nothing
@@ -242,33 +275,50 @@ Sub HancellCheck()
     Application.DisplayAlerts = False
     tmp.Delete
     Application.DisplayAlerts = True
-    RecLine ws, r, "37 시트 숨기기·지우기", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "37 시트 숨기기·지우기", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     ws.Activate
     ActiveWindow.DisplayGridlines = False
-    RecLine ws, r, "38 ActiveWindow 눈금선 끄기", Err.Number, Err.Description, "", okN, fails
+    RecLine ws, r, "38 ActiveWindow 눈금선 끄기", Err.Number, Err.Description, "", okN, fails, logS
 
     Err.Clear
     ws.Range("D41").Select
     t = TypeName(Selection) & " " & Selection.Address
-    RecLine ws, r, "39 Selection", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "39 Selection", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     t = Application.Workbooks.Count
-    RecLine ws, r, "40 Workbooks.Count", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "40 Workbooks.Count", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     t = InputBox("InputBox 점검: 아무 글자나 쓰고 확인을 누르세요", "점검", "가나다")
-    RecLine ws, r, "41 InputBox", Err.Number, Err.Description, t, okN, fails
+    RecLine ws, r, "41 InputBox", Err.Number, Err.Description, t, okN, fails, logS
 
     Err.Clear
     ws.Columns(1).AutoFit
-    On Error GoTo 0
-    MsgBox "점검 끝 — 성공 " & okN & "개" & vbLf & "실패: " & fails & vbLf & vbLf & "'" & ws.Name & "' 시트에 자세한 결과가 있습니다."
+    ShowLog logS, okN, fails
 End Sub
 
-Sub RecLine(ws, r, nm, errNo, errDesc, extra, okN, fails)
+Sub ShowLog(logS, okN, fails)
+    Dim parts, i, chunk, k, total
+    On Error Resume Next
+    parts = Split(logS, vbLf)
+    total = 0
+    chunk = ""
+    k = 1
+    For i = 0 To UBound(parts)
+        If Len(chunk) + Len(parts(i)) > 850 Then
+            MsgBox chunk, 0, "점검 결과 " & k
+            chunk = ""
+            k = k + 1
+        End If
+        If parts(i) <> "" Then chunk = chunk & parts(i) & vbLf
+    Next
+    MsgBox chunk & vbLf & "성공 " & okN & "개 / 실패: " & fails, 0, "점검 결과 " & k & " (끝)"
+End Sub
+
+Sub RecLine(ws, r, nm, errNo, errDesc, extra, okN, fails, logS)
     Dim res
     On Error Resume Next
     If errNo = 0 Then
@@ -276,14 +326,19 @@ Sub RecLine(ws, r, nm, errNo, errDesc, extra, okN, fails)
         okN = okN + 1
     Else
         res = "실패 " & errNo & ": " & errDesc
-        fails = fails & Left(nm, 2) & " "
+        fails = fails & Left(nm, 3) & " "
     End If
     If Len(extra & "") > 0 Then res = res & "  [" & extra & "]"
+    logS = logS & nm & " — " & res & vbLf
     r = r + 1
     If Not ws Is Nothing Then
         ws.Cells(r, 1).Value = nm
         ws.Cells(r, 2).Value = res
         If errNo <> 0 Then ws.Cells(r, 2).Font.Color = RGB(196, 0, 0)
+    Else
+        ' 결과 시트가 아직 없으면 지금 보이는 시트의 K·L열에 적음 (중간에 멈춰도 남도록)
+        ActiveSheet.Cells(r, 11).Value = nm
+        ActiveSheet.Cells(r, 12).Value = res
     End If
 End Sub
 
@@ -293,26 +348,46 @@ End Sub
 
 ' (선택) 파일 고르기와 다른 파일 열기 점검
 Sub HancellFileTest()
-    Dim f, wb2, t
+    Dim f, wb2, t, fd, how
     On Error Resume Next
+    how = ""
+    Err.Clear
     f = Application.GetOpenFilename("엑셀 파일 (*.xlsx),*.xlsx")
-    If Err.Number <> 0 Then
-        MsgBox "GetOpenFilename 실패: " & Err.Description
-        Exit Sub
+    If Err.Number = 0 And VarType(f) = 8 Then
+        how = "GetOpenFilename"
+    Else
+        t = "GetOpenFilename: " & Err.Number & " " & Err.Description
+        Err.Clear
+        Set fd = Nothing
+        Set fd = Application.FileDialog(3)
+        If Not fd Is Nothing Then
+            fd.AllowMultiSelect = False
+            If fd.Show = -1 Then
+                f = fd.SelectedItems(1)
+                how = "FileDialog"
+            End If
+        End If
+        If how = "" Then
+            t = t & vbLf & "FileDialog: " & Err.Number & " " & Err.Description
+            Err.Clear
+            f = InputBox("파일 고르기 창을 쓸 수 없습니다." & vbLf & "열어 볼 .xlsx 파일의 전체 경로를 쓰세요 (예: C:\Users\...\양식.xlsx)", "파일 경로")
+            If f = "" Then
+                MsgBox t & vbLf & "(경로를 쓰지 않아 끝냅니다)"
+                Exit Sub
+            End If
+            how = "경로 입력"
+        End If
     End If
-    If VarType(f) = 11 Then
-        MsgBox "파일을 고르지 않았습니다"
-        Exit Sub
-    End If
+    Err.Clear
     Set wb2 = Nothing
     Set wb2 = Application.Workbooks.Open(f, 0, True)
     If wb2 Is Nothing Then
-        MsgBox "Workbooks.Open 실패: " & Err.Description
+        MsgBox "파일 고르기: " & how & vbLf & "Workbooks.Open 실패: " & Err.Number & " " & Err.Description & vbLf & t
         Exit Sub
     End If
     t = wb2.Worksheets.Count & "개 시트, 첫 시트 " & wb2.Worksheets(1).Name & ", A1=" & wb2.Worksheets(1).Cells(1, 1).Value
     wb2.Close False
-    MsgBox "다른 파일 읽기 성공: " & t & vbLf & "(오류: " & Err.Number & " " & Err.Description & ")"
+    MsgBox "파일 고르기: " & how & vbLf & "다른 파일 읽기 성공: " & t & vbLf & "(오류: " & Err.Number & " " & Err.Description & ")"
 End Sub
 
 ' ---------------------------------------------------------------------------
