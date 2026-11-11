@@ -1,0 +1,698 @@
+' 임원 일일 예정사항 - 모듈 1 / 7
+' 한셀 매크로 편집기에 이 파일 전체를 붙여넣고, 맨 아래 Check1 를 실행해 확인하세요.
+' (원본: hancell/src, 만드는 도구: hancell/tools/build.py)
+Option Explicit
+
+Public gQuiet As Boolean
+Public gStep As String
+Public gTrace As String
+Public gAnnounce As Boolean
+Public gDbg As String
+Public gScreenOff As Boolean
+Public gHostLO As Boolean
+Public cN As Long
+Public cE() As Long, cH() As Long, cM() As Long, cPm() As Long
+Public rbTxt As String
+Public rbRunStr As String
+Public rbMark As Boolean
+Public elN As Long, elCap As Long
+Public elK() As Long
+Public elX() As Double
+Public elY() As Double
+Public elW() As Double
+Public elH() As Double
+Public elTxt() As String
+Public elRun() As String
+Public elSize() As Double
+Public elBold() As Boolean
+Public elHal() As Long
+Public elAlV() As Long
+Public elWrap() As Boolean
+Public elFillC() As Long
+Public elColor() As Long
+Public elLinkT() As String
+Public elNoteT() As String
+Public elBOn() As Boolean
+Public elBSt() As Long
+Public elBWt() As Long
+Public elBCol() As Long
+Public msWs As Object
+Public msK As Double
+Public msW1 As Double, msW2 As Double
+Public hHead() As Long, hNext() As Long, hKey() As String, hVal() As Double, hN As Long
+Public mWB As Object
+Public mWBok As Boolean
+Public gLandscape As Boolean, gMargin As Double, gFont As String
+Public gC1(1 To 3) As Double, gC2(1 To 2) As Double, gC3(1 To 2) As Double
+Public gRowsSet As Boolean, gRows(1 To 3) As Double, gSplit As Double
+Public gMaxF As Double, gMinF As Double
+Public gShowTables As Boolean, gShowSecret As Boolean, gSecretText As String, gEmptyText As String
+Public gTitle As String, gDate As String, gSub As String, gFoot As String
+Public gW As Double, gH As Double, gGap As Double
+Public exWs(1 To 8) As Object
+Public exPos(1 To 8) As String, exName(1 To 8) As String
+Public exItems(1 To 8) As String, exRefs(1 To 8) As String
+Public tbLabel(1 To 4) As String
+Public tbHead(1 To 4, 1 To 5) As String, tbText(1 To 4, 1 To 5) As String
+Public gFS As Double, gU As Double
+Public gN As Long
+Public gLabel() As String, gTitleG() As String, gSource() As String, gHasExec() As Boolean, gHasRoles() As Boolean
+Public gTarget() As Long, gRowsC() As String, gRoles() As Variant, gLabels() As Variant
+
+Public Function CodeOf(ByVal ch As String) As Long
+    If Len(ch) = 0 Then
+        CodeOf = -1
+        Exit Function
+    End If
+    CodeOf = AscW(Left$(ch, 1))
+    If CodeOf < 0 Then CodeOf = CodeOf + 65536
+End Function
+
+Public Function IsWsCode(ByVal c As Long) As Boolean
+    IsWsCode = (c = 32 Or c = 9 Or c = 10 Or c = 13 Or c = 11 Or c = 12 Or c = 160 Or c = 12288 Or c = 65279 Or c = 8203)
+End Function
+
+Public Function IsWs(ByVal ch As String) As Boolean
+    IsWs = IsWsCode(CodeOf(ch))
+End Function
+
+Public Function IsDigitAt(ByVal s As String, ByVal p As Long) As Boolean
+    Dim c As Long
+    If p < 1 Or p > Len(s) Then Exit Function
+    c = CodeOf(Mid$(s, p, 1))
+    IsDigitAt = (c >= 48 And c <= 57)
+End Function
+
+Public Function IsHangulAt(ByVal s As String, ByVal p As Long) As Boolean
+    Dim c As Long
+    If p < 1 Or p > Len(s) Then Exit Function
+    c = CodeOf(Mid$(s, p, 1))
+    IsHangulAt = (c >= 44032 And c <= 55203)
+End Function
+
+Public Function IsWideCode(ByVal c As Long) As Boolean
+    IsWideCode = (c >= 4352 And c <= 4607) Or (c >= 12288 And c <= 12351) Or (c >= 12592 And c <= 12687) Or (c >= 19968 And c <= 40959) Or (c >= 44032 And c <= 55215) Or (c >= 65280 And c <= 65519)
+End Function
+
+Public Function TextWidthEm(ByVal s As String) As Double
+    Dim i As Long, w As Double
+    For i = 1 To Len(s)
+        If IsWideCode(CodeOf(Mid$(s, i, 1))) Then
+            w = w + 1
+        Else
+            w = w + 0.58
+        End If
+    Next
+    TextWidthEm = w
+End Function
+
+Public Function SkipWs(ByVal s As String, ByVal p As Long) As Long
+    Do While p <= Len(s)
+        If Not IsWs(Mid$(s, p, 1)) Then Exit Do
+        p = p + 1
+    Loop
+    SkipWs = p
+End Function
+
+Public Function TrimX(ByVal s As String) As String
+    Dim a As Long, b As Long
+    a = 1
+    b = Len(s)
+    Do While a <= b
+        If Not IsWs(Mid$(s, a, 1)) Then Exit Do
+        a = a + 1
+    Loop
+    Do While b >= a
+        If Not IsWs(Mid$(s, b, 1)) Then Exit Do
+        b = b - 1
+    Loop
+    If b >= a Then
+        TrimX = Mid$(s, a, b - a + 1)
+    Else
+        TrimX = ""
+    End If
+End Function
+
+Public Function RTrimX(ByVal s As String) As String
+    Dim b As Long
+    b = Len(s)
+    Do While b >= 1
+        If Not IsWs(Mid$(s, b, 1)) Then Exit Do
+        b = b - 1
+    Loop
+    RTrimX = Left$(s, b)
+End Function
+
+Public Function NormNL(ByVal s As String) As String
+    s = Replace(s, vbCrLf, vbLf)
+    NormNL = Replace(s, vbCr, vbLf)
+End Function
+
+Public Function TabsToSpace(ByVal s As String) As String
+    Do While InStr(s, vbTab & vbTab) > 0
+        s = Replace(s, vbTab & vbTab, vbTab)
+    Loop
+    TabsToSpace = Replace(s, vbTab, " ")
+End Function
+
+Public Function CollapseWs(ByVal s As String) As String
+    Dim i As Long, out As String, prevWs As Boolean, ch As String
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        If IsWs(ch) Then
+            If Not prevWs Then out = out & " "
+            prevWs = True
+        Else
+            out = out & ch
+            prevWs = False
+        End If
+    Next
+    CollapseWs = out
+End Function
+
+Public Function StartsWith(ByVal s As String, ByVal pre As String) As Boolean
+    StartsWith = (Left$(s, Len(pre)) = pre)
+End Function
+
+Public Function FirstIn(ByVal s As String, ByVal chars As String) As Boolean
+    If Len(s) = 0 Then Exit Function
+    FirstIn = (InStr(chars, Left$(s, 1)) > 0)
+End Function
+
+Public Function StripLead(ByVal s As String, ByVal chars As String) As String
+    Do While Len(s) > 0
+        If InStr(chars, Left$(s, 1)) = 0 Then Exit Do
+        s = Mid$(s, 2)
+    Loop
+    StripLead = TrimX(s)
+End Function
+
+Public Function RemoveParens(ByVal s As String) As String
+    Dim a As Long, b As Long
+    Do
+        a = InStr(s, "(")
+        If a = 0 Then Exit Do
+        b = InStr(a + 1, s, ")")
+        If b = 0 Then Exit Do
+        s = Left$(s, a - 1) & Mid$(s, b + 1)
+    Loop
+    RemoveParens = s
+End Function
+
+Public Function RemoveChars(ByVal s As String, ByVal chars As String, Optional ByVal stripWs As Boolean = True) As String
+    Dim i As Long, ch As String, out As String
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        If InStr(chars, ch) = 0 Then
+            If Not (stripWs And IsWs(ch)) Then out = out & ch
+        End If
+    Next
+    RemoveChars = out
+End Function
+
+Public Function SplitLines(ByVal s As String) As Variant
+    SplitLines = Split(NormNL(s), vbLf)
+End Function
+
+Public Function Clamp(ByVal v As Double, ByVal a As Double, ByVal b As Double) As Double
+    If v < a Then v = a
+    If v > b Then v = b
+    Clamp = v
+End Function
+
+Public Function MaxD(ByVal a As Double, ByVal b As Double) As Double
+    If a > b Then
+        MaxD = a
+    Else
+        MaxD = b
+    End If
+End Function
+
+Public Function MinD(ByVal a As Double, ByVal b As Double) As Double
+    If a < b Then
+        MinD = a
+    Else
+        MinD = b
+    End If
+End Function
+
+Public Function R5(ByVal v As Double) As Double
+    R5 = Int(v * 2 + 0.5) / 2
+End Function
+
+Public Function NumStr(ByVal v As Double, Optional ByVal digits As Long = 1) As String
+    Dim s As String
+    s = CStr(Round(v, digits))
+    NumStr = Replace(s, ",", ".")
+End Function
+
+Public Sub StepTo(ByVal s As String)
+    gStep = s
+    If gAnnounce And Not gQuiet Then
+        If MsgBox("다음 단계: " & s & vbLf & vbLf & "(취소를 누르면 더 묻지 않고 계속합니다)", vbOKCancel, "단계별 실행") = vbCancel Then gAnnounce = False
+    End If
+End Sub
+
+Public Function SepA() As String
+    SepA = ChrW(30)
+End Function
+
+Public Function SepB() As String
+    SepB = ChrW(31)
+End Function
+
+Public Function SepC() As String
+    SepC = ChrW(29)
+End Function
+
+Public Function SepD() As String
+    SepD = ChrW(28)
+End Function
+
+Public Sub LAdd(ByRef lst As String, ByVal item As String)
+    lst = lst & SepA() & item
+End Sub
+
+Public Function LCountS(ByVal lst As String, ByVal sep As String) As Long
+    If lst = "" Then
+        LCountS = 0
+    Else
+        LCountS = Len(lst) - Len(Replace(lst, sep, ""))
+    End If
+End Function
+
+Public Function LCount(ByVal lst As String) As Long
+    LCount = LCountS(lst, SepA())
+End Function
+
+Public Function LItemsS(ByVal lst As String, ByVal sep As String) As Variant
+    LItemsS = Split(Mid$(lst, Len(sep) + 1), sep)
+End Function
+
+Public Function LItems(ByVal lst As String) As Variant
+    LItems = LItemsS(lst, SepA())
+End Function
+
+Public Sub LAddS(ByRef lst As String, ByVal item As String, ByVal sep As String)
+    lst = lst & sep & item
+End Sub
+
+Public Function FindKey(keys() As String, ByVal n As Long, ByVal key As String) As Long
+    Dim i As Long
+    For i = 1 To n
+        If keys(i) = key Then
+            FindKey = i
+            Exit Function
+        End If
+    Next
+End Function
+
+Public Function ArrLen(ByVal a As Variant) As Long
+    On Error Resume Next
+    ArrLen = UBound(a) - LBound(a) + 1
+    If Err.Number <> 0 Then ArrLen = 0
+    Err.Clear
+End Function
+
+Private Sub AddCand(ByVal e As Long, ByVal h As Long, ByVal mi As Long, ByVal pm As Long)
+    cN = cN + 1
+    ReDim Preserve cE(1 To cN)
+    ReDim Preserve cH(1 To cN)
+    ReDim Preserve cM(1 To cN)
+    ReDim Preserve cPm(1 To cN)
+    cE(cN) = e
+    cH(cN) = h
+    cM(cN) = mi
+    cPm(cN) = pm
+End Sub
+
+Private Function IsColonAt(ByVal s As String, ByVal p As Long) As Boolean
+    Dim c As Long
+    If p < 1 Or p > Len(s) Then Exit Function
+    c = CodeOf(Mid$(s, p, 1))
+    IsColonAt = (c = 58 Or c = 65306)
+End Function
+
+Private Function DigitsVal(ByVal s As String, ByVal p As Long, ByVal n As Long) As Long
+    DigitsVal = CLng(Mid$(s, p, n))
+End Function
+
+Private Sub TimeCands(ByVal s As String, ByVal p As Long)
+    Dim q As Long, pm As Long, h As Long, q2 As Long, q3 As Long, q4 As Long, q5 As Long, mi As Long, t As String
+    cN = 0
+    pm = -1
+    q = p
+    t = Mid$(s, q, 2)
+    If t = "오전" Or t = "AM" Or t = "am" Then
+        pm = 0
+    ElseIf t = "오후" Or t = "PM" Or t = "pm" Then
+        pm = 1
+    End If
+    If pm >= 0 Then
+        q = SkipWs(s, q + 2)
+        If Not IsDigitAt(s, q) Then
+            pm = -1
+            q = p
+        End If
+    End If
+    If Not IsDigitAt(s, q) Then Exit Sub
+    h = DigitsVal(s, q, 1)
+    q = q + 1
+    If IsDigitAt(s, q) Then
+        h = h * 10 + DigitsVal(s, q, 1)
+        q = q + 1
+    End If
+    q2 = SkipWs(s, q)
+    If IsColonAt(s, q2) Then
+        q3 = SkipWs(s, q2 + 1)
+        If IsDigitAt(s, q3) And IsDigitAt(s, q3 + 1) Then
+            mi = DigitsVal(s, q3, 2)
+            q3 = q3 + 2
+            q4 = SkipWs(s, q3)
+            If IsColonAt(s, q4) Then
+                q5 = SkipWs(s, q4 + 1)
+                If IsDigitAt(s, q5) And IsDigitAt(s, q5 + 1) Then AddCand q5 + 2, h, mi, pm
+            End If
+            AddCand q3, h, mi, pm
+        End If
+    ElseIf Mid$(s, q2, 1) = "시" Then
+        q3 = q2 + 1
+        q4 = SkipWs(s, q3)
+        If IsDigitAt(s, q4) Then
+            mi = DigitsVal(s, q4, 1)
+            q5 = q4 + 1
+            If IsDigitAt(s, q5) Then
+                mi = mi * 10 + DigitsVal(s, q5, 1)
+                q5 = q5 + 1
+            End If
+            q5 = SkipWs(s, q5)
+            If Mid$(s, q5, 1) = "분" Then
+                If Not IsHangulAt(s, q5 + 1) Then AddCand q5 + 1, h, mi, pm
+            End If
+        End If
+        q4 = SkipWs(s, q3)
+        If Mid$(s, q4, 1) = "반" Then
+            If Not IsHangulAt(s, q4 + 1) Then AddCand q4 + 1, h, 30, pm
+        End If
+        If Not IsHangulAt(s, q3) Then AddCand q3, h, 0, pm
+    End If
+End Sub
+
+Private Function IsSepAt(ByVal s As String, ByVal p As Long) As Boolean
+    Dim c As Long
+    If p < 1 Or p > Len(s) Then Exit Function
+    c = CodeOf(Mid$(s, p, 1))
+    IsSepAt = (c = 126 Or c = 8764 Or c = 65374 Or c = 12316 Or c = 45 Or c = 8211 Or c = 8212)
+End Function
+
+Private Function NormPart(ByVal h As Long, ByVal mi As Long, ByRef pmIO As Long, ByVal pmDefault As Boolean) As String
+    Dim pm As Long
+    pm = pmIO
+    If pm = -1 And pmDefault And h < 12 Then pm = 1
+    If pm = 1 And h < 12 Then h = h + 12
+    If h > 24 Or mi > 59 Then
+        NormPart = ""
+        Exit Function
+    End If
+    pmIO = pm
+    NormPart = Format$(h, "00") & ":" & Format$(mi, "00")
+End Function
+
+Public Function SplitTime(ByVal ln As String, ByRef tm As String, ByRef rest As String) As Boolean
+    Dim nA As Long, ia As Long, ib As Long, nB As Long, q As Long, endPos As Long, hasB As Boolean, found As Boolean
+    Dim aE() As Long, aH() As Long, aM() As Long, aPm() As Long
+    Dim bH As Long, bM As Long, bPm As Long, selH As Long, selM As Long, selPm As Long
+    Dim ta As String, tb As String, r As String, w As String, wordEnd As Long, ws As Variant
+    tm = ""
+    rest = ""
+    TimeCands ln, 1
+    nA = cN
+    If nA > 0 Then
+        ReDim aE(1 To nA)
+        ReDim aH(1 To nA)
+        ReDim aM(1 To nA)
+        ReDim aPm(1 To nA)
+        For ia = 1 To nA
+            aE(ia) = cE(ia)
+            aH(ia) = cH(ia)
+            aM(ia) = cM(ia)
+            aPm(ia) = cPm(ia)
+        Next
+        For ia = 1 To nA
+            q = SkipWs(ln, aE(ia))
+            If IsSepAt(ln, q) Then
+                TimeCands ln, SkipWs(ln, q + 1)
+                nB = cN
+                For ib = 1 To nB
+                    If Not IsDigitAt(ln, cE(ib)) Then
+                        hasB = True
+                        endPos = cE(ib)
+                        bH = cH(ib)
+                        bM = cM(ib)
+                        bPm = cPm(ib)
+                        found = True
+                        Exit For
+                    End If
+                Next
+            End If
+            If Not found Then
+                If Not IsDigitAt(ln, aE(ia)) Then
+                    endPos = aE(ia)
+                    found = True
+                End If
+            End If
+            If found Then
+                selH = aH(ia)
+                selM = aM(ia)
+                selPm = aPm(ia)
+                Exit For
+            End If
+        Next
+    End If
+    If found Then
+        ta = NormPart(selH, selM, selPm, False)
+        If ta <> "" And hasB Then tb = NormPart(bH, bM, bPm, (selPm = 1))
+        If ta <> "" And (Not hasB Or tb <> "") Then
+            tm = ta
+            If hasB Then tm = tm & "~" & tb
+            r = Mid$(ln, SkipWs(ln, endPos))
+            If Len(r) > 0 Then
+                If InStr("-" & ChrW(8211) & ChrW(8212) & ":|,", Left$(r, 1)) > 0 Then r = Mid$(r, 2)
+            End If
+            rest = TrimX(r)
+            SplitTime = True
+            Exit Function
+        End If
+    End If
+    If StartsWith(ln, "하루") Then
+        q = SkipWs(ln, 3)
+        If Mid$(ln, q, 2) = "종일" Then
+            wordEnd = q + 2
+            If q > 3 Then
+                w = "하루 종일"
+            Else
+                w = "하루종일"
+            End If
+        End If
+    End If
+    If wordEnd = 0 Then
+        ws = Array("종일", "오전", "오후", "미정", "수시")
+        For q = 0 To 4
+            If StartsWith(ln, CStr(ws(q))) Then
+                w = CStr(ws(q))
+                wordEnd = 3
+                Exit For
+            End If
+        Next
+    End If
+    If wordEnd > 0 Then
+        If wordEnd > Len(ln) Then
+            tm = w
+            rest = ""
+            SplitTime = True
+        ElseIf IsWs(Mid$(ln, wordEnd, 1)) Then
+            tm = w
+            rest = TrimX(Mid$(ln, wordEnd))
+            SplitTime = True
+        End If
+    End If
+End Function
+
+Public Function IsTimeCell(ByVal v As String) As Boolean
+    Dim tm As String, rest As String
+    If SplitTime(TrimX(v), tm, rest) Then IsTimeCell = (rest = "")
+End Function
+
+Public Function IsoOf(ByVal d As Date) As String
+    IsoOf = Format$(Year(d), "0000") & "-" & Format$(Month(d), "00") & "-" & Format$(Day(d), "00")
+End Function
+
+Public Function IsoToDate(ByVal iso As String) As Date
+    IsoToDate = DateSerial(CLng(Left$(iso, 4)), CLng(Mid$(iso, 6, 2)), CLng(Mid$(iso, 9, 2)))
+End Function
+
+Public Function IsIso(ByVal s As String) As Boolean
+    If Len(s) <> 10 Then Exit Function
+    If Mid$(s, 5, 1) <> "-" Or Mid$(s, 8, 1) <> "-" Then Exit Function
+    IsIso = IsNumeric(Left$(s, 4)) And IsNumeric(Mid$(s, 6, 2)) And IsNumeric(Mid$(s, 9, 2))
+End Function
+
+Public Function WeekK(ByVal d As Date) As String
+    WeekK = Mid$("일월화수목금토", Weekday(d), 1)
+End Function
+
+Public Function FmtDateK(ByVal iso As String) As String
+    If Not IsIso(iso) Then Exit Function
+    Dim d As Date
+    d = IsoToDate(iso)
+    FmtDateK = Year(d) & ". " & Month(d) & ". " & Day(d) & ".(" & WeekK(d) & ")"
+End Function
+
+Private Function ReadNum(ByVal s As String, ByRef p As Long, ByRef cnt As Long) As Long
+    Dim v As Long
+    cnt = 0
+    Do While IsDigitAt(s, p) And cnt < 6
+        v = v * 10 + CLng(Mid$(s, p, 1))
+        p = p + 1
+        cnt = cnt + 1
+    Loop
+    ReadNum = v
+End Function
+
+Private Function SepDate(ByVal s As String, ByVal p As Long, ByVal word As String) As Boolean
+    Dim ch As String
+    ch = Mid$(s, p, 1)
+    SepDate = (ch = "-" Or ch = "." Or ch = "/" Or ch = word)
+End Function
+
+Private Function MkIso(ByVal y As Long, ByVal m As Long, ByVal d As Long) As String
+    If m >= 1 And m <= 12 And d >= 1 And d <= 31 Then MkIso = Format$(y, "0000") & "-" & Format$(m, "00") & "-" & Format$(d, "00")
+End Function
+
+Public Function ParseLooseDate(ByVal v As String, Optional ByVal y0 As Long = 0) As String
+    Dim p As Long, a As Long, b As Long, c As Long, n1 As Long, n2 As Long, n3 As Long
+    v = TrimX(v)
+    If v = "" Then Exit Function
+    If y0 = 0 Then y0 = Year(Date)
+    p = 1
+    n1 = ReadNum(v, p, a)
+    If a = 0 Then Exit Function
+    If a = 4 Then
+        p = SkipWs(v, p)
+        If Not SepDate(v, p, "년") Then Exit Function
+        p = SkipWs(v, p + 1)
+        n2 = ReadNum(v, p, b)
+        If b = 0 Or b > 2 Then Exit Function
+        p = SkipWs(v, p)
+        If Not SepDate(v, p, "월") Then Exit Function
+        p = SkipWs(v, p + 1)
+        n3 = ReadNum(v, p, c)
+        If c = 0 Or c > 2 Then Exit Function
+        ParseLooseDate = MkIso(n1, n2, n3)
+    ElseIf a <= 2 Then
+        p = SkipWs(v, p)
+        If Not SepDate(v, p, "월") Then Exit Function
+        p = SkipWs(v, p + 1)
+        n2 = ReadNum(v, p, b)
+        If b = 0 Or b > 2 Then Exit Function
+        ParseLooseDate = MkIso(y0, n1, n2)
+    End If
+End Function
+
+Public Function DateValueIso(ByVal v As Variant, Optional ByVal y0 As Long = 0) As String
+    If IsEmpty(v) Then Exit Function
+    If VarType(v) = vbDate Then
+        DateValueIso = IsoOf(CDate(v))
+        Exit Function
+    End If
+    If IsNumeric(v) And VarType(v) <> vbString Then
+        If CDbl(v) > 20000 And CDbl(v) < 80000 Then
+            DateValueIso = IsoOf(CDate(CDbl(v)))
+            Exit Function
+        End If
+    End If
+    DateValueIso = ParseLooseDate(CStr(v), y0)
+End Function
+
+Public Function CellText(ByVal v As Variant, Optional ByVal asTime As Boolean = False) As String
+    Dim s As String, d As Double
+    If IsEmpty(v) Or IsNull(v) Then Exit Function
+    If IsError(v) Then Exit Function
+    If VarType(v) = vbDate Then
+        d = CDbl(v)
+        If d < 1 And d >= 0 Then
+            s = Format$(v, "hh:mm")
+        ElseIf d = Int(d) Then
+            s = IsoOf(CDate(v))
+        Else
+            s = IsoOf(CDate(v)) & " " & Format$(v, "hh:mm")
+        End If
+    ElseIf VarType(v) = vbString Then
+        s = CStr(v)
+    ElseIf IsNumeric(v) Then
+        If asTime And CDbl(v) >= 0 And CDbl(v) < 1 Then
+            s = Format$(CDate(CDbl(v)), "hh:mm")
+        Else
+            s = CStr(v)
+            s = Replace(s, ",", ".")
+        End If
+    Else
+        s = CStr(v)
+    End If
+    s = Replace(s, ChrW(160), " ")
+    CellText = TrimX(NormNL(s))
+End Function
+
+Public Sub RBReset()
+    rbTxt = ""
+    rbRunStr = ""
+    rbMark = False
+End Sub
+
+Public Function RBText() As String
+    RBText = rbTxt
+End Function
+
+Public Function RBRuns() As String
+    RBRuns = rbRunStr
+End Function
+
+Public Sub RBAdd(ByVal t As String, Optional ByVal bold As Boolean = False, Optional ByVal under As Boolean = False, Optional ByVal color As Long = -1, Optional ByVal size As Double = 0, Optional ByVal strike As Boolean = False, Optional ByVal italic As Boolean = False)
+    If Len(t) = 0 Then Exit Sub
+    Dim st As Long
+    st = Len(rbTxt) + 1
+    rbTxt = rbTxt & t
+    If bold Or under Or color >= 0 Or size > 0 Or strike Or italic Then
+        If Len(rbRunStr) > 0 Then rbRunStr = rbRunStr & ";"
+        rbRunStr = rbRunStr & st & "," & Len(t) & "," & IIf(bold, 1, 0) & "," & IIf(under, 1, 0) & "," & color & "," & CLng(size * 10) & "," & IIf(strike, 1, 0) & "," & IIf(italic, 1, 0)
+    End If
+End Sub
+
+Public Sub RBFlush(ByVal buf As String, f() As Boolean, ByVal bold As Boolean, ByVal size As Double, ByVal color As Long)
+    If Len(buf) = 0 Then Exit Sub
+    Dim c As Long
+    c = color
+    If f(3) Then c = RGB(196, 0, 0)
+    If f(4) Then rbMark = True
+    RBAdd buf, bold Or f(1) Or f(3), f(2), c, size, f(5)
+End Sub
+
+Public Function ModOk1() As Long
+    ModOk1 = 1
+End Function
+
+Public Sub Check1()
+    Dim n As Long, msg As String
+    msg = "1번 모듈을 읽었습니다 (전체 7개)."
+    On Error Resume Next
+    n = ModOk1()
+    If Err.Number <> 0 Or n <> 1 Then
+        msg = msg & vbLf & "그런데 앞 모듈을 부르지 못했습니다: " & Err.Description
+    Else
+        msg = msg & vbLf & "다음: 2번 파일을 새 모듈에 붙여넣으세요."
+    End If
+    On Error GoTo 0
+    MsgBox msg, 0, "확인"
+End Sub
+
+' ==== 모듈 1 끝 ====

@@ -7,7 +7,6 @@ Option Explicit
 '   * rich text builder (**bold** __under__ !!red!! ==mark== ~~strike~~)
 '   * layout engine: place rectangles in points, then turn them into a cell grid
 '   * text measuring with a hidden scratch sheet (Rows.AutoFit)
-' Strings with Korean text are stored as U("\uXXXX") by tools/build.py.
 ' ===========================================================================
 
 Public Const XL_LEFT As Long = -4131
@@ -38,38 +37,14 @@ Public Const MIN_COL As Double = 4.6     ' narrowest column we create (pt)
 Public gQuiet As Boolean          ' True while building/testing: no message boxes
 Public gStep As String           ' last step (for error messages)
 Public gTrace As String          ' last low-level call (for error messages)
+Public gAnnounce As Boolean      ' True: show every step in a message box (to find a step that stops Hancell)
 Public gDbg As String
+Public gScreenOff As Boolean       ' screen updating switched off by SetScreen
 Public gHostLO As Boolean          ' set only by the LibreOffice test tool
 
 ' ---------------------------------------------------------------------------
 ' Unicode strings
 ' ---------------------------------------------------------------------------
-Public Function U(ByVal s As String) As String
-    Dim i As Long, p As Long, n As Long, out As String
-    n = Len(s)
-    i = 1
-    Do
-        p = InStr(i, s, "\u")
-        If p = 0 Or p + 5 > n Then
-            out = out & Mid$(s, i)
-            Exit Do
-        End If
-        out = out & Mid$(s, i, p - i) & ChrW(HexVal(Mid$(s, p + 2, 4)))
-        i = p + 6
-        If i > n Then Exit Do
-    Loop
-    U = out
-End Function
-
-Private Function HexVal(ByVal h As String) As Long
-    Dim i As Long, v As Long, d As Long
-    For i = 1 To Len(h)
-        d = InStr("0123456789ABCDEF", UCase$(Mid$(h, i, 1))) - 1
-        If d < 0 Then d = 0
-        v = v * 16 + d
-    Next
-    HexVal = v
-End Function
 
 Public Function CodeOf(ByVal ch As String) As Long
     If Len(ch) = 0 Then
@@ -267,18 +242,58 @@ Public Function NumStr(ByVal v As Double, Optional ByVal digits As Long = 1) As 
     NumStr = Replace(s, ",", ".")
 End Function
 
-' Collection helpers
-Public Function ColToArray(ByVal c As Collection) As Variant
-    Dim a() As Variant, i As Long
-    If c.Count = 0 Then
-        ColToArray = Array()
-        Exit Function
+' records the current step; in step-by-step mode it is shown first (Cancel = stop showing)
+Public Sub StepTo(ByVal s As String)
+    gStep = s
+    If gAnnounce And Not gQuiet Then
+        If MsgBox("다음 단계: " & s & vbLf & vbLf & "(취소를 누르면 더 묻지 않고 계속합니다)", vbOKCancel, "단계별 실행") = vbCancel Then gAnnounce = False
     End If
-    ReDim a(0 To c.Count - 1)
-    For i = 1 To c.Count
-        a(i - 1) = c(i)
-    Next
-    ColToArray = a
+End Sub
+
+' ---- string lists ---------------------------------------------------------
+' Hancell crashes on Collection, so lists are kept in plain strings:
+' "" is an empty list, otherwise every item is preceded by the separator.
+' Nested lists use the other separators (SepA > SepB > SepC > SepD).
+Public Function SepA() As String
+    SepA = ChrW(30)
+End Function
+Public Function SepB() As String
+    SepB = ChrW(31)
+End Function
+Public Function SepC() As String
+    SepC = ChrW(29)
+End Function
+Public Function SepD() As String
+    SepD = ChrW(28)
+End Function
+
+Public Sub LAdd(ByRef lst As String, ByVal item As String)
+    lst = lst & SepA() & item
+End Sub
+
+Public Function LCount(ByVal lst As String) As Long
+    LCount = LCountS(lst, SepA())
+End Function
+
+' 0-based array of the items (only call when the count is above 0)
+Public Function LItems(ByVal lst As String) As Variant
+    LItems = LItemsS(lst, SepA())
+End Function
+
+Public Sub LAddS(ByRef lst As String, ByVal item As String, ByVal sep As String)
+    lst = lst & sep & item
+End Sub
+
+Public Function LCountS(ByVal lst As String, ByVal sep As String) As Long
+    If lst = "" Then
+        LCountS = 0
+    Else
+        LCountS = Len(lst) - Len(Replace(lst, sep, ""))
+    End If
+End Function
+
+Public Function LItemsS(ByVal lst As String, ByVal sep As String) As Variant
+    LItemsS = Split(Mid$(lst, Len(sep) + 1), sep)
 End Function
 
 ' position (1-based) of key in keys(1..n), 0 when missing
@@ -475,9 +490,10 @@ Public Function SplitTime(ByVal ln As String, ByRef tm As String, ByRef rest As 
         End If
     End If
     If wordEnd = 0 Then
-        For Each ws In Array("종일", "오전", "오후", "미정", "수시")
-            If StartsWith(ln, CStr(ws)) Then
-                w = CStr(ws)
+        ws = Array("종일", "오전", "오후", "미정", "수시")
+        For q = 0 To 4
+            If StartsWith(ln, CStr(ws(q))) Then
+                w = CStr(ws(q))
                 wordEnd = 3
                 Exit For
             End If
@@ -721,7 +737,7 @@ End Sub
 ' strip inline marks (for plain text uses)
 Public Function PlainInline(ByVal s As String) As String
     RBReset
-    RBInline s, , , , True
+    RBInline s, False, 0, -1, True
     PlainInline = rbTxt
 End Function
 
@@ -751,73 +767,138 @@ End Sub
 '   Elements are rectangles in points (x right, y down from the top-left of the
 '   printable area). Realize turns every distinct edge into a column/row border.
 ' ---------------------------------------------------------------------------
-Private Const EK As Long = 0      ' 1 text, 2 box
-Private Const EX As Long = 1
-Private Const EY As Long = 2
-Private Const EW As Long = 3
-Private Const EH As Long = 4
-Private Const ETXT As Long = 5
-Private Const ERUN As Long = 6
-Private Const ESIZE As Long = 7
-Private Const EBOLD As Long = 8
-Private Const EHAL As Long = 9
-Private Const EVALIGN As Long = 10
-Private Const EWRAP As Long = 11
-Private Const EFILL As Long = 12
-Private Const ECOLOR As Long = 13
-Private Const EBT As Long = 14     ' borders top, bottom, left, right
-Private Const ELINK As Long = 18
-Private Const ENOTE As Long = 19
-Private Const EUNDER As Long = 20
-Private Const ENF As Long = 21
-
-Private elN As Long
-Private elV() As Variant
+' element store: plain arrays, one per field (arrays kept inside Variants are not safe in every host)
+Private elN As Long, elCap As Long
+Private elK() As Long
+Private elX() As Double
+Private elY() As Double
+Private elW() As Double
+Private elH() As Double
+Private elTxt() As String
+Private elRun() As String
+Private elSize() As Double
+Private elBold() As Boolean
+Private elHal() As Long
+Private elAlV() As Long
+Private elWrap() As Boolean
+Private elFillC() As Long
+Private elColor() As Long
+Private elLinkT() As String
+Private elNoteT() As String
+' borders: 4 per element at (i - 1) * 4 + edge + 1 (edge: 0 top, 1 bottom, 2 left, 3 right)
+Private elBOn() As Boolean
+Private elBSt() As Long
+Private elBWt() As Long
+Private elBCol() As Long
 
 Public Sub ElReset()
     elN = 0
-    ReDim elV(1 To 64)
+    elCap = 64
+    ReDim elK(1 To elCap)
+    ReDim elX(1 To elCap)
+    ReDim elY(1 To elCap)
+    ReDim elW(1 To elCap)
+    ReDim elH(1 To elCap)
+    ReDim elTxt(1 To elCap)
+    ReDim elRun(1 To elCap)
+    ReDim elSize(1 To elCap)
+    ReDim elBold(1 To elCap)
+    ReDim elHal(1 To elCap)
+    ReDim elAlV(1 To elCap)
+    ReDim elWrap(1 To elCap)
+    ReDim elFillC(1 To elCap)
+    ReDim elColor(1 To elCap)
+    ReDim elLinkT(1 To elCap)
+    ReDim elNoteT(1 To elCap)
+    ReDim elBOn(1 To 4 * elCap)
+    ReDim elBSt(1 To 4 * elCap)
+    ReDim elBWt(1 To 4 * elCap)
+    ReDim elBCol(1 To 4 * elCap)
+End Sub
+
+Private Sub ElGrow()
+    elCap = elCap * 2
+    ReDim Preserve elK(1 To elCap)
+    ReDim Preserve elX(1 To elCap)
+    ReDim Preserve elY(1 To elCap)
+    ReDim Preserve elW(1 To elCap)
+    ReDim Preserve elH(1 To elCap)
+    ReDim Preserve elTxt(1 To elCap)
+    ReDim Preserve elRun(1 To elCap)
+    ReDim Preserve elSize(1 To elCap)
+    ReDim Preserve elBold(1 To elCap)
+    ReDim Preserve elHal(1 To elCap)
+    ReDim Preserve elAlV(1 To elCap)
+    ReDim Preserve elWrap(1 To elCap)
+    ReDim Preserve elFillC(1 To elCap)
+    ReDim Preserve elColor(1 To elCap)
+    ReDim Preserve elLinkT(1 To elCap)
+    ReDim Preserve elNoteT(1 To elCap)
+    ReDim Preserve elBOn(1 To 4 * elCap)
+    ReDim Preserve elBSt(1 To 4 * elCap)
+    ReDim Preserve elBWt(1 To 4 * elCap)
+    ReDim Preserve elBCol(1 To 4 * elCap)
 End Sub
 
 Private Function ElNew(ByVal kind As Long, ByVal x As Double, ByVal y As Double, ByVal w As Double, ByVal h As Double) As Long
-    Dim a As Variant
+    Dim i As Long, e As Long
+    If elCap = 0 Then ElReset
     elN = elN + 1
-    If elN > UBound(elV) Then ReDim Preserve elV(1 To UBound(elV) * 2)
-    ' order: EK EX EY EW EH ETXT ERUN ESIZE EBOLD EHAL EVALIGN EWRAP EFILL ECOLOR EBT..(4) ELINK ENOTE EUNDER
-    a = Array(kind, x, y, w, h, "", "", 0, False, XL_LEFT, XL_TOP, True, -1, 0, Empty, Empty, Empty, Empty, "", "", False)
-    elV(elN) = a
-    ElNew = elN
+    If elN > elCap Then ElGrow
+    i = elN
+    elK(i) = kind
+    elX(i) = x
+    elY(i) = y
+    elW(i) = w
+    elH(i) = h
+    elTxt(i) = ""
+    elRun(i) = ""
+    elSize(i) = 0
+    elBold(i) = False
+    elHal(i) = XL_LEFT
+    elAlV(i) = XL_TOP
+    elWrap(i) = True
+    elFillC(i) = -1
+    elColor(i) = 0
+    elLinkT(i) = ""
+    elNoteT(i) = ""
+    For e = 1 To 4
+        elBOn((i - 1) * 4 + e) = False
+    Next
+    ElNew = i
 End Function
-
-Private Sub ElSet(ByVal i As Long, ByVal k As Long, ByVal v As Variant)
-    Dim a As Variant
-    a = elV(i)
-    a(k) = v
-    elV(i) = a
-End Sub
 
 Public Function ElText(ByVal x As Double, ByVal y As Double, ByVal w As Double, ByVal h As Double, ByVal txt As String, _
         ByVal runs As String, ByVal size As Double, Optional ByVal bold As Boolean = False, Optional ByVal hal As Long = XL_LEFT, _
         Optional ByVal vAlign As Long = XL_TOP, Optional ByVal color As Long = 0, Optional ByVal wrap As Boolean = True) As Long
-    Dim i As Long, a As Variant
+    Dim i As Long
     i = ElNew(1, x, y, w, h)
-    a = elV(i)
-    a(ETXT) = txt: a(ERUN) = runs: a(ESIZE) = size: a(EBOLD) = bold
-    a(EHAL) = hal: a(EVALIGN) = vAlign: a(ECOLOR) = color: a(EWRAP) = wrap
-    elV(i) = a
+    elTxt(i) = txt
+    elRun(i) = runs
+    elSize(i) = size
+    elBold(i) = bold
+    elHal(i) = hal
+    elAlV(i) = vAlign
+    elColor(i) = color
+    elWrap(i) = wrap
     ElText = i
 End Function
 
 Public Function ElBox(ByVal x As Double, ByVal y As Double, ByVal w As Double, ByVal h As Double, Optional ByVal fill As Long = -1) As Long
     Dim i As Long
     i = ElNew(2, x, y, w, h)
-    ElSet i, EFILL, fill
+    elFillC(i) = fill
     ElBox = i
 End Function
 
 ' edge: 0 top, 1 bottom, 2 left, 3 right
 Public Sub ElBorder(ByVal i As Long, ByVal edge As Long, ByVal style As Long, ByVal weight As Long, Optional ByVal color As Long = 0)
-    ElSet i, EBT + edge, Array(style, weight, color)
+    Dim k As Long
+    k = (i - 1) * 4 + edge + 1
+    elBOn(k) = True
+    elBSt(k) = style
+    elBWt(k) = weight
+    elBCol(k) = color
 End Sub
 
 Public Sub ElBorderAll(ByVal i As Long, ByVal style As Long, ByVal weight As Long, Optional ByVal color As Long = 0)
@@ -828,16 +909,16 @@ Public Sub ElBorderAll(ByVal i As Long, ByVal style As Long, ByVal weight As Lon
 End Sub
 
 Public Sub ElFill(ByVal i As Long, ByVal color As Long)
-    ElSet i, EFILL, color
+    elFillC(i) = color
 End Sub
 
 ' "#Sheet!A1" = place in this workbook, otherwise a web address
 Public Sub ElLink(ByVal i As Long, ByVal url As String)
-    ElSet i, ELINK, url
+    elLinkT(i) = url
 End Sub
 
 Public Sub ElNote(ByVal i As Long, ByVal note As String)
-    ElSet i, ENOTE, note
+    elNoteT(i) = note
 End Sub
 
 Public Function SnapPx(ByVal v As Double) As Double
@@ -901,28 +982,27 @@ End Sub
 
 ' turn elements into cells. Returns the last used row/col through lastR/lastC.
 Public Sub Realize(ByVal ws As Object, ByVal fontName As String, ByRef lastR As Long, ByRef lastC As Long)
-    Dim xs() As Double, ys() As Double, nx As Long, ny As Long, i As Long, e As Variant
+    Dim xs() As Double, ys() As Double, nEx As Long, nEy As Long, i As Long
     ' sized up front: growing an array passed ByRef loses data in some hosts
     ReDim xs(1 To 2 * elN + 16): ReDim ys(1 To 2 * elN + 80)
-    AddEdge xs, nx, 0
-    AddEdge ys, ny, 0
+    AddEdge xs, nEx, 0
+    AddEdge ys, nEy, 0
     For i = 1 To elN
-        e = elV(i)
-        If SnapPx(e(EX) + e(EW)) - SnapPx(e(EX)) >= PX And SnapPx(e(EY) + e(EH)) - SnapPx(e(EY)) >= PX Then
-            AddEdge xs, nx, e(EX)
-            AddEdge xs, nx, e(EX) + e(EW)
-            AddEdge ys, ny, e(EY)
-            AddEdge ys, ny, e(EY) + e(EH)
+        If SnapPx(elX(i) + elW(i)) - SnapPx(elX(i)) >= PX And SnapPx(elY(i) + elH(i)) - SnapPx(elY(i)) >= PX Then
+            AddEdge xs, nEx, elX(i)
+            AddEdge xs, nEx, elX(i) + elW(i)
+            AddEdge ys, nEy, elY(i)
+            AddEdge ys, nEy, elY(i) + elH(i)
         End If
     Next
     If Len(gDbg) > 4000 Then gDbg = Right$(gDbg, 1000)
-    gDbg = gDbg & " edges raw nx=" & nx & " ny=" & ny
-    ClusterEdges xs, nx, MIN_COL
-    gDbg = gDbg & " clustered nx=" & nx & " first=" & xs(1) & "," & xs(2) & "," & xs(3) & " last=" & xs(nx) & " elN=" & elN
+    gDbg = gDbg & " edges raw nEx=" & nEx & " nEy=" & nEy
+    ClusterEdges xs, nEx, MIN_COL
+    gDbg = gDbg & " clustered nEx=" & nEx & " first=" & xs(1) & "," & xs(2) & "," & xs(3) & " last=" & xs(nEx) & " elN=" & elN
     ' rows taller than 400pt are split (row height limit is 409pt)
     i = 1
-    Do While i < ny
-        If ys(i + 1) - ys(i) > 400 Then AddEdge ys, ny, ys(i) + 300
+    Do While i < nEy
+        If ys(i + 1) - ys(i) > 400 Then AddEdge ys, nEy, ys(i) + 300
         i = i + 1
     Loop
 
@@ -930,55 +1010,53 @@ Public Sub Realize(ByVal ws As Object, ByVal fontName As String, ByRef lastR As 
     ' column widths (cumulative, so rounding never adds up)
     Dim cum As Double, target As Double
     cum = 0
-    For i = 1 To nx - 1
+    For i = 1 To nEx - 1
         target = xs(i + 1) - cum
         If target < PX Then target = PX
         SetColPts ws, i, target
         cum = cum + ws.Columns(i).Width
     Next
     cum = 0
-    For i = 1 To ny - 1
+    For i = 1 To nEy - 1
         target = ys(i + 1) - cum
         If target < PX Then target = PX
         If target > 409 Then target = 409
         ws.Rows(i).RowHeight = target
         cum = cum + ws.Rows(i).RowHeight
     Next
-    lastC = nx - 1
-    lastR = ny - 1
+    lastC = nEx - 1
+    lastR = nEy - 1
 
     Dim r1 As Long, r2 As Long, c1 As Long, c2 As Long, rg As Object
     ' pass 1: box fills
     For i = 1 To elN
-        e = elV(i)
-        If e(EK) = 2 And e(EFILL) >= 0 Then
-            If ElRange(ws, e, xs, nx, ys, ny, rg) Then rg.Interior.Color = e(EFILL)
+        If elK(i) = 2 And elFillC(i) >= 0 Then
+            If ElRange(ws, i, xs, nEx, ys, nEy, rg) Then rg.Interior.Color = elFillC(i)
         End If
     Next
     ' pass 2: text cells
     Application.DisplayAlerts = False
     For i = 1 To elN
-        e = elV(i)
-        If e(EK) = 1 Then
-            If ElRange(ws, e, xs, nx, ys, ny, rg) Then
+        If elK(i) = 1 Then
+            If ElRange(ws, i, xs, nEx, ys, nEy, rg) Then
                 If rg.Cells.Count > 1 Then rg.Merge
                 rg.NumberFormat = "@"
                 With rg.Font
                     .Name = fontName
-                    .Size = e(ESIZE)
-                    .Bold = e(EBOLD)
-                    .Color = e(ECOLOR)
+                    .Size = elSize(i)
+                    .Bold = elBold(i)
+                    .Color = elColor(i)
                 End With
-                rg.HorizontalAlignment = e(EHAL)
-                rg.VerticalAlignment = e(EVALIGN)
-                rg.WrapText = e(EWRAP)
-                If e(EFILL) >= 0 Then rg.Interior.Color = e(EFILL)
-                rg.Cells(1, 1).Value = e(ETXT)
-                ApplyRuns rg.Cells(1, 1), e(ERUN)
-                If Len(e(ELINK)) > 0 Then AddLink ws, rg.Cells(1, 1), e(ELINK), e(ECOLOR)
-                If Len(e(ENOTE)) > 0 Then
+                rg.HorizontalAlignment = elHal(i)
+                rg.VerticalAlignment = elAlV(i)
+                rg.WrapText = elWrap(i)
+                If elFillC(i) >= 0 Then rg.Interior.Color = elFillC(i)
+                rg.Cells(1, 1).Value = elTxt(i)
+                ApplyRuns rg.Cells(1, 1), elRun(i)
+                If Len(elLinkT(i)) > 0 Then AddLink ws, rg.Cells(1, 1), elLinkT(i), elColor(i)
+                If Len(elNoteT(i)) > 0 Then
                     On Error Resume Next
-                    rg.Cells(1, 1).AddComment e(ENOTE)
+                    rg.Cells(1, 1).AddComment elNoteT(i)
                     On Error GoTo 0
                 End If
             End If
@@ -986,17 +1064,16 @@ Public Sub Realize(ByVal ws As Object, ByVal fontName As String, ByRef lastR As 
     Next
     Application.DisplayAlerts = True
     ' pass 3: borders
-    Dim k As Long, b As Variant
+    Dim k As Long, bi As Long
     For i = 1 To elN
-        e = elV(i)
-        If ElRange(ws, e, xs, nx, ys, ny, rg) Then
+        If ElRange(ws, i, xs, nEx, ys, nEy, rg) Then
             For k = 0 To 3
-                b = e(EBT + k)
-                If IsArray(b) Then
+                bi = (i - 1) * 4 + k + 1
+                If elBOn(bi) Then
                     With rg.Borders(Choose(k + 1, XL_EDGE_TOP, XL_EDGE_BOTTOM, XL_EDGE_LEFT, XL_EDGE_RIGHT))
-                        .LineStyle = b(0)
-                        .Weight = b(1)
-                        .Color = b(2)
+                        .LineStyle = elBSt(bi)
+                        .Weight = elBWt(bi)
+                        .Color = elBCol(bi)
                     End With
                 End If
             Next
@@ -1018,12 +1095,12 @@ Public Sub AddLink(ByVal ws As Object, ByVal cell As Object, ByVal url As String
     On Error GoTo 0
 End Sub
 
-Private Function ElRange(ByVal ws As Object, e As Variant, xs() As Double, ByVal nx As Long, ys() As Double, ByVal ny As Long, ByRef rg As Object) As Boolean
+Private Function ElRange(ByVal ws As Object, ByVal i As Long, xs() As Double, ByVal nEx As Long, ys() As Double, ByVal nEy As Long, ByRef rg As Object) As Boolean
     Dim r1 As Long, r2 As Long, c1 As Long, c2 As Long
-    c1 = EdgeIdx(xs, nx, e(EX))
-    c2 = EdgeIdx(xs, nx, e(EX) + e(EW)) - 1
-    r1 = EdgeIdx(ys, ny, e(EY))
-    r2 = EdgeIdx(ys, ny, e(EY) + e(EH)) - 1
+    c1 = EdgeIdx(xs, nEx, elX(i))
+    c2 = EdgeIdx(xs, nEx, elX(i) + elW(i)) - 1
+    r1 = EdgeIdx(ys, nEy, elY(i))
+    r2 = EdgeIdx(ys, nEy, elY(i) + elH(i)) - 1
     If c2 < c1 Or r2 < r1 Then Exit Function
     Set rg = ws.Range(ws.Cells(r1, c1), ws.Cells(r2, c2))
     ElRange = True
@@ -1124,13 +1201,27 @@ Public Sub SetColPts(ByVal ws As Object, ByVal col As Long, ByVal pts As Double)
     Next
 End Sub
 
+' a new worksheet in wb. Where it lands differs between hosts, so callers never rely on its position.
+' (no arguments to Worksheets.Add: Hancell is not trusted with omitted or named arguments)
+Public Function NewSheet(ByVal wb As Object) As Object
+    Dim n As Long, ws As Object
+    n = wb.Worksheets.Count
+    Set ws = Nothing
+    On Error Resume Next
+    Set ws = wb.Worksheets.Add
+    On Error GoTo 0
+    If wb.Worksheets.Count <= n Then Err.Raise 1004, "NewSheet", "새 시트를 만들 수 없습니다"
+    If ws Is Nothing Then Set ws = wb.ActiveSheet
+    Set NewSheet = ws
+End Function
+
 Public Function ScratchSheet(ByVal sheetName As String) As Object
     Dim ws As Object
     On Error Resume Next
     Set ws = HostBook().Worksheets(sheetName)
     On Error GoTo 0
     If ws Is Nothing Then
-        Set ws = HostBook().Worksheets.Add(, HostBook().Worksheets(HostBook().Worksheets.Count))
+        Set ws = NewSheet(HostBook())
         ws.Name = sheetName
         ws.Visible = XL_SHEET_HIDDEN
     End If
@@ -1236,7 +1327,7 @@ Public Function PickFiles(ByVal title As String, ByVal filterText As String, ByV
     PickFiles = Empty
     On Error Resume Next
     Err.Clear
-    f = Application.GetOpenFilename(filterText, 1, title, , multi)
+    f = Application.GetOpenFilename(filterText, 1, title, "", multi)
     If Err.Number = 0 Then
         On Error GoTo 0
         If IsArray(f) Then
@@ -1452,26 +1543,34 @@ Public Function Ask(ByVal msg As String, Optional ByVal def As String = "") As S
         gDbg = gDbg & " [Ask] " & Left$(msg, 60) & " -> " & def
         Ask = def
     Else
-        Ask = InputBox(msg, , def)
+        Ask = InputBox(msg, "입력", def)
     End If
 End Function
 
+' screen updating on/off. Some hosts count every "off" (each needs its own "on", and text
+' measuring stops while any is left), so this only switches when the state really changes.
 Public Sub SetScreen(ByVal on_ As Boolean)
     On Error Resume Next
-    Application.ScreenUpdating = on_
+    If on_ Then
+        If gScreenOff Then Application.ScreenUpdating = True
+        gScreenOff = False
+    Else
+        If Not gScreenOff Then Application.ScreenUpdating = False
+        gScreenOff = True
+    End If
     On Error GoTo 0
 End Sub
 
 Public Sub BeginWork()
+    SetScreen False
     On Error Resume Next
-    Application.ScreenUpdating = False
     Application.EnableEvents = False
     On Error GoTo 0
 End Sub
 
 Public Sub EndWork()
+    SetScreen True
     On Error Resume Next
-    Application.ScreenUpdating = True
     Application.EnableEvents = True
     Application.DisplayAlerts = True
     On Error GoTo 0
@@ -1520,9 +1619,10 @@ Public Sub HideGrid(ByVal ws As Object)
 End Sub
 
 Public Function SafeSheetName(ByVal s As String) As String
-    Dim ch As Variant
-    For Each ch In Array("\", "/", "?", "*", ":", "[", "]")
-        s = Replace(s, CStr(ch), "_")
+    Dim ch As Variant, i As Long
+    ch = Array("\", "/", "?", "*", ":", "[", "]")
+    For i = 0 To 6
+        s = Replace(s, CStr(ch(i)), "_")
     Next
     s = TrimX(s)
     If Len(s) > 31 Then s = TrimX(Left$(s, 31))
@@ -1531,12 +1631,11 @@ End Function
 
 ' debugging aid: first n elements as text
 Public Function ElDump(ByVal n As Long) As String
-    Dim i As Long, e As Variant, s As String
+    Dim i As Long, s As String
     s = "elN=" & elN
     For i = 1 To elN
         If i > n Then Exit For
-        e = elV(i)
-        s = s & " | " & e(EK) & "," & Round(e(EX), 1) & "," & Round(e(EY), 1) & "," & Round(e(EW), 1) & "," & Round(e(EH), 1) & "," & Left$(e(ETXT), 8) & ",sz=" & e(ESIZE) & ",b=" & e(EBOLD) & ",c=" & e(ECOLOR)
+        s = s & " | " & elK(i) & "," & Round(elX(i), 1) & "," & Round(elY(i), 1) & "," & Round(elW(i), 1) & "," & Round(elH(i), 1) & "," & Left$(elTxt(i), 8) & ",sz=" & elSize(i) & ",b=" & elBold(i) & ",c=" & elColor(i)
     Next
     ElDump = s
 End Function

@@ -1,0 +1,649 @@
+' 임원 일일 예정사항 - 모듈 3 / 7
+' 한셀 매크로 편집기에 이 파일 전체를 붙여넣고, 맨 아래 Check3 를 실행해 확인하세요.
+' (원본: hancell/src, 만드는 도구: hancell/tools/build.py)
+Option Explicit
+
+Public Function NVal(ByVal nm As String) As Variant
+    Dim r As Object
+    Set r = NameRange(nm)
+    If r Is Nothing Then
+        NVal = Empty
+    Else
+        NVal = r.Cells(1, 1).Value
+    End If
+End Function
+
+Public Function NStr(ByVal nm As String) As String
+    Dim v As Variant
+    v = NVal(nm)
+    NStr = CellText(v)
+End Function
+
+Public Function NNum(ByVal nm As String, ByVal def As Double, ByVal lo As Double, ByVal hi As Double) As Double
+    Dim v As Variant
+    v = NVal(nm)
+    If IsNumeric(v) And Not IsEmpty(v) Then
+        If VarType(v) = vbString Then
+            If TrimX(CStr(v)) = "" Then
+                NNum = def
+                Exit Function
+            End If
+            NNum = Clamp(Val(Replace(CStr(v), ",", ".")), lo, hi)
+        Else
+            NNum = Clamp(CDbl(v), lo, hi)
+        End If
+    Else
+        NNum = def
+    End If
+End Function
+
+Public Function NOptNum(ByVal nm As String) As Double
+    Dim v As Variant
+    v = NVal(nm)
+    NOptNum = -1
+    If IsEmpty(v) Then Exit Function
+    If VarType(v) = vbString Then
+        If TrimX(CStr(v)) = "" Then Exit Function
+        If Not IsNumeric(Replace(CStr(v), ",", ".")) Then Exit Function
+        NOptNum = Val(Replace(CStr(v), ",", "."))
+    ElseIf IsNumeric(v) Then
+        NOptNum = CDbl(v)
+    End If
+End Function
+
+Public Function NBool(ByVal nm As String, ByVal def As Boolean) As Boolean
+    Dim s As String
+    s = NStr(nm)
+    If s = "" Then
+        NBool = def
+    Else
+        NBool = Not (s = "아니오" Or s = "아니요" Or s = "끔" Or UCase$(s) = "N" Or UCase$(s) = "NO" Or s = "0" Or UCase$(s) = "FALSE")
+    End If
+End Function
+
+Public Sub NSet(ByVal nm As String, ByVal v As Variant)
+    Dim r As Object
+    Set r = NameRange(nm)
+    If Not r Is Nothing Then r.Cells(1, 1).Value = v
+End Sub
+
+Public Sub DefName(ByVal nm As String, ByVal ws As Object, ByVal addr As String)
+    On Error Resume Next
+    HostBook().Names(nm).Delete
+    On Error GoTo 0
+    HostBook().Names.Add nm, "='" & ws.Name & "'!" & addr
+End Sub
+
+Public Function AddButton(ByVal ws As Object, ByVal x As Double, ByVal y As Double, ByVal w As Double, ByVal h As Double, ByVal caption As String, ByVal macro As String) As Object
+    Dim b As Object
+    On Error Resume Next
+    Set b = ws.Buttons.Add(x, y, w, h)
+    If Not b Is Nothing Then
+        b.Caption = caption
+        b.OnAction = macro
+        b.PrintObject = False
+        b.Name = "btn_" & macro
+    End If
+    If b Is Nothing Then
+        Err.Clear
+        Set b = ws.Shapes.AddShape(5, x, y, w, h)
+        b.TextFrame.Characters.Text = caption
+        b.OnAction = macro
+    End If
+    On Error GoTo 0
+    Set AddButton = b
+End Function
+
+Public Sub Info(ByVal msg As String)
+    If gQuiet Then
+        gDbg = gDbg & " [Info] " & msg
+    Else
+        MsgBox msg, vbInformation
+    End If
+End Sub
+
+Public Function Confirm(ByVal msg As String) As Boolean
+    If gQuiet Then
+        gDbg = gDbg & " [Confirm] " & msg
+        Confirm = True
+    Else
+        Confirm = (MsgBox(msg, vbYesNo + vbQuestion) = vbYes)
+    End If
+End Function
+
+Public Sub SetScreen(ByVal on_ As Boolean)
+    On Error Resume Next
+    If on_ Then
+        If gScreenOff Then Application.ScreenUpdating = True
+        gScreenOff = False
+    Else
+        If Not gScreenOff Then Application.ScreenUpdating = False
+        gScreenOff = True
+    End If
+    On Error GoTo 0
+End Sub
+
+Public Sub BeginWork()
+    SetScreen False
+    On Error Resume Next
+    Application.EnableEvents = False
+    On Error GoTo 0
+End Sub
+
+Public Sub EndWork()
+    SetScreen True
+    On Error Resume Next
+    Application.EnableEvents = True
+    Application.DisplayAlerts = True
+    On Error GoTo 0
+End Sub
+
+Public Sub PageSetupA4(ByVal ws As Object, ByVal landscape As Boolean, ByVal marginMm As Double, ByVal lastR As Long, ByVal lastC As Long)
+    On Error Resume Next
+    ws.PageSetup.PrintArea = ws.Range(ws.Cells(1, 1), ws.Cells(lastR, lastC)).Address
+    With ws.PageSetup
+        .PaperSize = 9
+        If landscape Then
+            .Orientation = 2
+        Else
+            .Orientation = 1
+        End If
+        .LeftMargin = marginMm * 2.834645669
+        .RightMargin = marginMm * 2.834645669
+        .TopMargin = marginMm * 2.834645669
+        .BottomMargin = marginMm * 2.834645669
+        .HeaderMargin = 0
+        .FooterMargin = 0
+        .CenterHeader = ""
+        .CenterFooter = ""
+        .LeftHeader = ""
+        .RightHeader = ""
+        .LeftFooter = ""
+        .RightFooter = ""
+        .CenterHorizontally = True
+        .CenterVertically = False
+        .PrintGridlines = False
+        .Zoom = False
+        .FitToPagesWide = 1
+        .FitToPagesTall = 1
+    End With
+    On Error GoTo 0
+End Sub
+
+Public Sub HideGrid(ByVal ws As Object)
+    On Error Resume Next
+    Dim cur As Object
+    Set cur = ActiveSheet
+    ws.Activate
+    ActiveWindow.DisplayGridlines = False
+    If Not cur Is Nothing Then cur.Activate
+    On Error GoTo 0
+End Sub
+
+Public Function SafeSheetName(ByVal s As String) As String
+    Dim ch As Variant, i As Long
+    ch = Array("\", "/", "?", "*", ":", "[", "]")
+    For i = 0 To 6
+        s = Replace(s, CStr(ch(i)), "_")
+    Next
+    s = TrimX(s)
+    If Len(s) > 31 Then s = TrimX(Left$(s, 31))
+    SafeSheetName = s
+End Function
+
+Public Function ElDump(ByVal n As Long) As String
+    Dim i As Long, s As String
+    s = "elN=" & elN
+    For i = 1 To elN
+        If i > n Then Exit For
+        s = s & " | " & elK(i) & "," & Round(elX(i), 1) & "," & Round(elY(i), 1) & "," & Round(elW(i), 1) & "," & Round(elH(i), 1) & "," & Left$(elTxt(i), 8) & ",sz=" & elSize(i) & ",b=" & elBold(i) & ",c=" & elColor(i)
+    Next
+    ElDump = s
+End Function
+
+Public Function SH_IN() As String
+    SH_IN = "입력"
+End Function
+
+Public Function SH_A4() As String
+    SH_A4 = "A4"
+End Function
+
+Public Function SH_TBL() As String
+    SH_TBL = "맨밑표"
+End Function
+
+Public Function SH_FMT() As String
+    SH_FMT = "서식"
+End Function
+
+Public Function SH_HELP() As String
+    SH_HELP = "입력방법"
+End Function
+
+Public Function SH_PASTE() As String
+    SH_PASTE = "붙여넣기"
+End Function
+
+Public Function SH_MS() As String
+    SH_MS = "_측정"
+End Function
+
+Public Function SH_BAK() As String
+    SH_BAK = "_백업"
+End Function
+
+Public Function TblN(ByVal k As Long) As Long
+    TblN = Choose(k, 5, 1, 1, 2)
+End Function
+
+Public Function TblHasHeads(ByVal k As Long) As Boolean
+    TblHasHeads = (k = 1 Or k = 4)
+End Function
+
+Public Function TblRow0(ByVal k As Long) As Long
+    TblRow0 = Choose(k, 0, 5, 6, 7)
+End Function
+
+Public Function SlotLabel(ByVal i As Long) As String
+    SlotLabel = Choose(i, "윗줄 왼쪽", "윗줄 가운데", "윗줄 오른쪽", "가운데 줄 왼쪽 (큰 칸)", "가운데 줄 오른쪽 위", "가운데 줄 오른쪽 아래", "아랫줄 왼쪽", "아랫줄 오른쪽")
+End Function
+
+Private Sub NormFracs(ByRef dst() As Double, ByVal n As Long, vals As Variant, defs As Variant)
+    Dim i As Long, s As Double, ok As Boolean
+    ok = True
+    For i = 1 To n
+        If vals(i - 1) <= 0 Then ok = False
+    Next
+    For i = 1 To n
+        If ok Then
+            dst(i) = vals(i - 1)
+        Else
+            dst(i) = defs(i - 1)
+        End If
+        s = s + dst(i)
+    Next
+    For i = 1 To n
+        dst(i) = dst(i) / s
+    Next
+End Sub
+
+Public Sub LoadSettings()
+    gLandscape = (NStr("s_orient") = "A4 가로")
+    gMargin = NNum("s_margin", 10, 5, 25)
+    gFont = NStr("s_font")
+    If gFont = "" Then gFont = "맑은 고딕"
+    NormFracs gC1, 3, Array(NOptNum("s_c1a"), NOptNum("s_c1b"), NOptNum("s_c1c")), Array(1, 1, 1)
+    NormFracs gC2, 2, Array(NOptNum("s_c2a"), NOptNum("s_c2b")), Array(2, 1)
+    NormFracs gC3, 2, Array(NOptNum("s_c3a"), NOptNum("s_c3b")), Array(1, 1)
+    Dim h1 As Double, h2 As Double, h3 As Double
+    h1 = NOptNum("s_h1")
+    h2 = NOptNum("s_h2")
+    h3 = NOptNum("s_h3")
+    gRowsSet = (h1 > 0 And h2 > 0 And h3 > 0)
+    If gRowsSet Then
+        gRows(1) = h1 / (h1 + h2 + h3)
+        gRows(2) = h2 / (h1 + h2 + h3)
+        gRows(3) = h3 / (h1 + h2 + h3)
+    End If
+    gSplit = NOptNum("s_split")
+    If gSplit < 0.1 Or gSplit > 0.9 Then gSplit = -1
+    gMaxF = NNum("s_max", 12, 6, 20)
+    gMinF = NNum("s_min", 7, 5, 16)
+    gShowTables = NBool("s_tables", True)
+    gShowSecret = NBool("s_secret", True)
+    gSecretText = NStr("s_secretText")
+    If gSecretText = "" Then gSecretText = "비공개"
+    gEmptyText = NStr("s_empty")
+    gTitle = NStr("d_title")
+    gDate = DateValueIso(NVal("d_date"))
+    If gDate = "" Then gDate = IsoOf(Date)
+    gSub = NStr("d_sub")
+    gFoot = NStr("d_foot")
+    If gLandscape Then
+        gW = (297 - 2 * gMargin) * 2.834645669
+        gH = (210 - 2 * gMargin) * 2.834645669
+    Else
+        gW = (210 - 2 * gMargin) * 2.834645669
+        gH = (297 - 2 * gMargin) * 2.834645669
+    End If
+    gGap = 2.4 * 2.834645669
+End Sub
+
+Private Function IsExecSheet(ByVal ws As Object) As Boolean
+    On Error Resume Next
+    IsExecSheet = (CStr(ws.Cells(1, 1).Value) = "직위" And CStr(ws.Cells(1, 3).Value) = "성명")
+End Function
+
+Public Function ExecSheetIdx(ByRef idx() As Long) As Long
+    Dim wb As Object, i As Long, n As Long
+    Set wb = HostBook()
+    ReDim idx(1 To 8)
+    For i = 1 To wb.Worksheets.Count
+        If n < 8 Then
+            If IsExecSheet(wb.Worksheets(i)) Then
+                n = n + 1
+                idx(n) = i
+            End If
+        End If
+    Next
+    ExecSheetIdx = n
+End Function
+
+Public Function UniqueSheetName(ByVal want As String, ByVal self As Object) As String
+    Dim nm As String, n As Long, i As Long, clash As Boolean, selfName As String, wb As Object
+    Set wb = HostBook()
+    If Not self Is Nothing Then selfName = self.Name
+    want = SafeSheetName(want)
+    If want = "" Then want = "임원"
+    nm = want
+    n = 2
+    Do
+        clash = False
+        For i = 1 To wb.Worksheets.Count
+            If wb.Worksheets(i).Name <> selfName Then
+                If LCase$(wb.Worksheets(i).Name) = LCase$(nm) Then clash = True
+            End If
+        Next
+        If Not clash Then Exit Do
+        nm = Left$(want, 27) & "(" & n & ")"
+        n = n + 1
+    Loop
+    UniqueSheetName = nm
+End Function
+
+Public Function UsedLast(ByVal ws As Object, ByRef lastR As Long, ByRef lastC As Long) As Boolean
+    Dim ur As Object
+    Set ur = ws.UsedRange
+    lastR = ur.Row + ur.Rows.Count - 1
+    lastC = ur.Column + ur.Columns.Count - 1
+    UsedLast = True
+End Function
+
+Private Function InList(ByVal k As String, ByVal list As String) As Boolean
+    InList = (InStr("|" & list & "|", "|" & k & "|") > 0)
+End Function
+
+Public Sub HeadRole(ByVal h As String, ByRef role As String, ByRef label As String)
+    Dim k As String
+    label = ""
+    k = LCase$(RemoveChars(RemoveParens(h), ""))
+    If k = "" Then
+        role = "skip"
+    ElseIf InList(k, "시간|시각|일시|time") Then
+        role = "time"
+    ElseIf InList(k, "내용|일정|일정내용|주요일정|주요내용|예정사항|주요예정사항|행사|행사명|업무|content") Then
+        role = "content"
+    ElseIf InList(k, "장소|위치|place") Then
+        role = "place"
+    ElseIf InList(k, "※|참고|참고사항|※참고|※참고사항") Then
+        role = "ref"
+    ElseIf InList(k, "비고|설명|부가설명|메모|note") Then
+        role = "star"
+    ElseIf InList(k, "성명|이름|임원|임원명|name") Then
+        role = "exec"
+    ElseIf InList(k, "직위|직책|직급") Then
+        role = "pos"
+    ElseIf InList(k, "날짜|일자|date") Then
+        role = "date"
+    ElseIf InList(k, "순번|번호|no|no.|연번") Then
+        role = "skip"
+    Else
+        role = "star"
+        label = TrimX(h)
+    End If
+End Sub
+
+Public Function IsHeaderRow(cells() As String) As Boolean
+    Dim i As Long, r As String, lb As String, hasC As Boolean, hasT As Boolean
+    For i = LBound(cells) To UBound(cells)
+        HeadRole cells(i), r, lb
+        If r = "content" Then hasC = True
+        If r = "time" Or r = "exec" Then hasT = True
+    Next
+    IsHeaderRow = hasC And hasT
+End Function
+
+Public Sub RowLines(cells() As String, roles() As String, labels() As String, ByVal hasRoles As Boolean, ByRef sched As String, ByRef refc As String)
+    Dim tm As String, content As String, place As String, stars As String, i As Long, c As String
+    Dim ro As String, n As Long, st As Long, ls As Variant, j As Long, t As String, sa As Variant, k As Long
+    If hasRoles Then
+        For i = LBound(cells) To UBound(cells)
+            c = cells(i)
+            If c <> "" Then
+                ro = "star"
+                If i <= UBound(roles) Then ro = roles(i)
+                Select Case ro
+                    Case "time"
+                        tm = c
+                    Case "content"
+                        If content <> "" Then content = content & vbLf
+                        content = content & c
+                    Case "place"
+                        place = c
+                    Case "ref"
+                        ls = Split(c, vbLf)
+                        For j = 0 To UBound(ls)
+                            t = TrimX(CStr(ls(j)))
+                            If t <> "" Then LAdd refc, StripLead(t, "※")
+                        Next
+                    Case "star"
+                        t = c
+                        If i <= UBound(labels) Then
+                            If labels(i) <> "" Then t = labels(i) & ": " & c
+                        End If
+                        LAdd stars, t
+                End Select
+            End If
+        Next
+    Else
+        n = UBound(cells)
+        Do While n >= LBound(cells)
+            If cells(n) <> "" Then Exit Do
+            n = n - 1
+        Loop
+        st = LBound(cells)
+        If n - st + 1 >= 2 Then
+            If cells(st) = "" Or IsTimeCell(cells(st)) Then
+                tm = cells(st)
+                st = st + 1
+            End If
+        End If
+        If st <= n Then
+            content = cells(st)
+            st = st + 1
+        End If
+        For i = st To n
+            If cells(i) <> "" Then LAdd stars, cells(i)
+        Next
+    End If
+    Dim lines As String, first As String, nl As Long, tmS As String, sp As String, rest As String, ln As String
+    ls = Split(content, vbLf)
+    For j = 0 To UBound(ls)
+        t = TrimX(CStr(ls(j)))
+        If t <> "" Then
+            If first = "" And lines = "" And Not FirstIn(t, "*＊※") Then
+                first = t
+            Else
+                LAdd lines, t
+            End If
+        End If
+    Next
+    If tm <> "" Then
+        If SplitTime(tm, sp, rest) And rest = "" Then
+            tmS = sp & " "
+        Else
+            tmS = tm & vbTab
+        End If
+    End If
+    If first <> "" Or tmS <> "" Then
+        ln = tmS & first
+        If place <> "" Then ln = ln & " @" & place
+        If Right$(ln, 1) = " " Then ln = Left$(ln, Len(ln) - 1)
+        LAdd sched, ln
+    ElseIf place <> "" Then
+        LAdd sched, "@" & place
+    End If
+    nl = LCount(lines)
+    If nl > 0 Then
+        ls = LItems(lines)
+        For j = 0 To nl - 1
+            t = CStr(ls(j))
+            If Left$(t, 1) = "※" Then
+                LAdd refc, StripLead(t, "※")
+            ElseIf FirstIn(t, "*＊-·•") Then
+                LAdd sched, t
+            Else
+                LAdd sched, "  " & t
+            End If
+        Next
+    End If
+    nl = LCount(stars)
+    If nl > 0 Then
+        sa = LItems(stars)
+        For k = 0 To nl - 1
+            ls = Split(CStr(sa(k)), vbLf)
+            For j = 0 To UBound(ls)
+                t = TrimX(CStr(ls(j)))
+                If t <> "" Then
+                    If FirstIn(t, "*＊") Then t = TrimX(Mid$(t, 2))
+                    LAdd sched, "* " & t
+                End If
+            Next
+        Next
+    End If
+End Sub
+
+Public Sub ReadExecRows(ByVal ws As Object, ByRef sched As String, ByRef refc As String)
+    Dim lastR As Long, lastC As Long, v As Variant, r As Long, c As Long
+    UsedLast ws, lastR, lastC
+    If lastC < 4 Then lastC = 4
+    If lastR < 4 Then Exit Sub
+    v = ws.Range(ws.Cells(1, 1), ws.Cells(lastR, lastC)).Value
+    Dim roles() As String, labels() As String, cells() As String, anyV As Boolean
+    ReDim roles(0 To lastC - 1)
+    ReDim labels(0 To lastC - 1)
+    ReDim cells(0 To lastC - 1)
+    For c = 1 To lastC
+        HeadRole CellText(v(3, c)), roles(c - 1), labels(c - 1)
+    Next
+    For r = 4 To lastR
+        anyV = False
+        For c = 1 To lastC
+            cells(c - 1) = CellText(v(r, c), roles(c - 1) = "time")
+            If cells(c - 1) <> "" Then anyV = True
+        Next
+        If anyV Then
+            If Not IsHeaderRow(cells) Then RowLines cells, roles, labels, True, sched, refc
+        End If
+    Next
+End Sub
+
+Public Function IsBullet(ByVal t As String) As Boolean
+    IsBullet = FirstIn(t, "-–○●◦·•▶▷□■")
+End Function
+
+Private Sub SchedNew(ByRef items As String, ByRef has As Boolean, ByRef cTm As String, ByRef cMains As String, ByRef cSubs As String, ByVal tm As String)
+    If has Then LAdd items, cTm & SepB() & cMains & SepB() & cSubs
+    cTm = tm
+    cMains = ""
+    cSubs = ""
+    has = True
+End Sub
+
+Public Sub ParseSched(ByVal lines As String, ByRef items As String, ByRef refs As String)
+    Dim has As Boolean, cTm As String, cMains As String, cSubs As String
+    Dim ls As Variant, li As Long, nL As Long
+    Dim raw As String, t As String, k As Long, pre As String, body As String
+    Dim sp As String, rest As String, after As String, s As String
+    items = ""
+    refs = ""
+    nL = LCount(lines)
+    If nL = 0 Then Exit Sub
+    ls = LItems(lines)
+    For li = 0 To nL - 1
+        raw = CStr(ls(li))
+        If InStr(raw, vbLf) > 0 Then raw = Replace(raw, vbLf, " ")
+        t = TrimX(raw)
+        If t = "" Then GoTo nextLine
+        If Left$(t, 1) = "※" Then
+            LAdd refs, StripLead(t, "※")
+            GoTo nextLine
+        End If
+        If FirstIn(t, "*＊") Then
+            s = StripLead(t, "*＊")
+            If Not has Then SchedNew items, has, cTm, cMains, cSubs, ""
+            LAddS cSubs, "star" & SepD() & s, SepC()
+            GoTo nextLine
+        End If
+        k = InStr(t, vbTab)
+        If k > 1 And k <= 17 And Not IsBullet(t) Then
+            pre = TrimX(Left$(t, k - 1))
+            If SplitTime(pre, sp, rest) And rest = "" Then
+                SchedNew items, has, cTm, cMains, cSubs, sp
+            Else
+                SchedNew items, has, cTm, cMains, cSubs, pre
+            End If
+            body = TrimX(TabsToSpace(Mid$(t, k + 1)))
+            If body <> "" Then LAddS cMains, body, SepC()
+            GoTo nextLine
+        End If
+        t = TabsToSpace(t)
+        If IsBullet(t) Then
+            after = TrimX(Mid$(t, 2))
+            If SplitTime(after, sp, rest) Then
+                SchedNew items, has, cTm, cMains, cSubs, sp
+                If rest <> "" Then LAddS cMains, rest, SepC()
+            ElseIf has And FirstIn(t, "-–·•") Then
+                LAddS cSubs, "dash" & SepD() & after, SepC()
+            Else
+                SchedNew items, has, cTm, cMains, cSubs, ""
+                LAddS cMains, after, SepC()
+            End If
+            GoTo nextLine
+        End If
+        If SplitTime(t, sp, rest) Then
+            SchedNew items, has, cTm, cMains, cSubs, sp
+            If rest <> "" Then LAddS cMains, rest, SepC()
+            GoTo nextLine
+        End If
+        If has And (Left$(raw, 1) = " " Or Left$(raw, 1) = "　") Then
+            If cSubs <> "" Then
+                cSubs = cSubs & vbLf & t
+            Else
+                LAddS cMains, t, SepC()
+            End If
+            GoTo nextLine
+        End If
+        SchedNew items, has, cTm, cMains, cSubs, ""
+        LAddS cMains, t, SepC()
+nextLine:
+    Next
+    If has Then LAdd items, cTm & SepB() & cMains & SepB() & cSubs
+End Sub
+
+Public Sub SheetBase(ByVal ws As Object)
+    ws.Cells.Font.Name = "맑은 고딕"
+    ws.Cells.Font.Size = 10
+    HideGrid ws
+End Sub
+
+Public Function ModOk3() As Long
+    ModOk3 = 3
+End Function
+
+Public Sub Check3()
+    Dim n As Long, msg As String
+    msg = "3번 모듈을 읽었습니다 (전체 7개)."
+    On Error Resume Next
+    n = ModOk1() + ModOk2() + ModOk3()
+    If Err.Number <> 0 Or n <> 6 Then
+        msg = msg & vbLf & "그런데 앞 모듈을 부르지 못했습니다: " & Err.Description
+    Else
+        msg = msg & vbLf & "다음: 4번 파일을 새 모듈에 붙여넣으세요."
+    End If
+    On Error GoTo 0
+    MsgBox msg, 0, "확인"
+End Sub
+
+' ==== 모듈 3 끝 ====

@@ -60,7 +60,7 @@ Private gW As Double, gH As Double, gGap As Double
 ' ---- executives ----------------------------------------------------------
 Public exWs(1 To 8) As Object
 Public exPos(1 To 8) As String, exName(1 To 8) As String
-Public exItems(1 To 8) As Object, exRefs(1 To 8) As Object
+Public exItems(1 To 8) As String, exRefs(1 To 8) As String
 
 ' ---- bottom tables -------------------------------------------------------
 Private tbLabel(1 To 4) As String
@@ -182,56 +182,54 @@ Private Function IsExecSheet(ByVal ws As Object) As Boolean
     IsExecSheet = (CStr(ws.Cells(1, 1).Value) = "직위" And CStr(ws.Cells(1, 3).Value) = "성명")
 End Function
 
-Private Function ExecSheetList() As Collection
-    Dim c As New Collection, ws As Object
-    For Each ws In HostBook().Worksheets
-        If IsExecSheet(ws) Then
-            If c.Count < NX Then c.Add ws
+' indexes of the executive sheets in tab order (at most NX). returns the count
+Private Function ExecSheetIdx(ByRef idx() As Long) As Long
+    Dim wb As Object, i As Long, n As Long
+    Set wb = HostBook()
+    ReDim idx(1 To NX)
+    For i = 1 To wb.Worksheets.Count
+        If n < NX Then
+            If IsExecSheet(wb.Worksheets(i)) Then
+                n = n + 1
+                idx(n) = i
+            End If
         End If
     Next
-    Set ExecSheetList = c
+    ExecSheetIdx = n
 End Function
 
 Public Sub LoadExecs()
-    Dim c As Collection, k As Long, nws As Object, after As Object
-    Dim sched As Collection, refc As Collection, res As Variant, r As Variant, itc As Collection, rfc As Collection
-    gStep = "execs: list"
-    Set c = ExecSheetList()
-    Do While c.Count < NX
-        If c.Count > 0 Then
-            Set after = c(c.Count)
-        Else
-            Set after = HostBook().Worksheets(HostBook().Worksheets.Count)
-        End If
-        Set nws = HostBook().Worksheets.Add(, after)
+    Dim idx() As Long, n As Long, k As Long, nws As Object
+    Dim sched As String, refc As String, its As String, rfs As String
+    StepTo "execs: list"
+    n = ExecSheetIdx(idx)
+    Do While n < NX
+        Set nws = NewSheet(HostBook())
         SetupExecSheet nws, "", "", Empty
-        nws.Name = UniqueSheetName("임원" & (c.Count + 1), nws)
-        Set c = ExecSheetList()
+        nws.Name = UniqueSheetName("임원" & (n + 1), nws)
+        k = n
+        n = ExecSheetIdx(idx)
+        If n <= k Then Err.Raise 1004, "LoadExecs", "임원 시트를 만들 수 없습니다"
     Loop
     For k = 1 To NX
-        gStep = "execs: sheet " & k
-        Set exWs(k) = c(k)
+        StepTo "execs: sheet " & k
+        Set exWs(k) = HostBook().Worksheets(idx(k))
         exPos(k) = CellText(exWs(k).Cells(1, 2).Value)
         exName(k) = CellText(exWs(k).Cells(1, 4).Value)
-        Set sched = New Collection
-        Set refc = New Collection
-        gStep = "execs: read " & k
+        sched = ""
+        refc = ""
+        StepTo "execs: read " & k
         ReadExecRows exWs(k), sched, refc
-        gStep = "execs: parse " & k
-        res = ParseSched(sched)
-        gStep = "execs: refs " & k
-        Set itc = res(0)
-        Set rfc = res(1)
-        For Each r In rfc
-            refc.Add r
-        Next
-        Set exItems(k) = itc
-        Set exRefs(k) = refc
+        StepTo "execs: parse " & k
+        ParseSched sched, its, rfs
+        exItems(k) = its
+        exRefs(k) = refc & rfs
     Next
 End Sub
 
 Private Function UniqueSheetName(ByVal want As String, ByVal self As Object) As String
-    Dim nm As String, n As Long, ws As Object, clash As Boolean, selfName As String
+    Dim nm As String, n As Long, i As Long, clash As Boolean, selfName As String, wb As Object
+    Set wb = HostBook()
     If Not self Is Nothing Then selfName = self.Name
     want = SafeSheetName(want)
     If want = "" Then want = "임원"
@@ -239,9 +237,9 @@ Private Function UniqueSheetName(ByVal want As String, ByVal self As Object) As 
     n = 2
     Do
         clash = False
-        For Each ws In HostBook().Worksheets
-            If ws.Name <> selfName Then
-                If LCase$(ws.Name) = LCase$(nm) Then clash = True
+        For i = 1 To wb.Worksheets.Count
+            If wb.Worksheets(i).Name <> selfName Then
+                If LCase$(wb.Worksheets(i).Name) = LCase$(nm) Then clash = True
             End If
         Next
         If Not clash Then Exit Do
@@ -272,14 +270,16 @@ Public Function UsedLast(ByVal ws As Object, ByRef lastR As Long, ByRef lastC As
     UsedLast = True
 End Function
 
-Private Sub ReadExecRows(ByVal ws As Object, ByVal sched As Collection, ByVal refc As Collection)
+Private Sub ReadExecRows(ByVal ws As Object, ByRef sched As String, ByRef refc As String)
     Dim lastR As Long, lastC As Long, v As Variant, r As Long, c As Long
     UsedLast ws, lastR, lastC
     If lastC < 4 Then lastC = 4
     If lastR < 4 Then Exit Sub
     v = ws.Range(ws.Cells(1, 1), ws.Cells(lastR, lastC)).Value
     Dim roles() As String, labels() As String, cells() As String, anyV As Boolean
-    ReDim roles(0 To lastC - 1): ReDim labels(0 To lastC - 1): ReDim cells(0 To lastC - 1)
+    ReDim roles(0 To lastC - 1)
+    ReDim labels(0 To lastC - 1)
+    ReDim cells(0 To lastC - 1)
     For c = 1 To lastC
         HeadRole CellText(v(3, c)), roles(c - 1), labels(c - 1)
     Next
@@ -343,10 +343,9 @@ Public Function IsHeaderRow(cells() As String) As Boolean
 End Function
 
 ' one spreadsheet row -> schedule lines and ※ lines (port of rowLines)
-Public Sub RowLines(cells() As String, roles() As String, labels() As String, ByVal hasRoles As Boolean, _
-        ByVal sched As Collection, ByVal refc As Collection)
-    Dim tm As String, content As String, place As String, stars As New Collection, i As Long, c As String, l As Variant
-    Dim ro As String, n As Long, st As Long
+Public Sub RowLines(cells() As String, roles() As String, labels() As String, ByVal hasRoles As Boolean, ByRef sched As String, ByRef refc As String)
+    Dim tm As String, content As String, place As String, stars As String, i As Long, c As String
+    Dim ro As String, n As Long, st As Long, ls As Variant, j As Long, t As String, sa As Variant, k As Long
     If hasRoles Then
         For i = LBound(cells) To UBound(cells)
             c = cells(i)
@@ -354,21 +353,25 @@ Public Sub RowLines(cells() As String, roles() As String, labels() As String, By
                 ro = "star"
                 If i <= UBound(roles) Then ro = roles(i)
                 Select Case ro
-                    Case "time": tm = c
+                    Case "time"
+                        tm = c
                     Case "content"
                         If content <> "" Then content = content & vbLf
                         content = content & c
-                    Case "place": place = c
+                    Case "place"
+                        place = c
                     Case "ref"
-                        For Each l In Split(c, vbLf)
-                            If TrimX(CStr(l)) <> "" Then refc.Add StripLead(TrimX(CStr(l)), "※")
+                        ls = Split(c, vbLf)
+                        For j = 0 To UBound(ls)
+                            t = TrimX(CStr(ls(j)))
+                            If t <> "" Then LAdd refc, StripLead(t, "※")
                         Next
                     Case "star"
-                        If i <= UBound(labels) And labels(i) <> "" Then
-                            stars.Add labels(i) & ": " & c
-                        Else
-                            stars.Add c
+                        t = c
+                        If i <= UBound(labels) Then
+                            If labels(i) <> "" Then t = labels(i) & ": " & c
                         End If
+                        LAdd stars, t
                 End Select
             End If
         Next
@@ -390,27 +393,22 @@ Public Sub RowLines(cells() As String, roles() As String, labels() As String, By
             st = st + 1
         End If
         For i = st To n
-            If cells(i) <> "" Then stars.Add cells(i)
+            If cells(i) <> "" Then LAdd stars, cells(i)
         Next
     End If
-    Dim lines As New Collection, first As String, t As String
-    For Each l In Split(content, vbLf)
-        t = TrimX(CStr(l))
-        If t <> "" Then lines.Add t
-    Next
-    If lines.Count > 0 Then
-        first = lines(1)
-        lines.Remove 1
-        If FirstIn(first, "*＊※") Then
-            If lines.Count > 0 Then
-                lines.Add first, , 1
+    ' content lines: the first one goes on the time line, the others below it
+    Dim lines As String, first As String, nl As Long, tmS As String, sp As String, rest As String, ln As String
+    ls = Split(content, vbLf)
+    For j = 0 To UBound(ls)
+        t = TrimX(CStr(ls(j)))
+        If t <> "" Then
+            If first = "" And lines = "" And Not FirstIn(t, "*＊※") Then
+                first = t
             Else
-                lines.Add first
+                LAdd lines, t
             End If
-            first = ""
         End If
-    End If
-    Dim tmS As String, sp As String, rest As String, ln As String
+    Next
     If tm <> "" Then
         If SplitTime(tm, sp, rest) And rest = "" Then
             tmS = sp & " "
@@ -422,129 +420,127 @@ Public Sub RowLines(cells() As String, roles() As String, labels() As String, By
         ln = tmS & first
         If place <> "" Then ln = ln & " @" & place
         If Right$(ln, 1) = " " Then ln = Left$(ln, Len(ln) - 1)
-        sched.Add ln
+        LAdd sched, ln
     ElseIf place <> "" Then
-        sched.Add "@" & place
+        LAdd sched, "@" & place
     End If
-    For Each l In lines
-        t = CStr(l)
-        If Left$(t, 1) = "※" Then
-            refc.Add StripLead(t, "※")
-        ElseIf FirstIn(t, "*＊-·•") Then
-            sched.Add t
-        Else
-            sched.Add "  " & t
-        End If
-    Next
-    Dim s As Variant
-    For Each s In stars
-        For Each l In Split(CStr(s), vbLf)
-            t = TrimX(CStr(l))
-            If t <> "" Then
-                If FirstIn(t, "*＊") Then t = TrimX(Mid$(t, 2))
-                sched.Add "* " & t
+    nl = LCount(lines)
+    If nl > 0 Then
+        ls = LItems(lines)
+        For j = 0 To nl - 1
+            t = CStr(ls(j))
+            If Left$(t, 1) = "※" Then
+                LAdd refc, StripLead(t, "※")
+            ElseIf FirstIn(t, "*＊-·•") Then
+                LAdd sched, t
+            Else
+                LAdd sched, "  " & t
             End If
         Next
-    Next
+    End If
+    nl = LCount(stars)
+    If nl > 0 Then
+        sa = LItems(stars)
+        For k = 0 To nl - 1
+            ls = Split(CStr(sa(k)), vbLf)
+            For j = 0 To UBound(ls)
+                t = TrimX(CStr(ls(j)))
+                If t <> "" Then
+                    If FirstIn(t, "*＊") Then t = TrimX(Mid$(t, 2))
+                    LAdd sched, "* " & t
+                End If
+            Next
+        Next
+    End If
 End Sub
 
 ' ===========================================================================
 ' Schedule lines -> items (port of parseSched)
-'   item = Array(time, mains As Collection, subs As Collection of Array(kind, text))
 ' ===========================================================================
 Public Function IsBullet(ByVal t As String) As Boolean
     IsBullet = FirstIn(t, "-–○●◦·•▶▷□■")
 End Function
 
-Public Function ParseSched(ByVal lines As Collection) As Variant
-    Dim items As New Collection, refs As New Collection, hasLast As Boolean
-    Dim curMains As Collection, curSubs As Collection, lastSub As Variant
-    Dim l As Variant, raw As String, t As String, k As Long, pre As String, body As String
+Public Sub ParseSched(ByVal lines As String, ByRef items As String, ByRef refs As String)
+    Dim has As Boolean, cTm As String, cMains As String, cSubs As String
+    Dim ls As Variant, li As Long, nL As Long
+    Dim raw As String, t As String, k As Long, pre As String, body As String
     Dim sp As String, rest As String, after As String, s As String
-    For Each l In lines
-        raw = CStr(l)
+    items = ""
+    refs = ""
+    nL = LCount(lines)
+    If nL = 0 Then Exit Sub
+    ls = LItems(lines)
+    For li = 0 To nL - 1
+        raw = CStr(ls(li))
         If InStr(raw, vbLf) > 0 Then raw = Replace(raw, vbLf, " ")
         t = TrimX(raw)
         If t = "" Then GoTo nextLine
         If Left$(t, 1) = "※" Then
-            refs.Add StripLead(t, "※")
+            LAdd refs, StripLead(t, "※")
             GoTo nextLine
         End If
         If FirstIn(t, "*＊") Then
             s = StripLead(t, "*＊")
-            If Not hasLast Then
-                Set curMains = New Collection
-                Set curSubs = New Collection
-                items.Add Array("", curMains, curSubs)
-                hasLast = True
-            End If
-            curSubs.Add Array("star", s)
+            If Not has Then SchedNew items, has, cTm, cMains, cSubs, ""
+            LAddS cSubs, "star" & SepD() & s, SepC()
             GoTo nextLine
         End If
         k = InStr(t, vbTab)
         If k > 1 And k <= 17 And Not IsBullet(t) Then
             pre = TrimX(Left$(t, k - 1))
             If SplitTime(pre, sp, rest) And rest = "" Then
-                Set curMains = New Collection
-                Set curSubs = New Collection
-                items.Add Array(sp, curMains, curSubs)
+                SchedNew items, has, cTm, cMains, cSubs, sp
             Else
-                Set curMains = New Collection
-                Set curSubs = New Collection
-                items.Add Array(pre, curMains, curSubs)
+                SchedNew items, has, cTm, cMains, cSubs, pre
             End If
             body = TrimX(TabsToSpace(Mid$(t, k + 1)))
-            If body <> "" Then curMains.Add body
-            hasLast = True
+            If body <> "" Then LAddS cMains, body, SepC()
             GoTo nextLine
         End If
         t = TabsToSpace(t)
         If IsBullet(t) Then
             after = TrimX(Mid$(t, 2))
             If SplitTime(after, sp, rest) Then
-                Set curMains = New Collection
-                Set curSubs = New Collection
-                items.Add Array(sp, curMains, curSubs)
-                If rest <> "" Then curMains.Add rest
-                hasLast = True
-            ElseIf hasLast And FirstIn(t, "-–·•") Then
-                curSubs.Add Array("dash", after)
+                SchedNew items, has, cTm, cMains, cSubs, sp
+                If rest <> "" Then LAddS cMains, rest, SepC()
+            ElseIf has And FirstIn(t, "-–·•") Then
+                LAddS cSubs, "dash" & SepD() & after, SepC()
             Else
-                Set curMains = New Collection
-                Set curSubs = New Collection
-                items.Add Array("", curMains, curSubs)
-                curMains.Add after
-                hasLast = True
+                SchedNew items, has, cTm, cMains, cSubs, ""
+                LAddS cMains, after, SepC()
             End If
             GoTo nextLine
         End If
         If SplitTime(t, sp, rest) Then
-            Set curMains = New Collection
-            Set curSubs = New Collection
-            items.Add Array(sp, curMains, curSubs)
-            If rest <> "" Then curMains.Add rest
-            hasLast = True
+            SchedNew items, has, cTm, cMains, cSubs, sp
+            If rest <> "" Then LAddS cMains, rest, SepC()
             GoTo nextLine
         End If
-        If hasLast And (Left$(raw, 1) = " " Or Left$(raw, 1) = "　") Then
-            If curSubs.Count > 0 Then
-                lastSub = curSubs(curSubs.Count)
-                curSubs.Remove curSubs.Count
-                curSubs.Add Array(lastSub(0), lastSub(1) & vbLf & t)
+        If has And (Left$(raw, 1) = " " Or Left$(raw, 1) = "　") Then
+            If cSubs <> "" Then
+                ' continues the text of the last sub line
+                cSubs = cSubs & vbLf & t
             Else
-                curMains.Add t
+                LAddS cMains, t, SepC()
             End If
             GoTo nextLine
         End If
-        Set curMains = New Collection
-        Set curSubs = New Collection
-        items.Add Array("", curMains, curSubs)
-        curMains.Add t
-        hasLast = True
+        SchedNew items, has, cTm, cMains, cSubs, ""
+        LAddS cMains, t, SepC()
 nextLine:
     Next
-    ParseSched = Array(items, refs)
-End Function
+    If has Then LAdd items, cTm & SepB() & cMains & SepB() & cSubs
+End Sub
+
+' close the current item (if any) and start a new one with time tm
+Private Sub SchedNew(ByRef items As String, ByRef has As Boolean, ByRef cTm As String, ByRef cMains As String, ByRef cSubs As String, ByVal tm As String)
+    If has Then LAdd items, cTm & SepB() & cMains & SepB() & cSubs
+    cTm = tm
+    cMains = ""
+    cSubs = ""
+    has = True
+End Sub
 
 ' ===========================================================================
 ' Rich text pieces
@@ -557,38 +553,39 @@ Private Sub RBMainLine(ByVal s As String, Optional ByVal size As Double = 0)
         place = TrimX(Mid$(s, p + 1))
         If place <> "" Then
             If p = 1 Then
-                RBAdd "(", , , , size
-                RBInline place, , size
-                RBAdd ")", , , , size
+                RBAdd "(", False, False, -1, size
+                RBInline place, False, size
+                RBAdd ")", False, False, -1, size
                 Exit Sub
             ElseIf IsWs(Mid$(s, p - 1, 1)) Then
                 m1 = RTrimX(Left$(s, p - 1))
-                RBInline m1, , size
-                If m1 <> "" Then RBAdd " ", , , , size
-                RBAdd "(", , , , size
-                RBInline place, , size
-                RBAdd ")", , , , size
+                RBInline m1, False, size
+                If m1 <> "" Then RBAdd " ", False, False, -1, size
+                RBAdd "(", False, False, -1, size
+                RBInline place, False, size
+                RBAdd ")", False, False, -1, size
                 Exit Sub
             End If
         End If
     End If
-    RBInline s, , size
+    RBInline s, False, size
 End Sub
 
 ' cell text of a bottom table (port of xtCellHTML)
 Private Sub RBTableCell(ByVal txt As String, ByVal fs As Double)
-    Dim l As Variant, t As String, n As Long, sp As String, rest As String, sfs As Double
+    Dim ls As Variant, j As Long, t As String, n As Long, sp As String, rest As String, sfs As Double
     sfs = R5(MaxD(MaxD(fs - 1.5, 0.75 * fs), 6))
-    For Each l In SplitLines(TabsToSpace(txt))
-        t = TrimX(CStr(l))
+    ls = SplitLines(TabsToSpace(txt))
+    For j = 0 To UBound(ls)
+        t = TrimX(CStr(ls(j)))
         If t <> "" Then
             If n > 0 Then RBAdd vbLf
             n = n + 1
             If Left$(t, 1) = "※" Then
                 RBInline t
             ElseIf FirstIn(t, "*＊") Then
-                RBAdd "* ", , , , sfs
-                RBInline StripLead(t, "*＊"), , sfs
+                RBAdd "* ", False, False, -1, sfs
+                RBInline StripLead(t, "*＊"), False, sfs
             ElseIf SplitTime(t, sp, rest) Then
                 RBAdd sp, True
                 If rest <> "" Then
@@ -670,11 +667,16 @@ End Function
 
 ' width of the time column in box i
 Private Function TimeColW(ByVal i As Long) As Double
-    Dim it As Variant, p As Variant, w As Double
-    For Each it In exItems(i)
-        If it(0) <> "" Then
-            For Each p In Split(TimePieces(it(0)), vbLf)
-                w = MaxD(w, MeasureW(CStr(p), gFont, gFS, True))
+    Dim its As Variant, n As Long, k As Long, f As Variant, ps As Variant, j As Long, w As Double
+    n = LCount(exItems(i))
+    If n = 0 Then Exit Function
+    its = LItems(exItems(i))
+    For k = 0 To n - 1
+        f = Split(CStr(its(k)), SepB())
+        If CStr(f(0)) <> "" Then
+            ps = Split(TimePieces(CStr(f(0))), vbLf)
+            For j = 0 To UBound(ps)
+                w = MaxD(w, MeasureW(CStr(ps(j)), gFont, gFS, True))
             Next
         End If
     Next
@@ -688,7 +690,10 @@ End Function
 ' one executive box. returns natural height; when doRender, draws it with height h
 Private Function LayBox(ByVal i As Long, ByVal x As Double, ByVal y As Double, ByVal w As Double, ByVal h As Double, ByVal doRender As Boolean) As Double
     Dim fs As Double, pv As Double, ph As Double, rp As Double
-    fs = gFS: pv = PadV(): ph = PadH(): rp = RowPad()
+    fs = gFS
+    pv = PadV()
+    ph = PadH()
+    rp = RowPad()
     Dim hfs As Double, headTxt As String, headH As Double, idx As Long
     hfs = R5(fs * 1.06)
     headTxt = TrimX(exPos(i) & " " & exName(i))
@@ -712,35 +717,43 @@ Private Function LayBox(ByVal i As Long, ByVal x As Double, ByVal y As Double, B
         cx = x0
     End If
     cw = x0 + bw - cx
-    Dim k As Long, it As Variant, m As Long, itemTop As Double, y1 As Double, cy As Double
+    Dim k As Long, m As Long, itemTop As Double, y1 As Double, cy As Double
     Dim tTxt As String, tH As Double, mTxt As String, mRuns As String, mMark As Boolean, mH As Double
-    Dim sb As Variant, sfs As Double, mk As String, mkW As Double, sTxt As String, sRuns As String, sMark As Boolean, sH As Double
-    Dim l As Variant, n As Long, mains As Collection, subs As Collection, itemH As Double, nh As Double
-    Dim refH As Double, rfs As Double, rmW As Double, r As Variant, rTop As Double, rH() As Double, rT() As String, rR() As String, rM() As Boolean
-    k = 0
-    For Each it In exItems(i)
-        k = k + 1
+    Dim sfs As Double, mk As String, mkW As Double, sTxt As String, sRuns As String, sMark As Boolean, sH As Double
+    Dim n As Long, itemH As Double, nh As Double
+    Dim its As Variant, nIt As Long, f As Variant, ma As Variant, nM As Long, sa As Variant, nS As Long, sb As Variant, ls As Variant, j As Long, q As Long
+    nIt = LCount(exItems(i))
+    If nIt > 0 Then its = LItems(exItems(i))
+    For k = 1 To nIt
         itemTop = yy
         y1 = yy + rp
-        tTxt = TimePieces(it(0))
-        Set mains = it(1)
-        Set subs = it(2)
+        f = Split(CStr(its(k - 1)), SepB())
+        tTxt = TimePieces(CStr(f(0)))
         tH = 0
         If tTxt <> "" Then tH = MeasureH(tTxt, "", tw, gFont, fs, True)
         RBReset
-        For m = 1 To mains.Count
-            If m > 1 Then RBAdd vbLf
-            RBMainLine mains(m)
-        Next
-        mTxt = RBText(): mRuns = RBRuns(): mMark = rbMark
+        nM = LCountS(CStr(f(1)), SepC())
+        If nM > 0 Then
+            ma = LItemsS(CStr(f(1)), SepC())
+            For m = 1 To nM
+                If m > 1 Then RBAdd vbLf
+                RBMainLine CStr(ma(m - 1))
+            Next
+        End If
+        mTxt = RBText()
+        mRuns = RBRuns()
+        mMark = rbMark
         mH = MeasureH(mTxt, mRuns, cw, gFont, fs)
         If doRender And mTxt <> "" Then
             idx = ElText(cx, y1, cw, mH, mTxt, mRuns, fs)
             If mMark Then ElFill idx, COL_MARK
         End If
         cy = y1 + mH
-        For Each sb In subs
-            If sb(0) = "star" Then
+        nS = LCountS(CStr(f(2)), SepC())
+        If nS > 0 Then sa = LItemsS(CStr(f(2)), SepC())
+        For q = 1 To nS
+            sb = Split(CStr(sa(q - 1)), SepD())
+            If CStr(sb(0)) = "star" Then
                 sfs = R5(MaxD(MaxD(fs - 2, 0.75 * fs), 6))
                 mk = "*"
                 cy = cy + 0.06 * fs
@@ -752,12 +765,15 @@ Private Function LayBox(ByVal i As Long, ByVal x As Double, ByVal y As Double, B
             mkW = MeasureW(mk, gFont, sfs) + 0.1 * sfs
             RBReset
             n = 0
-            For Each l In Split(sb(1), vbLf)
+            ls = Split(CStr(sb(1)), vbLf)
+            For j = 0 To UBound(ls)
                 If n > 0 Then RBAdd vbLf
                 n = n + 1
-                RBInline CStr(l)
+                RBInline CStr(ls(j))
             Next
-            sTxt = RBText(): sRuns = RBRuns(): sMark = rbMark
+            sTxt = RBText()
+            sRuns = RBRuns()
+            sMark = rbMark
             sH = MeasureH(sTxt, sRuns, cw - mkW, gFont, sfs)
             If doRender Then
                 ElText cx, cy, mkW, sH, mk, "", sfs
@@ -776,24 +792,31 @@ Private Function LayBox(ByVal i As Long, ByVal x As Double, ByVal y As Double, B
         End If
         yy = itemTop + itemH
     Next
-    If k = 0 And gEmptyText <> "" Then
+    If nIt = 0 And gEmptyText <> "" Then
         nh = MeasureH(gEmptyText, "", bw, gFont, fs)
         If doRender Then ElText x0, yy + 0.5 * fs, bw, nh, gEmptyText, "", fs, False, XL_CENTER, XL_TOP, COL_GRAY
         yy = yy + nh + fs
     End If
     yy = yy + 0.5 * pv
     ' ※ lines at the bottom of the box
-    If exRefs(i).Count > 0 Then
+    Dim refH As Double, rfs As Double, rmW As Double, rTop As Double, rH() As Double, rT() As String, rR() As String, rM() As Boolean
+    Dim nR As Long, ra As Variant
+    nR = LCount(exRefs(i))
+    If nR > 0 Then
+        ra = LItems(exRefs(i))
         rfs = R5(0.93 * fs)
         rmW = MeasureW("※", gFont, rfs)
-        ReDim rH(1 To exRefs(i).Count): ReDim rT(1 To exRefs(i).Count): ReDim rR(1 To exRefs(i).Count): ReDim rM(1 To exRefs(i).Count)
+        ReDim rH(1 To nR)
+        ReDim rT(1 To nR)
+        ReDim rR(1 To nR)
+        ReDim rM(1 To nR)
         refH = 0.8 * pv + 0.9 * pv
-        n = 0
-        For Each r In exRefs(i)
-            n = n + 1
+        For n = 1 To nR
             RBReset
-            RBInline CStr(r)
-            rT(n) = RBText(): rR(n) = RBRuns(): rM(n) = rbMark
+            RBInline CStr(ra(n - 1))
+            rT(n) = RBText()
+            rR(n) = RBRuns()
+            rM(n) = rbMark
             rH(n) = MeasureH(rT(n), rR(n), bw - rmW, gFont, rfs)
             refH = refH + rH(n)
             If n > 1 Then refH = refH + 0.08 * fs
@@ -803,7 +826,7 @@ Private Function LayBox(ByVal i As Long, ByVal x As Double, ByVal y As Double, B
             idx = ElBox(x0, rTop, bw, refH)
             ElBorder idx, 0, XL_DASH, XL_HAIR, COL_DASH
             cy = rTop + 0.8 * pv
-            For n = 1 To exRefs(i).Count
+            For n = 1 To nR
                 If n > 1 Then cy = cy + 0.08 * fs
                 ElText x0, cy, rmW, rH(n), "※", "", rfs
                 idx = ElText(x0 + rmW, cy, bw - rmW, rH(n), rT(n), rR(n), rfs)
@@ -944,20 +967,20 @@ Private Sub FitEval(ByVal fs As Double, ByVal lo As Double, ByVal hi As Double, 
 End Sub
 
 Public Sub DoBuild()
-    gStep = "settings"
+    StepTo "settings"
     LoadSettings
-    gStep = "execs"
+    StepTo "execs"
     LoadExecs
-    gStep = "sync names"
+    StepTo "sync names"
     SyncExecNames
-    gStep = "tables"
+    StepTo "tables"
     LoadTables
-    gStep = "measure init"
+    StepTo "measure init"
     ' row AutoFit (used to measure text) needs screen updating on in some hosts;
     ' only the hidden scratch sheet changes while measuring
     SetScreen True
     MsInit SH_MS
-    gStep = "fit"
+    StepTo "fit"
     Dim lo As Double, hi As Double, fs As Double, ok As Boolean, need As Double, avail As Double
     Dim req() As Double, nat() As Double, headH As Double, tabH As Double, footH As Double, h() As Double
     Dim a As Long, b As Long, md As Long
@@ -1014,7 +1037,7 @@ Public Sub DoBuild()
     End If
     h(2) = MaxD(MaxD(h(2), hE + gGap + hF), nat(4))
     ' draw
-    gStep = "render"
+    StepTo "render"
     SetScreen False
     ElReset
     Dim y As Double, x As Double, w As Double, i As Long
@@ -1039,11 +1062,11 @@ Public Sub DoBuild()
     LayFoot y, True
     Dim ws As Object, lastR As Long, lastC As Long
     Set ws = HostBook().Worksheets(SH_A4)
-    gStep = "realize"
+    StepTo "realize"
     Realize ws, gFont, lastR, lastC
-    gStep = "page setup"
+    StepTo "page setup"
     PageSetupA4 ws, gLandscape, gMargin, lastR, lastC
-    gStep = "status"
+    StepTo "status"
     ' status
     Dim st As String
     If ok Then
@@ -1059,13 +1082,13 @@ Public Sub DoBuild()
         End If
     End If
     ShowStatus st, ok
-    gStep = "sizes"
+    StepTo "sizes"
     UpdateSizes h, hE, hF
-    gStep = "map"
+    StepTo "map"
     UpdateMap
-    gStep = "a4 buttons"
+    StepTo "a4 buttons"
     PlaceA4Buttons ws, lastC
-    gStep = "done"
+    StepTo "done"
 End Sub
 
 Private Sub ShowStatus(ByVal st As String, ByVal ok As Boolean)
@@ -1087,11 +1110,12 @@ Private Sub ShowStatus(ByVal st As String, ByVal ok As Boolean)
 End Sub
 
 Private Sub PlaceA4Buttons(ByVal ws As Object, ByVal lastC As Long)
-    Dim x As Double, shp As Object, y As Double
+    Dim x As Double, shp As Object, y As Double, i As Long
     On Error Resume Next
     x = ws.Cells(1, lastC + 1).Left + 18
     y = 6
-    For Each shp In ws.Shapes
+    For i = 1 To ws.Shapes.Count
+        Set shp = ws.Shapes(i)
         If shp.Name = "a4status" Then
             shp.Left = x
             shp.Top = 6
@@ -1141,8 +1165,8 @@ Private Sub UpdateMap()
         On Error GoTo 0
         If rg.Cells.Count > 1 And Not rg.MergeCells Then rg.Merge
         txt = i & ". " & TrimX(exPos(i) & " " & exName(i))
-        txt = txt & vbLf & "일정 " & exItems(i).Count & "건"
-        If exRefs(i).Count > 0 Then txt = txt & " · ※ " & exRefs(i).Count & "줄"
+        txt = txt & vbLf & "일정 " & LCount(exItems(i)) & "건"
+        If LCount(exRefs(i)) > 0 Then txt = txt & " · ※ " & LCount(exRefs(i)) & "줄"
         rg.Cells(1, 1).Value = txt
         rg.HorizontalAlignment = XL_CENTER
         rg.VerticalAlignment = XL_CENTER
@@ -1150,7 +1174,7 @@ Private Sub UpdateMap()
         rg.Font.Name = "맑은 고딕"
         rg.Font.Size = 9
         rg.Font.Color = 0
-        rg.Interior.Color = IIf(exItems(i).Count = 0, COL_SOFT, 16777215)
+        rg.Interior.Color = IIf(LCount(exItems(i)) = 0, COL_SOFT, 16777215)
         rg.Borders.LineStyle = XL_CONT
         rg.Borders.Color = COL_INLINE
         AddLink ws, rg.Cells(1, 1), "#'" & exWs(i).Name & "'!B4", 0
