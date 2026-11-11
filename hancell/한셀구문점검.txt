@@ -1,5 +1,13 @@
-' 한셀 구문 점검 — 새 모듈 하나에 전부 붙여넣고 SyntaxCheck 를 실행하세요.
-' 창에 OK / 실패가 줄마다 나옵니다. 아무 창도 안 뜨면 그것도 알려 주세요.
+' 한셀 구문 점검 (2판)
+'
+' 1. 새 문서에서 모듈 하나를 만들어 이 내용을 전부 붙여넣습니다.
+' 2. 먼저 [다른 이름으로 저장 → .xlsm] 으로 저장합니다. (한셀이 꺼져도 다시 붙여넣지 않게)
+' 3. SyntaxCheck 를 실행합니다. 시작 번호를 물으면 그냥 확인(1번부터).
+' 4. "N번 시험" 창이 하나씩 뜹니다. 확인을 누르면 그 시험을 합니다.
+'    - 한셀이 꺼지면: 마지막으로 본 번호를 적어 두고, 파일을 다시 열어 SyntaxCheck 를
+'      실행한 뒤 시작 번호에 (그 번호 + 1)을 넣으면 나머지를 이어서 합니다.
+'    - 끝까지 가면 결과 창이 뜹니다.
+' 5. 꺼진 번호들과 마지막 결과 창을 알려 주세요.
 Option Explicit
 
 Private Const K_SEVEN As Long = 7
@@ -7,85 +15,166 @@ Public gNum As Long
 Private gArr() As Double
 
 Sub SyntaxCheck()
-    Dim r
-    MsgBox "구문 점검을 시작합니다"
+    Dim r, k, s, startNo, nm
+    s = InputBox("몇 번부터 시험할까요? (처음이면 그대로 확인)", "구문 점검", "1")
+    If s = "" Then Exit Sub
+    startNo = CLng(s)
     r = ""
     On Error Resume Next
-    r = r & Try01() & vbLf
-    r = r & Try02() & vbLf
-    r = r & Try03() & vbLf
-    r = r & Try04() & vbLf
-    r = r & Try05() & vbLf
-    r = r & Try06() & vbLf
-    r = r & Try07() & vbLf
-    r = r & Try08() & vbLf
-    r = r & Try09() & vbLf
-    r = r & Try10() & vbLf
-    r = r & Try11() & vbLf
-    r = r & Try12() & vbLf
-    r = r & Try13() & vbLf
-    r = r & Try14() & vbLf
-    MsgBox r, 0, "구문 점검 결과"
+    For k = startNo To 14
+        nm = TestName(k)
+        MsgBox k & "번 시험: " & nm & vbLf & "(확인을 누르면 시작합니다)", 0, "구문 점검"
+        Err.Clear
+        s = ""
+        If k = 1 Then s = Try01()
+        If k = 2 Then s = Try02()
+        If k = 3 Then s = Try03()
+        If k = 4 Then s = Try04()
+        If k = 5 Then s = Try05()
+        If k = 6 Then s = Try06()
+        If k = 7 Then s = Try07()
+        If k = 8 Then s = Try08()
+        If k = 9 Then s = Try09()
+        If k = 10 Then s = Try10()
+        If k = 11 Then s = Try11()
+        If k = 12 Then s = Try12()
+        If k = 13 Then s = Try13()
+        If k = 14 Then s = Try14()
+        If Err.Number <> 0 Then s = "오류 " & Err.Number & " " & Err.Description
+        r = r & k & " " & nm & ": " & s & vbLf
+    Next
+    MsgBox r, 0, "구문 점검 결과 (" & startNo & "번부터)"
 End Sub
+
+Function TestName(k)
+    TestName = ""
+    If k = 1 Then TestName = "줄 이어 쓰기( _)"
+    If k = 2 Then TestName = "Do While / Exit Do"
+    If k = 3 Then TestName = "모듈 Const·변수"
+    If k = 4 Then TestName = "배열을 돌려주는 Function"
+    If k = 5 Then TestName = "Choose·Format$·Val·$함수"
+    If k = 6 Then TestName = "Optional 인자"
+    If k = 7 Then TestName = "ReDim (1 To n)·Preserve"
+    If k = 8 Then TestName = "배열을 넘기는 인자"
+    If k = 9 Then TestName = "Select Case"
+    If k = 10 Then TestName = "With 블록"
+    If k = 11 Then TestName = "On Error GoTo 이름표"
+    If k = 12 Then TestName = "2차원 배열"
+    If k = 13 Then TestName = "GoTo 이름표"
+    If k = 14 Then TestName = "Collection"
+End Function
 
 Function Try01() As String
     Dim s As String
     s = "줄 " & _
         "이어 쓰기"
-    Try01 = "01 줄 이어 쓰기( _): OK"
+    Try01 = "OK"
+End Function
+
+Function Try02() As String
+    Dim i As Long
+    Do While i < 10
+        i = i + 1
+        If i = 4 Then Exit Do
+    Loop
+    Try02 = IIf(i = 4, "OK", "값이 틀림")
+End Function
+
+Function Try03() As String
+    gNum = K_SEVEN
+    Try03 = IIf(gNum = 7, "OK", "값이 틀림")
+End Function
+
+Function Parts() As Variant
+    Parts = Array("가", "나")
+End Function
+Function Try04() As String
+    Dim p As Variant
+    p = Parts()
+    Try04 = IIf(UBound(p) = 1, "OK", "값이 틀림")
+End Function
+
+Function Try05() As String
+    Dim t As String
+    t = Choose(2, "a", "b", "c") & Format$(5, "00") & Val("12") & Mid$("abc", 2, 1) & LCase$("A") & Trim$(" x ")
+    Try05 = IIf(t = "b0512bax", "OK", "값이 틀림 " & t)
 End Function
 
 Function Opt(ByVal a As Long, Optional ByVal b As Long = 5) As Long
     Opt = a + b
 End Function
-Function Try02() As String
-    Try02 = "02 Optional 인자: " & IIf(Opt(1) = 6 And Opt(1, 1) = 2, "OK", "값이 틀림")
+Function Try06() As String
+    Try06 = IIf(Opt(1) = 6 And Opt(1, 1) = 2, "OK", "값이 틀림")
 End Function
 
-Function Try03() As String
-    Dim a() As Double, i As Long
+Function Try07() As String
+    Dim a() As Double
     ReDim a(1 To 3)
     a(3) = 3
     ReDim Preserve a(1 To 5)
     a(5) = 5
-    gArr = a
-    Try03 = "03 ReDim (1 To n)·Preserve: " & IIf(a(3) = 3 And UBound(a) = 5, "OK", "값이 틀림")
+    Try07 = IIf(a(3) = 3 And UBound(a) = 5, "OK", "값이 틀림")
 End Function
 
 Sub Fill(arr() As Double, ByRef n As Long)
     arr(1) = 42
     n = n + 1
 End Sub
-Function Try04() As String
+Function Try08() As String
     Dim a() As Double, n As Long
     ReDim a(1 To 2)
     Fill a, n
-    Try04 = "04 배열·ByRef 인자: " & IIf(a(1) = 42 And n = 1, "OK", "값이 틀림")
+    Try08 = IIf(a(1) = 42 And n = 1, "OK", "값이 틀림")
 End Function
 
-Function Try05() As String
-    Dim i As Long
-    Do While i < 10
-        i = i + 1
-        If i = 4 Then Exit Do
-    Loop
-    Try05 = "05 Do While·Exit Do: " & IIf(i = 4, "OK", "값이 틀림")
-End Function
-
-Function Try06() As String
+Function Try09() As String
     Dim s As String, k As String
     k = "b"
     Select Case k
-        Case "a": s = "x"
+        Case "a"
+            s = "x"
         Case "b", "c"
             s = "OK"
         Case Else
             s = "값이 틀림"
     End Select
-    Try06 = "06 Select Case: " & s
+    Try09 = s
 End Function
 
-Function Try07() As String
+Function Try10() As String
+    Dim s As String
+    With Application
+        s = .Name
+    End With
+    Try10 = "OK (" & s & ")"
+End Function
+
+Function Try11() As String
+    On Error GoTo bad
+    Err.Raise 5
+    Try11 = "넘어가지 않음"
+    Exit Function
+bad:
+    Try11 = "OK"
+End Function
+
+Function Try12() As String
+    Dim m(1 To 2, 0 To 3) As String
+    m(2, 3) = "x"
+    Try12 = IIf(m(2, 3) = "x", "OK", "값이 틀림")
+End Function
+
+Function Try13() As String
+    Dim i As Long, n As Long
+    For i = 1 To 5
+        If i = 2 Then GoTo skipIt
+        n = n + 1
+skipIt:
+    Next
+    Try13 = IIf(n = 4, "OK", "값이 틀림")
+End Function
+
+Function Try14() As String
     Dim c As New Collection, v As Variant, n As Long
     c.Add "가", "k1"
     c.Add "나"
@@ -94,58 +183,5 @@ Function Try07() As String
     For Each v In c
         n = n + 1
     Next
-    Try07 = "07 Collection: " & IIf(n = 2 And c(1) = "다", "OK", "값이 틀림")
-End Function
-
-Function Try08() As String
-    Dim i As Long, n As Long
-    For i = 1 To 5
-        If i = 2 Then GoTo skipIt
-        n = n + 1
-skipIt:
-    Next
-    Try08 = "08 GoTo 이름표: " & IIf(n = 4, "OK", "값이 틀림")
-End Function
-
-Function Try09() As String
-    Dim t As String
-    t = Choose(2, "a", "b", "c") & Format$(5, "00") & Val("12") & Mid$("abc", 2, 1) & LCase$("A") & Trim$(" x ")
-    Try09 = "09 Choose·Format$·Val·$함수: " & IIf(t = "b0512bax", "OK", "값이 틀림 " & t)
-End Function
-
-Function Parts() As Variant
-    Parts = Array("가", "나")
-End Function
-Function Try10() As String
-    Dim p As Variant
-    p = Parts()
-    Try10 = "10 배열을 돌려주는 Function: " & IIf(UBound(p) = 1, "OK", "값이 틀림")
-End Function
-
-Function Try11() As String
-    gNum = K_SEVEN
-    Try11 = "11 모듈 Const·변수: " & IIf(gNum = 7, "OK", "값이 틀림")
-End Function
-
-Function Try12() As String
-    Dim s As String
-    With Application
-        s = .Name
-    End With
-    Try12 = "12 With 블록: OK (" & s & ")"
-End Function
-
-Function Try13() As String
-    On Error GoTo bad
-    Err.Raise 5
-    Try13 = "13 On Error GoTo 이름표: 실패(넘어가지 않음)"
-    Exit Function
-bad:
-    Try13 = "13 On Error GoTo 이름표: OK"
-End Function
-
-Function Try14() As String
-    Dim m(1 To 2, 0 To 3) As String
-    m(2, 3) = "x"
-    Try14 = "14 2차원 배열: " & IIf(m(2, 3) = "x", "OK", "값이 틀림")
+    Try14 = IIf(n = 2 And c(1) = "다", "OK", "값이 틀림")
 End Function
