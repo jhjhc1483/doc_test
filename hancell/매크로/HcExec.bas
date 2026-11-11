@@ -1193,3 +1193,8 @@ Private Sub LoadTables()
         End If
     Next
 End Sub
+
+'
+Public Sub CheckHcExec()
+    MsgBox "HcExec OK"
+End Sub

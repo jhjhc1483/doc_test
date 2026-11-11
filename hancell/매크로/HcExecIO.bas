@@ -869,3 +869,8 @@ Public Sub Auto_Open()
     Application.OnKey "^+h", "HighlightSel"
     Application.OnKey "^+H", "HighlightSel"
 End Sub
+
+'
+Public Sub CheckHcExecIO()
+    MsgBox "HcExecIO OK"
+End Sub

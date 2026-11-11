@@ -388,56 +388,66 @@ Private Sub SetupPaste(ByVal ws As Object)
 End Sub
 
 Private Sub SetupHelp(ByVal ws As Object)
-    Dim rows As Variant, i As Long, f As Variant
+    Dim rows As Collection, i As Long, f As Variant, k As Long, ln As String
     ClearSheet ws
     SheetBase ws
     ws.Columns(1).ColumnWidth = 46
     ws.Columns(2).ColumnWidth = 60
-    rows = Array("#부서 시트 — 한 줄에 일정 하나", "엑셀 칸|인쇄물", _
-        "시간 · 내용 · 장소|한 줄로: 09:00 (굵게) 주간회의 (대회의실)", _
-        "내용 칸 안에서 Alt+Enter 후 - ...|하위 항목", _
-        "내용 칸 안에서 * ..., 또는 내용이 * 로 시작하는 줄|글씨 2pt 작은 하위 항목 (* 로 시작하는 줄은 바로 위 일정에 붙음)", _
-        "비고|작은 글씨 하위 항목", _
-        "설명|화면에서 칸에 마우스를 올리면 보이는 메모 (인쇄 안 됨)", _
-        "링크|누르면 열리는 링크 (주소는 인쇄 안 됨)", _
-        "한 줄 비우고 A열부터 [표 제목] → 머리글 → 내용|표 그대로", _
-        "", "#내용 칸에 바로 쓰는 기호 (시간·장소 칸을 비웠을 때)", "입력|결과", _
-        "- 회의|○ 회의", _
-        "앞에 빈칸 두고 - 참석: 과장|하위 항목(-)", _
-        "* 참석: 실장 (위 항목 아래)|하위 항목, 글씨 2pt 작게", _
-        "- 09:00 회의 @대회의실|○ 09:00 회의 (대회의실)", _
-        "○, □, ※, · 직접 입력|입력한 기호 그대로", _
-        "1. , 가. , ①|번호 그대로", _
-        "**굵게**, __밑줄__, ~~취소~~, ==형광펜==, !!빨간 강조!!|글자 꾸밈 (형광펜은 그 줄의 칸 전체가 노랗게)", _
-        "## 소제목, > 비고, ---|소제목, 비고, 구분선", _
-        ">> 설명 (항목 바로 아래)|마우스를 올리면 보이는 메모 (인쇄 안 됨)", _
-        "[글자](주소) 또는 항목 끝에 주소|누르면 열리는 링크 (주소는 인쇄 안 됨)", _
-        "", "#단추", _
-        "A4 만들기|A4 시트에 한 장짜리 문서를 새로 만듭니다 (글자크기 자동 맞춤)", _
-        "엑셀 불러오기|두레이 공동편집 파일(.xlsx·.csv·.xml)을 골라 부서별로 넣습니다. 부서는 시트 이름으로 찾고, 처음 보는 부서는 새 부서로 추가", _
-        "붙여넣은 표 가져오기|붙여넣기 시트에 붙인 내용을 부서별로 넣습니다", _
-        "되돌리기|마지막 [엑셀 불러오기]·[붙여넣은 표 가져오기]·[새 문서]·[부서 빼기] 전으로", _
-        "새 문서|모든 부서 내용만 비움 (부서 목록·서식 그대로, 날짜는 오늘)", _
-        "부서 추가 / 부서 빼기 / 순서 바꾸기|부서 시트를 만들고 지우고 맞바꿈 (시트 탭을 끌어 순서를 바꿔도 됨)", _
-        "형광펜|고른 칸의 글자를 ==…==로 감쌈 (다시 누르면 지움, Ctrl+Shift+H)", _
-        "공동편집 양식 만들기|부서마다 시트가 있는 .xlsx — 두레이에 올려 함께 작성", _
-        "PDF로 저장|A4 시트를 PDF로 (링크는 PDF에서도 눌림)", _
-        "", "#엑셀 불러오기 규칙", _
-        "부서 찾기|시트 이름. 처음 보는 부서 시트도 머리글(시간·내용…)이 있으면 새 부서로 (Sheet1 같은 기본 이름은 제외)", _
-        "한 시트에 여러 부서|맨 앞에 '부서' 열 (병합된 칸도 됨)", _
-        "날짜 열|문서 날짜에 맞는 줄만. 대부분이 다른 날짜면 문서 날짜를 바꿀지 물어봄", _
-        "빼는 시트|빈 시트, 작성방법 같은 안내 시트, 숨긴 시트", _
-        "", "#문서 암호", _
-        "열 때 암호 묻기|서식 시트의 [문서 암호 정하기] 또는 한셀 메뉴의 문서 암호", _
-        "", "#단추가 안 보이거나 눌리지 않을 때", _
-        "Alt+F8 (매크로 목록)|BuildA4, ImportExcel, ImportPasted, UndoLast, NewDoc, AddDept, RemoveDept, SwapDepts, HighlightSel, MakeTemplate, SavePdf, PrintPreviewA4, SetDocPassword")
-    For i = 0 To UBound(rows)
-        If Left$(rows(i), 1) = "#" Then
-            ws.Cells(i + 1, 1).Value = Mid$(rows(i), 2)
+    Set rows = New Collection
+    rows.Add "#부서 시트 — 한 줄에 일정 하나"
+    rows.Add "엑셀 칸|인쇄물"
+    rows.Add "시간 · 내용 · 장소|한 줄로: 09:00 (굵게) 주간회의 (대회의실)"
+    rows.Add "내용 칸 안에서 Alt+Enter 후 - ...|하위 항목"
+    rows.Add "내용 칸 안에서 * ..., 또는 내용이 * 로 시작하는 줄|글씨 2pt 작은 하위 항목 (* 로 시작하는 줄은 바로 위 일정에 붙음)"
+    rows.Add "비고|작은 글씨 하위 항목"
+    rows.Add "설명|화면에서 칸에 마우스를 올리면 보이는 메모 (인쇄 안 됨)"
+    rows.Add "링크|누르면 열리는 링크 (주소는 인쇄 안 됨)"
+    rows.Add "한 줄 비우고 A열부터 [표 제목] → 머리글 → 내용|표 그대로"
+    rows.Add ""
+    rows.Add "#내용 칸에 바로 쓰는 기호 (시간·장소 칸을 비웠을 때)"
+    rows.Add "입력|결과"
+    rows.Add "- 회의|○ 회의"
+    rows.Add "앞에 빈칸 두고 - 참석: 과장|하위 항목(-)"
+    rows.Add "* 참석: 실장 (위 항목 아래)|하위 항목, 글씨 2pt 작게"
+    rows.Add "- 09:00 회의 @대회의실|○ 09:00 회의 (대회의실)"
+    rows.Add "○, □, ※, · 직접 입력|입력한 기호 그대로"
+    rows.Add "1. , 가. , ①|번호 그대로"
+    rows.Add "**굵게**, __밑줄__, ~~취소~~, ==형광펜==, !!빨간 강조!!|글자 꾸밈 (형광펜은 그 줄의 칸 전체가 노랗게)"
+    rows.Add "## 소제목, > 비고, ---|소제목, 비고, 구분선"
+    rows.Add ">> 설명 (항목 바로 아래)|마우스를 올리면 보이는 메모 (인쇄 안 됨)"
+    rows.Add "[글자](주소) 또는 항목 끝에 주소|누르면 열리는 링크 (주소는 인쇄 안 됨)"
+    rows.Add ""
+    rows.Add "#단추"
+    rows.Add "A4 만들기|A4 시트에 한 장짜리 문서를 새로 만듭니다 (글자크기 자동 맞춤)"
+    rows.Add "엑셀 불러오기|두레이 공동편집 파일(.xlsx·.csv·.xml)을 골라 부서별로 넣습니다. 부서는 시트 이름으로 찾고, 처음 보는 부서는 새 부서로 추가"
+    rows.Add "붙여넣은 표 가져오기|붙여넣기 시트에 붙인 내용을 부서별로 넣습니다"
+    rows.Add "되돌리기|마지막 [엑셀 불러오기]·[붙여넣은 표 가져오기]·[새 문서]·[부서 빼기] 전으로"
+    rows.Add "새 문서|모든 부서 내용만 비움 (부서 목록·서식 그대로, 날짜는 오늘)"
+    rows.Add "부서 추가 / 부서 빼기 / 순서 바꾸기|부서 시트를 만들고 지우고 맞바꿈 (시트 탭을 끌어 순서를 바꿔도 됨)"
+    rows.Add "형광펜|고른 칸의 글자를 ==…==로 감쌈 (다시 누르면 지움, Ctrl+Shift+H)"
+    rows.Add "공동편집 양식 만들기|부서마다 시트가 있는 .xlsx — 두레이에 올려 함께 작성"
+    rows.Add "PDF로 저장|A4 시트를 PDF로 (링크는 PDF에서도 눌림)"
+    rows.Add ""
+    rows.Add "#엑셀 불러오기 규칙"
+    rows.Add "부서 찾기|시트 이름. 처음 보는 부서 시트도 머리글(시간·내용…)이 있으면 새 부서로 (Sheet1 같은 기본 이름은 제외)"
+    rows.Add "한 시트에 여러 부서|맨 앞에 '부서' 열 (병합된 칸도 됨)"
+    rows.Add "날짜 열|문서 날짜에 맞는 줄만. 대부분이 다른 날짜면 문서 날짜를 바꿀지 물어봄"
+    rows.Add "빼는 시트|빈 시트, 작성방법 같은 안내 시트, 숨긴 시트"
+    rows.Add ""
+    rows.Add "#문서 암호"
+    rows.Add "열 때 암호 묻기|서식 시트의 [문서 암호 정하기] 또는 한셀 메뉴의 문서 암호"
+    rows.Add ""
+    rows.Add "#단추가 안 보이거나 눌리지 않을 때"
+    rows.Add "Alt+F8 (매크로 목록)|BuildA4, ImportExcel, ImportPasted, UndoLast, NewDoc, AddDept, RemoveDept, SwapDepts, HighlightSel, MakeTemplate, SavePdf, PrintPreviewA4, SetDocPassword"
+    For k = 1 To rows.Count
+        i = k - 1
+        ln = rows(k)
+        If Left$(ln, 1) = "#" Then
+            ws.Cells(i + 1, 1).Value = Mid$(ln, 2)
             ws.Cells(i + 1, 1).Font.Bold = True
             ws.Cells(i + 1, 1).Font.Size = 12
-        ElseIf rows(i) <> "" Then
-            f = Split(rows(i), "|")
+        ElseIf ln <> "" Then
+            f = Split(ln, "|")
             ws.Range(ws.Cells(i + 1, 1), ws.Cells(i + 1, 2)).NumberFormat = "@"
             ws.Cells(i + 1, 1).Value = f(0)
             If UBound(f) >= 1 Then ws.Cells(i + 1, 2).Value = f(1)
@@ -536,3 +546,8 @@ fail:
     gQuiet = False
     TestAll = r & " ERROR " & Err.Number & ": " & Err.Description & " [" & gStep & "] [" & gTrace & "] " & gDbg
 End Function
+
+' 이 모듈을 한셀이 읽었는지 확인 (실행했을 때 창이 뜨면 정상)
+Public Sub CheckHcDailySetup()
+    MsgBox "HcDailySetup OK"
+End Sub
