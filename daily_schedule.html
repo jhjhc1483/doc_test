@@ -325,7 +325,12 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .md .li.small > .mk, .md .li.small > .tx { font-size: max(calc(1em - 2pt), .75em, 6pt); }
 .md .tm { font-weight: 700; font-variant-numeric: tabular-nums; }
 .md b, .md strong { font-weight: 700; }
-.md mark { background: #ffe680; color: inherit; padding: 0 .1em; }
+.md mark { background: #ffeb5a; color: inherit; padding: 0 .08em; }
+/* 형광펜 */
+.hl-btn .hl-sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: #ffeb5a; border: 1px solid #d9b400; }
+.hl-btn.on { background: #fff6bf; border-color: #d9b400; font-weight: 700; }
+body.hl-mode .sheet .unit, body.hl-mode .sheet .unit * { cursor: text; }
+body.hl-mode .sheet ::selection { background: rgba(255, 214, 0, .6); }
 .md .imp { color: #c40000; font-weight: 700; }
 .md code { font-family: Consolas, "D2Coding", monospace; font-size: .92em; }
 .md .q { border-left: 2px solid #999; padding-left: .5em; color: #333; }
@@ -620,7 +625,7 @@ body.locked > *:not(.lock) { display: none !important; }
               <tr><td><code>**굵게**</code></td><td><b>굵게</b></td></tr>
               <tr><td><code>__밑줄__</code></td><td><u>밑줄</u></td></tr>
               <tr><td><code>~~취소~~</code></td><td><s>취소</s></td></tr>
-              <tr><td><code>==형광펜==</code></td><td><mark style="background:#ffe680">형광펜</mark></td></tr>
+              <tr><td><code>==형광펜==</code></td><td><mark style="background:#ffeb5a">형광펜</mark> — 미리보기 위 [형광펜]을 누르고 글자를 마우스로 끌어 칠해도 됨(칠한 곳을 다시 끌면 지움). 입력칸에서는 글자를 고르고 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></td></tr>
               <tr><td><code>!!중요!!</code></td><td><b style="color:#c40000">중요</b></td></tr>
               <tr><td><code>## 소제목</code></td><td><b>소제목</b></td></tr>
               <tr><td><code>&gt; 비고</code></td><td>왼쪽 선이 있는 비고</td></tr>
@@ -673,6 +678,7 @@ body.locked > *:not(.lock) { display: none !important; }
     <section class="preview-pane">
       <div class="preview-bar">
         <div class="status" id="status" role="status" aria-live="polite"></div>
+        <button type="button" class="btn small hl-btn edit-only" id="btnMark" aria-pressed="false" title="형광펜 (Ctrl+Shift+H) — 누른 뒤 미리보기 글자를 끌어 고르면 칠해지고, 칠한 곳을 다시 고르면 지워집니다. 글자를 먼저 고르고 눌러도 됩니다."><span class="hl-sw"></span>형광펜</button>
         <select id="zoomSel" aria-label="미리보기 배율">
           <option value="page">전체 보기</option>
           <option value="width">폭 맞춤</option>
@@ -1828,10 +1834,193 @@ body.locked > *:not(.lock) { display: none !important; }
     changed(true);
   });
 
+
+  /* ------------------------------------------------------------------
+     형광펜 (==글자==): 미리보기에서 마우스로 칠하기·지우기, 입력칸에서 Ctrl+Shift+H
+     ------------------------------------------------------------------ */
+  var RE_HL_LINK = new RegExp(MD_LINK_SRC + '|' + URL_SRC, 'gi');
+  /* 한 줄에서 칠할 수 있는 부분들: 목록 기호·번호·소제목·시간과 끝의 '@장소'는 빼고, 표는 칸마다 */
+  function hlRanges(line) {
+    var lead = line.length - line.replace(/^\s+/, '').length, t = line.slice(lead), m;
+    if (!t || /^(>>|》)/.test(t) || /^([-*_])\1{2,}\s*$/.test(t)) return [];      // 설명(인쇄 안 됨)·구분선
+    if (t.charAt(0) === '|') {
+      if (/^\|?[\s:|-]+\|?$/.test(t) && t.indexOf('-') >= 0) return [];          // 표 머리 구분 줄
+      var out = [], pipes = [];
+      for (var i = 0; i < line.length; i++) if (line.charAt(i) === '|') pipes.push(i);
+      pipes.push(line.length);
+      for (var k = 0; k + 1 < pipes.length; k++) {
+        var a = pipes[k] + 1, b = pipes[k + 1];
+        while (a < b && /\s/.test(line.charAt(a))) a++;
+        while (b > a && /\s/.test(line.charAt(b - 1))) b--;
+        if (b > a) out.push([a, b]);
+      }
+      return out;
+    }
+    var a0 = lead;
+    if ((m = /^#{1,6}\s+/.exec(t)) || (m = /^>\s?/.exec(t))) { a0 += m[0].length; t = t.slice(m[0].length); }
+    var li = matchListItem(t);
+    if (li) { var cut = t.length - li.text.length; a0 += cut; t = t.slice(cut); }
+    var tm = RE_TIME.exec(t);
+    if (tm) { var c2 = tm[0].length + /^\s*/.exec(t.slice(tm[0].length))[0].length; a0 += c2; t = t.slice(c2); }
+    var b0 = line.replace(/\s+$/, '').length, pm = RE_AT_PLACE.exec(line.slice(0, b0));
+    if (pm && pm.index >= a0) b0 = pm.index;
+    return b0 > a0 ? [[a0, b0]] : [];
+  }
+  /* [s, e)를 칠하거나, 이미 칠한 곳과 겹치면 지운다 */
+  function toggleMark(text, s, e) {
+    if (e < s) { var tmp = s; s = e; e = tmp; }
+    var spans = [], re = /==(\S(?:.*?\S)?)==/g, m;
+    while ((m = re.exec(text))) spans.push([m.index, m.index + m[0].length]);
+    var hit = spans.filter(function (sp) { return s === e ? (s > sp[0] && s < sp[1]) : (s < sp[1] && e > sp[0]); });
+    if (hit.length) {
+      var out = text;
+      for (var i = hit.length - 1; i >= 0; i--) {
+        out = out.slice(0, hit[i][1] - 2) + out.slice(hit[i][1]);
+        out = out.slice(0, hit[i][0]) + out.slice(hit[i][0] + 2);
+      }
+      return { text: out, s: hit[0][0], e: hit[hit.length - 1][1] - 4 * hit.length, removed: true };
+    }
+    if (s === e) return null;
+    var wraps = [], pos = s;
+    for (;;) {
+      var la = text.lastIndexOf('\n', pos - 1) + 1, lb = text.indexOf('\n', pos);
+      if (lb < 0) lb = text.length;
+      var line = text.slice(la, lb), links = [], urls = [], lm;
+      RE_HL_LINK.lastIndex = 0;
+      while ((lm = RE_HL_LINK.exec(line))) (lm[0].charAt(0) === '[' ? links : urls).push([la + lm.index, la + lm.index + lm[0].length]);
+      hlRanges(line).forEach(function (r) {
+        var a = Math.max(la + r[0], s), b = Math.min(la + r[1], e);
+        links.forEach(function (k) { if (a > k[0] && a < k[1]) a = k[0]; if (b > k[0] && b < k[1]) b = k[1]; });   // [글](주소) 링크는 통째로
+        urls.forEach(function (k) {         // 맨 주소는 감싸지 않음 (끝에 붙은 == 가 주소로 읽히지 않게)
+          if (b > k[0] && b <= k[1]) b = k[0];
+          if (a >= k[0] && a < k[1]) a = k[1];
+        });
+        while (a < b && /\s/.test(text.charAt(a))) a++;
+        while (b > a && /\s/.test(text.charAt(b - 1))) b--;
+        if (b > a) wraps.push([a, b]);
+      });
+      if (lb >= e || lb >= text.length) break;
+      pos = lb + 1;
+    }
+    if (!wraps.length) return null;
+    var nt = text;
+    for (var j = wraps.length - 1; j >= 0; j--) {
+      nt = nt.slice(0, wraps[j][1]) + '==' + nt.slice(wraps[j][1]);
+      nt = nt.slice(0, wraps[j][0]) + '==' + nt.slice(wraps[j][0]);
+    }
+    return { text: nt, s: wraps[0][0], e: wraps[wraps.length - 1][1] + 4 * wraps.length, removed: false };
+  }
+  function replaceValue(ta, nv) {      // 바뀐 부분만 넣어 Ctrl+Z로 되돌릴 수 있게
+    var ov = ta.value, a = 0, b1 = ov.length, b2 = nv.length;
+    while (a < b1 && a < b2 && ov.charAt(a) === nv.charAt(a)) a++;
+    while (b1 > a && b2 > a && ov.charAt(b1 - 1) === nv.charAt(b2 - 1)) { b1--; b2--; }
+    ta.focus();
+    ta.setSelectionRange(a, b1);
+    var ok = false;
+    try { ok = document.execCommand('insertText', false, nv.slice(a, b2)); } catch (err) { ok = false; }
+    if (!ok || ta.value !== nv) { ta.value = nv; ta.dispatchEvent(new Event('input', { bubbles: true })); }
+  }
+  function markTextarea(ta) {
+    var r = toggleMark(ta.value, ta.selectionStart, ta.selectionEnd);
+    if (!r) { toast('칠할 글자를 먼저 마우스로 고르세요. (칠한 곳에 커서를 두고 누르면 지워집니다)'); return; }
+    replaceValue(ta, r.text);
+    ta.setSelectionRange(r.s, r.e);
+  }
+
+  /* 미리보기에서 고른 글자 → 그 부서 입력 글에서 찾기 (꾸밈 기호·링크 주소는 빼고 비교) */
+  function stripForSearch(text) {
+    var out = '', map = [], i = 0, LINK = new RegExp('^' + MD_LINK_SRC);
+    while (i < text.length) {
+      var two = text.substr(i, 2);
+      if (two === '==' || two === '**' || two === '__' || two === '~~' || two === '!!') { i += 2; continue; }
+      if (text.charAt(i) === '[') {
+        var lm = LINK.exec(text.slice(i));
+        if (lm) { for (var k = 0; k < lm[1].length; k++) { out += lm[1].charAt(k); map.push(i + 1 + k); } i += lm[0].length; continue; }
+      }
+      out += text.charAt(i); map.push(i); i++;
+    }
+    return { t: out, map: map };
+  }
+  function findPiece(text, piece) {
+    var st = stripForSearch(text);
+    var core = piece.replace(/^[\s\-–*+□■○●◎◇◆▶▷►·ㆍ•∙◦▪▫※☐☑✓✔→⇒]+/, ''), tm = RE_TIME.exec(core);
+    var core2 = tm ? core.slice(tm[0].length).trim() : core;
+    var tries = [piece, core, core2, core2.replace(/\s*\([^()]*\)$/, '')];
+    for (var k = 0; k < tries.length; k++) {
+      var q = tries[k].trim();
+      if (!q) continue;
+      var i = st.t.indexOf(q);
+      if (i >= 0) return [st.map[i], st.map[i + q.length - 1] + 1];
+    }
+    return null;
+  }
+  function unitAt(node) {
+    var el = node && (node.nodeType === 1 ? node : node.parentNode);
+    if (!el || !el.closest || !flow.contains(el)) return null;
+    var u = el.closest('.unit');
+    if (!u) return null;
+    return { u: u, name: !!el.closest('td.dept, .dname, thead') };
+  }
+  function paintSelection() {
+    if (appMode !== 'edit') return false;
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount || !flow.contains(sel.getRangeAt(0).commonAncestorContainer)) return false;
+    var A = unitAt(sel.anchorNode), F = unitAt(sel.focusNode), pieces = sel.toString().split(/\n+/);
+    sel.removeAllRanges();
+    if (!A || !F || A.u !== F.u) { toast('형광펜은 한 부서 안에서만 칠할 수 있습니다.'); return true; }
+    if (A.name || F.name) { toast('부서 이름 칸에는 형광펜을 칠할 수 없습니다.'); return true; }
+    var d = findDept(A.u.getAttribute('data-id'));
+    if (!d) return true;
+    var text = d.content, done = 0, fail = 0, removed = false;
+    pieces.map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (pc) {
+      var at = findPiece(text, pc), r = at && toggleMark(text, at[0], at[1]);
+      if (!r) { fail++; return; }
+      text = r.text; done++; removed = removed || r.removed;
+    });
+    if (done) {
+      d.content = text;
+      var ta = deptList.querySelector('.dept-card[data-id="' + d.id + '"] .dept-text');
+      if (ta) { ta.value = text; autosize(ta); }
+      changed(true);
+      if (!hlMode) toast(removed ? '형광펜을 지웠습니다.' : '형광펜을 칠했습니다.');
+    } else if (fail) toast('이 글자는 입력칸의 글과 모양이 달라 칠하지 못했습니다. 입력칸에서 고른 뒤 Ctrl+Shift+H를 누르세요.');
+    return true;
+  }
+
+  var hlMode = false, btnMark = $('#btnMark');
+  function setHlMode(on) {
+    hlMode = on;
+    document.body.classList.toggle('hl-mode', on);
+    btnMark.classList.toggle('on', on);
+    btnMark.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) toast('형광펜: 미리보기에서 글자를 끌어 고르면 칠해집니다. 칠한 곳을 다시 고르면 지워집니다. (끝내기: 단추 다시 누르기 또는 Esc)');
+  }
+  btnMark.addEventListener('mousedown', function (e) { e.preventDefault(); });    // 고른 글자·입력칸 선택이 풀리지 않게
+  btnMark.addEventListener('click', function () {
+    if (appMode !== 'edit') return;
+    var a = document.activeElement;
+    if (a && a.classList && a.classList.contains('dept-text') && a.selectionStart !== a.selectionEnd) { markTextarea(a); return; }
+    if (paintSelection()) return;
+    setHlMode(!hlMode);
+  });
+  flow.addEventListener('mouseup', function () { if (hlMode) setTimeout(paintSelection, 0); });
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && (e.key === 'h' || e.key === 'H')) {
+      if (appMode !== 'edit') return;
+      e.preventDefault();
+      var a = document.activeElement;
+      if (a && a.classList && a.classList.contains('dept-text')) markTextarea(a);
+      else if (!paintSelection()) setHlMode(!hlMode);
+    } else if (e.key === 'Escape' && hlMode) setHlMode(false);
+  });
+
   /* 미리보기에서 부서 클릭 → 해당 입력칸으로 (링크는 그대로 열림) */
   flow.addEventListener('click', function (e) {
     if (e.target.closest('a')) return;
     if (appMode !== 'edit') return;
+    if (hlMode) return;
+    var gs = window.getSelection();
+    if (gs && !gs.isCollapsed && flow.contains(gs.anchorNode)) return;     // 글자를 끌어 고른 경우
     var u = e.target.closest('.unit');
     if (!u) return;
     showTab('input');
