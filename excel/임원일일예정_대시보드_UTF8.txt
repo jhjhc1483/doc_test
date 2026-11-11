@@ -2212,7 +2212,7 @@ Private Sub SetOneText(ByVal shp As Object, ByVal txt As String, ByVal bold As B
 End Sub
 
 Private Sub CreateAllShapes(ByVal ws As Object)
-    Dim i As Long, j As Long, n As Long, paras() As String, runs() As String, maxU As Double, maxR As Double, u As Double
+    Dim i As Long, j As Long, n As Long, paras() As String, runs() As String, maxU As Double, maxRg As Double, u As Double
     Dim t As String, p As Long, body As String, rb As String, sep As String, hdr As String
 
     ' 제목·부서·날짜·하단 문구
@@ -2253,7 +2253,7 @@ Private Sub CreateAllShapes(ByVal ws As Object)
         Set shB(i) = NewText(ws, "B" & i, bX(i), bW(i))
         n = gN(i)
         bHasTime(i) = False
-        maxU = 0: maxR = 0
+        maxU = 0: maxRg = 0
         For j = 1 To n
             If gKind(i, j) = "M" And gTime(i, j) <> "" Then
                 bHasTime(i) = True
@@ -2261,7 +2261,7 @@ Private Sub CreateAllShapes(ByVal ws As Object)
                 p = InStr(1, t, "~")
                 If p > 0 Then
                     u = TextUnits(Left$(t, p))
-                    If u > maxR Then maxR = u
+                    If u > maxRg Then maxRg = u
                 Else
                     u = TextUnits(t)
                     If u > maxU Then maxU = u
@@ -2269,7 +2269,7 @@ Private Sub CreateAllShapes(ByVal ws As Object)
             End If
         Next
         ' 시간 칸 폭: 시각 하나짜리 기준 (범위만 있으면 "14:00~" 기준)
-        If maxU = 0 Then maxU = maxR
+        If maxU = 0 Then maxU = maxRg
         bTimeU(i) = maxU + 0.6
         If n > 0 Then
             ReDim paras(1 To n): ReDim runs(1 To n)
