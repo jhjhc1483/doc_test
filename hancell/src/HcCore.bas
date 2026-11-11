@@ -653,14 +653,15 @@ End Function
 
 ' size = 0: base size. color = -1: base color
 Public Sub RBAdd(ByVal t As String, Optional ByVal bold As Boolean = False, Optional ByVal under As Boolean = False, _
-        Optional ByVal color As Long = -1, Optional ByVal size As Double = 0, Optional ByVal strike As Boolean = False)
+        Optional ByVal color As Long = -1, Optional ByVal size As Double = 0, Optional ByVal strike As Boolean = False, _
+        Optional ByVal italic As Boolean = False)
     If Len(t) = 0 Then Exit Sub
     Dim st As Long
     st = Len(rbTxt) + 1
     rbTxt = rbTxt & t
-    If bold Or under Or color >= 0 Or size > 0 Or strike Then
+    If bold Or under Or color >= 0 Or size > 0 Or strike Or italic Then
         If Len(rbRunStr) > 0 Then rbRunStr = rbRunStr & ";"
-        rbRunStr = rbRunStr & st & "," & Len(t) & "," & IIf(bold, 1, 0) & "," & IIf(under, 1, 0) & "," & color & "," & CLng(size * 10) & "," & IIf(strike, 1, 0)
+        rbRunStr = rbRunStr & st & "," & Len(t) & "," & IIf(bold, 1, 0) & "," & IIf(under, 1, 0) & "," & color & "," & CLng(size * 10) & "," & IIf(strike, 1, 0) & "," & IIf(italic, 1, 0)
     End If
 End Sub
 
@@ -737,6 +738,9 @@ Public Sub ApplyRuns(ByVal cell As Object, ByVal runs As String)
             If CLng(f(4)) >= 0 Then .Color = CLng(f(4))
             If CLng(f(5)) > 0 Then .Size = CLng(f(5)) / 10
             If f(6) = "1" Then .Strikethrough = True
+            If UBound(f) >= 7 Then
+                If f(7) = "1" Then .Italic = True
+            End If
         End With
     Next
     On Error GoTo 0
