@@ -108,10 +108,14 @@ def write_paste(app, cfg):
         if f.endswith('.txt'):
             os.remove(os.path.join(d, f))
     for k, m in enumerate(cfg['modules'], 1):
-        src = open(os.path.join(OUT_BAS, m + '.bas'), encoding='ascii').read()
-        lines = [ln for ln in src.split('\r\n') if not ln.startswith('Attribute VB_')]
+        src = open(os.path.join(OUT_BAS, m + '.bas'), encoding='ascii', newline='').read()
+        lines = [ln for ln in src.replace('\r\n', '\n').split('\n') if not ln.startswith('Attribute VB_')]
+        text = '\r\n'.join(lines)
+        # 빈 파일이 나가지 않도록 확인
+        if len(text) < len(src) * 0.95 or 'End Sub' not in text and 'End Function' not in text:
+            raise SystemExit('붙여넣기 파일이 비었거나 너무 짧습니다: ' + m)
         with open(os.path.join(d, '%d_%s.txt' % (k, m)), 'w', encoding='ascii', newline='') as fh:
-            fh.write('\r\n'.join(lines))
+            fh.write(text)
     print('paste files:', os.path.relpath(d, ROOT))
 
 
