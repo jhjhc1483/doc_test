@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>코드 수정 대조표</title>
+<style>
+:root { --bg:#f4f5f7; --panel:#fff; --line:#d9dde3; --text:#1d232b; --sub:#5d6875; --acc:#2257c5; --must:#c2362b; --opt:#5d6875; --old:#fdecec; --new:#e9f6ee; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.6 "맑은 고딕","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
+main { max-width: 1280px; margin: 0 auto; padding: 24px 16px 60px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h2 { font-size: 17px; margin: 28px 0 10px; }
+.sub { color: var(--sub); margin: 0 0 16px; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+.box ul { margin: 4px 0; padding-left: 20px; }
+code, pre { font-family: Consolas, "D2Coding", "Courier New", monospace; }
+code { background: #eef0f3; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+table.sum { width: 100%; border-collapse: collapse; background: var(--panel); font-size: 13px; }
+table.sum th, table.sum td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; }
+table.sum th { background: #eef0f3; }
+.k { display: inline-block; font-size: 12px; font-weight: 700; padding: 0 7px; border-radius: 9px; white-space: nowrap; }
+.k.필수 { background: #fde7e5; color: var(--must); }
+.k.선택 { background: #eceff3; color: var(--opt); }
+.chg { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin: 14px 0; break-inside: avoid; }
+.chg.must { border-left: 4px solid var(--must); }
+.chg header { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.chg header .t { font-weight: 700; font-size: 15px; }
+.chg header .m { color: var(--sub); font-size: 13px; }
+.find { padding: 8px 14px; background: #f8f9fb; border-bottom: 1px solid var(--line); font-size: 13px; }
+.find code { word-break: break-all; }
+.dep { color: var(--must); font-weight: 700; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; }
+.cols > div { min-width: 0; }
+.cols h4 { margin: 0; padding: 6px 14px; font-size: 13px; border-bottom: 1px solid var(--line); }
+.cols .o h4 { background: var(--old); }
+.cols .n h4 { background: var(--new); border-left: 1px solid var(--line); }
+.cols .n { border-left: 1px solid var(--line); }
+pre { margin: 0; padding: 8px 10px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; }
+.ln { color: #9aa3ae; user-select: none; }
+.skip { color: var(--must); font-weight: 700; }
+.none { padding: 8px 14px; color: var(--sub); font-size: 13px; }
+@media (max-width: 800px) { .cols { grid-template-columns: 1fr; } .cols .n { border-left: 0; border-top: 1px solid var(--line); } }
+@media print { body { background: #fff; } main { max-width: none; padding: 0; } .chg { border-color: #999; } @page { size: A4 landscape; margin: 10mm; } }
+</style></head><body><main>
+
+<h1>코드 수정 대조표 — 엑셀 파일 불러오기 빼기 · 여러 시트 합쳐 붙여넣기</h1>
+<p class="sub">기준판 <code>354f741</code> → 새판 <code>42adf2c</code> · 파일 2개(<code>executive_schedule.html</code>, <code>daily_schedule.html</code>) · 고칠 곳 35군데 (필수 12, 선택 23)</p>
+<div class="box"><b>먼저 확인: 내부망 파일이 기준판인가요?</b>
+<ul>
+<li><code>daily_schedule.html</code>: <code>function hlRanges</code>는 <b>있고</b>, <code>function splitPasteBlocks</code>는 <b>없으면</b> 기준판입니다. 줄 수 3436줄.</li>
+<li><code>executive_schedule.html</code>: <code>btnPwTop</code>은 <b>있고</b>, <code>function parseBottom</code>은 <b>없으면</b> 기준판입니다. 줄 수 2781줄.</li>
+<li>둘 다 아니면(더 예전 파일이면) 이 표로는 모자랍니다. 어느 판인지 알려 주시면 그 판 기준으로 다시 만들어 드립니다.</li>
+</ul></div>
+<div class="box"><b>고치는 법</b>
+<ul>
+<li><b>필수</b>만 고쳐도 새 기능이 동작합니다. <b>선택</b>은 안내 글(문구)·쓰지 않게 된 코드 정리·양식이라 건너뛰어도 됩니다.</li>
+<li>각 항목의 <b>찾을 글</b>을 편집기에서 검색(Ctrl+F)해 위치를 찾고, <b>「수정 전」</b> 부분을 <b>「수정 후」</b>로 바꿉니다. 줄 번호는 기준판 기준입니다.</li>
+<li><b>한 파일 안에서 번호가 큰 것(파일 아래쪽)부터</b> 고치면 남은 항목의 줄 번호가 밀리지 않아 그대로 맞습니다.</li>
+<li>「수정 전」이 30줄이 넘으면 앞 4줄과 끝 4줄만 보입니다. 그 첫 줄부터 끝 줄까지 모두 바꾸거나 지우면 됩니다.</li>
+<li>앞뒤 들여쓰기(빈칸)는 그대로 두어도 동작에는 상관없습니다. 따옴표·괄호·세미콜론은 정확히 옮겨 주세요.</li>
+<li>다 고친 뒤: 파일을 열고 비밀번호 → <b>[붙여넣기]</b> 단추 → 아래 예시를 붙여넣어 확인 창이 시트별로 나뉘면 된 것입니다.</li>
+</ul></div>
+<h2>한눈에 보기</h2><table class="sum"><tr><th>번호</th><th>파일</th><th>구분</th><th>하는 일</th><th>기준판 줄</th><th>찾을 글</th></tr>
+<tr><td><a href="#c1">1</a></td><td>executive</td><td><span class="k 필수">필수</span></td><td>위쪽 [엑셀 불러오기] 단추를 [붙여넣기]로, 펼침 메뉴에서 "엑셀 파일 고르기" 빼기</td><td>433–440</td><td><code>&lt;button class="btn strong" id="btnImport" title="두레이에서 내려받은 </code></td></tr>
+<tr><td><a href="#c2">2</a></td><td>executive</td><td><span class="k 선택">선택·정리</span></td><td>파일 고르기 창에서 작업 파일(.json)만 고르게</td><td>451–451</td><td><code>&lt;input type="file" id="fileInput" multiple accept=".xlsx,.xl</code></td></tr>
+<tr><td><a href="#c3">3</a></td><td>executive</td><td><span class="k 선택">선택·문구</span></td><td>입력 방법 탭: 엑셀 모으기 안내 → 한셀 붙여넣기 안내</td><td>565–573</td><td><code>&lt;h3&gt;엑셀(두레이 공동편집)로 모으기&lt;/h3&gt;</code></td></tr>
+<tr><td><a href="#c4">4</a></td><td>executive</td><td><span class="k 선택">선택·문구</span></td><td>붙여넣기 창의 안내 글·예시</td><td>632–634</td><td><code>&lt;h3 id="bulkTitle"&gt;엑셀에서 복사한 내용 붙여넣기&lt;/h3&gt;</code></td></tr>
+<tr><td><a href="#c5">5</a></td><td>executive</td><td><span class="k 선택">선택·문구</span></td><td>끌어다 놓기 안내 글</td><td>661–661</td><td><code>&lt;div class="drop" id="dropOverlay" hidden&gt;엑셀(.xlsx)이나 작업 파일(</code></td></tr>
+<tr><td><a href="#c6">6</a></td><td>executive</td><td><span class="k 필수">필수</span></td><td>시간 칸이 숫자(0.375 등)로 와도 09:00으로 읽기</td><td>1037 다음</td><td><code>var tm = '';</code></td></tr>
+<tr><td><a href="#c7">7</a></td><td>executive</td><td><span class="k 선택">선택·정리</span></td><td>엑셀 파일 읽기 코드 지우기</td><td>2025–2251</td><td><code>엑셀(.xlsx) 읽기·쓰기 — daily_schedule.html과 같은 코드 (외부 라이브러리 없음)</code></td></tr>
+<tr><td><a href="#c8">8</a></td><td>executive</td><td><span class="k 선택">선택·정리</span></td><td>readBuf·decodeBytes 지우기, 구역 제목 바꾸기</td><td>2341–2361</td><td><code>function readBuf(file) {</code></td></tr>
+<tr><td><a href="#c9">9</a></td><td>executive</td><td><span class="k 필수">필수</span></td><td>openImport: 맨 밑 표(bottom)도 받기</td><td>2429–2430</td><td><code>function openImport(groups, srcLabel) {</code></td></tr>
+<tr><td><a href="#c10">10</a></td><td>executive</td><td><span class="k 필수">필수</span></td><td>openImport: 맨 밑 표만 있어도 확인 창 열기</td><td>2441–2443</td><td><code>imp = { groups: groups, dates: dates, counts: counts, D: D, </code></td></tr>
+<tr><td><a href="#c11">11</a></td><td>executive</td><td><span class="k 선택">선택·문구</span></td><td>확인 창 맨 위 안내 글</td><td>2451–2451</td><td><code>$('#impIntro').textContent = imp.src + ' — 시트 이름(또는 성명 열)으로 </code></td></tr>
+<tr><td><a href="#c12">12</a></td><td>executive</td><td><span class="k 필수">필수</span></td><td>확인 창에 "맨 밑 표" 줄 넣기, 요약·[가져오기] 단추</td><td>2475–2480</td><td><code>var n = Object.keys(used).length;</code></td></tr>
+<tr><td><a href="#c13">13</a></td><td>executive</td><td><span class="k 필수">필수</span></td><td>[가져오기]: 맨 밑 표 넣기</td><td>2498–2500</td><td><code>if (!n) return;</code></td></tr>
+<tr><td><a href="#c14">14</a></td><td>executive</td><td><span class="k 선택">선택·문구</span></td><td>가져온 뒤 알림 글</td><td>2506–2506</td><td><code>toast('엑셀에서 ' + n + '명의 일정을 가져왔습니다.', '되돌리기', function () {</code></td></tr>
+<tr><td><a href="#c15">15</a></td><td>executive</td><td><span class="k 선택">선택·정리</span></td><td>readSheetsFromFile 지우기</td><td>2511–2522</td><td><code>function readSheetsFromFile(f) {</code></td></tr>
+<tr><td><a href="#c16">16</a></td><td>executive</td><td><span class="k 필수">필수</span></td><td>openFiles(작업 파일만 열기) + 붙여넣기: 시트 나누기·맨 밑 표 읽기 (새 함수들)</td><td>2528–2550</td><td><code>Promise.all(files.map(function (f) {</code></td></tr>
+<tr><td><a href="#c17">17</a></td><td>executive</td><td><span class="k 선택">선택·문구</span></td><td>공동편집 양식의 작성방법 안내 줄</td><td>2591–2591</td><td><code>G('7. 다 쓰면 담당자가 파일을 내려받아 [엑셀 불러오기]로 올리거나, 범위를 복사해 프로그램 화면에서 </code></td></tr>
+<tr><td><a href="#c18">18</a></td><td>executive</td><td><span class="k 선택">선택·양식</span></td><td>공동편집 양식에 "맨 밑 표" 시트 넣기</td><td>2608–2609</td><td><code>downloadBlob('임원일일예정_공동편집양식.xlsx', buildXlsx(sheets));</code></td></tr>
+<tr><td><a href="#c19">19</a></td><td>executive</td><td><span class="k 필수">필수</span></td><td>[붙여넣기] 단추를 누르면 붙여넣기 창 열기</td><td>2628–2628</td><td><code>$('#btnImport').addEventListener('click', function () { $('#</code></td></tr>
+<tr><td><a href="#c20">20</a></td><td>executive</td><td><span class="k 선택">선택·정리</span></td><td>메뉴의 "files" 처리 빼기</td><td>2634–2634</td><td><code>if (act === 'files' || act === 'json') $('#fileInput').click</code></td></tr>
+<tr><td><a href="#c21">21</a></td><td>daily</td><td><span class="k 필수">필수</span></td><td>위쪽 [엑셀 불러오기] 단추를 [붙여넣기]로, 펼침 메뉴에서 "엑셀 파일 고르기" 빼기</td><td>426–433</td><td><code>&lt;button class="btn strong" id="btnImport" title="두레이에서 내려받은 </code></td></tr>
+<tr><td><a href="#c22">22</a></td><td>daily</td><td><span class="k 선택">선택·정리</span></td><td>파일 고르기 창에서 작업 파일(.json)만 고르게</td><td>460–460</td><td><code>&lt;input type="file" id="fileInput" multiple accept=".xlsx,.xl</code></td></tr>
+<tr><td><a href="#c23">23</a></td><td>daily</td><td><span class="k 필수">필수</span></td><td>"부서별 예정사항" 칸 위의 [엑셀 불러오기]를 [붙여넣기]로</td><td>485–486</td><td><code>&lt;button class="btn small" id="btnTemplate" type="button" tit</code></td></tr>
+<tr><td><a href="#c24">24</a></td><td>daily</td><td><span class="k 선택">선택·문구</span></td><td>도움말: 모으기 순서</td><td>588–592</td><td><code>&lt;h3&gt;엑셀로 모으기 (두레이 공동편집)&lt;/h3&gt;</code></td></tr>
+<tr><td><a href="#c25">25</a></td><td>daily</td><td><span class="k 선택">선택·문구</span></td><td>도움말: 부서 찾기·빼는 시트</td><td>609–612</td><td><code>&lt;li&gt;부서는 &lt;b&gt;시트 이름&lt;/b&gt;으로 찾습니다. 한 시트에 모든 부서를 쓰려면 맨 앞에 &lt;b&gt;부서&lt;/b&gt;</code></td></tr>
+<tr><td><a href="#c26">26</a></td><td>daily</td><td><span class="k 선택">선택·문구</span></td><td>붙여넣기 창의 안내 글·예시</td><td>714–716</td><td><code>&lt;h3 id="bulkTitle"&gt;엑셀에서 복사한 내용 붙여넣기&lt;/h3&gt;</code></td></tr>
+<tr><td><a href="#c27">27</a></td><td>daily</td><td><span class="k 선택">선택·문구</span></td><td>끌어다 놓기 안내 글</td><td>744–744</td><td><code>&lt;div class="drop" id="dropOverlay" hidden&gt;엑셀 파일을 놓으면 불러옵니다 (</code></td></tr>
+<tr><td><a href="#c28">28</a></td><td>daily</td><td><span class="k 선택">선택·정리</span></td><td>ZIP·XLSX·XML 읽기 코드 지우기<br><span class="dep">이 항목을 하면 35번도 꼭 하세요. 안 하면 오류(inflateJS is not defined)가 납니다.</span></td><td>2225–2507</td><td><code>ZIP / XLSX (라이브러리 없이)</code></td></tr>
+<tr><td><a href="#c29">29</a></td><td>daily</td><td><span class="k 선택">선택·정리</span></td><td>sheetsToRows·readAnyFile·collectRows 지우기</td><td>2731–2764</td><td><code>function sheetsToRows(file, sheets) {</code></td></tr>
+<tr><td><a href="#c30">30</a></td><td>daily</td><td><span class="k 선택">선택·정리</span></td><td>openImportReview 지우기</td><td>2877–2880</td><td><code>function openImportReview(files) {</code></td></tr>
+<tr><td><a href="#c31">31</a></td><td>daily</td><td><span class="k 필수">필수</span></td><td>handleFiles(작업 파일만 열기) + 붙여넣기: 시트 나누기 (새 함수들)</td><td>2937–2956</td><td><code>var others = files.filter(function (f) { return !/\.json$/i.</code></td></tr>
+<tr><td><a href="#c32">32</a></td><td>daily</td><td><span class="k 필수">필수</span></td><td>[붙여넣기] 단추 2개를 누르면 붙여넣기 창 열기</td><td>2973–2974</td><td><code>$('#btnImport').addEventListener('click', pickFiles);</code></td></tr>
+<tr><td><a href="#c33">33</a></td><td>daily</td><td><span class="k 선택">선택·정리</span></td><td>메뉴의 "files" 처리 빼기</td><td>2981–2981</td><td><code>if (act === 'files' || act === 'json') pickFiles();</code></td></tr>
+<tr><td><a href="#c34">34</a></td><td>daily</td><td><span class="k 선택">선택·문구</span></td><td>공동편집 양식의 작성방법 안내 줄</td><td>3120–3120</td><td><code>G('8. 다 쓰면 담당자가 파일을 내려받아 [엑셀 불러오기]로 올리거나, 범위를 복사해 프로그램 화면에서 </code></td></tr>
+<tr><td><a href="#c35">35</a></td><td>daily</td><td><span class="k 선택">선택·정리</span></td><td>확인용 연결(window.DailySchedule)에서 지운 함수 빼기<br><span class="dep">28번(읽기 코드 지우기)을 했으면 반드시 하세요. 이것만 해도 문제는 없습니다.</span></td><td>3312–3315</td><td><code>_inflate: inflateJS,</code></td></tr>
+</table>
+<h2>executive_schedule.html</h2>
+<section class="chg must" id="c1"><header><div class="t">1. 위쪽 [엑셀 불러오기] 단추를 [붙여넣기]로, 펼침 메뉴에서 "엑셀 파일 고르기" 빼기 <span class="k 필수">필수</span></div><div class="m">기준판 433–440줄 (8줄) → 새 7줄 · </div></header>
+<div class="find">찾을 글 (기준판 433번째 줄): <code>&lt;button class="btn strong" id="btnImport" title="두레이에서 내려받은 엑셀(.xlsx)을 불러옵니다 (화면에 끌어다 놓아도 됩니다)"&gt;엑셀 불러오기&lt;/button&gt;</code><br>방법: 「수정 전」 8줄을 「수정 후」 7줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  433</span>         &lt;button class="btn strong" id="btnImport" title="두레이에서 내려받은 엑셀(.xlsx)을 불러옵니다 (화면에 끌어다 놓아도 됩니다)"&gt;엑셀 불러오기&lt;/button&gt;
+<span class="ln">  434</span>         &lt;button class="btn caret" data-menu="importMenu" aria-haspopup="true" aria-expanded="false" title="불러오는 방법 더 보기"&gt;▾&lt;/button&gt;
+<span class="ln">  435</span>       &lt;/div&gt;
+<span class="ln">  436</span>       &lt;div class="menu" id="importMenu" hidden&gt;
+<span class="ln">  437</span>         &lt;button type="button" data-act="files"&gt;&lt;span&gt;엑셀 파일 고르기&lt;span class="desc"&gt;.xlsx (CSV로 저장한 것도 됩니다) · 화면에 끌어다 놓아도 됩니다&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
+<span class="ln">  438</span>         &lt;button type="button" data-act="paste"&gt;&lt;span&gt;엑셀에서 복사한 내용 붙여넣기&lt;span class="desc"&gt;입력칸 밖 아무 곳에서 바로 Ctrl+V 해도 됩니다&lt;/span&gt;&lt;/span&gt;&lt;kbd&gt;Ctrl+V&lt;/kbd&gt;&lt;/button&gt;
+<span class="ln">  439</span>         &lt;hr&gt;
+<span class="ln">  440</span>         &lt;button type="button" data-act="template"&gt;&lt;span&gt;공동편집용 엑셀 양식 만들기&lt;span class="desc"&gt;임원별 시트가 들어 있는 .xlsx — 두레이에 올려 함께 작성&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  433</span>         &lt;button class="btn strong" id="btnImport" title="한셀(엑셀)에서 복사한 시트 내용을 붙여넣습니다 (입력칸 밖에서 Ctrl+V 해도 됩니다)"&gt;붙여넣기&lt;/button&gt;
+<span class="ln">  434</span>         &lt;button class="btn caret" data-menu="importMenu" aria-haspopup="true" aria-expanded="false" title="더 보기"&gt;▾&lt;/button&gt;
+<span class="ln">  435</span>       &lt;/div&gt;
+<span class="ln">  436</span>       &lt;div class="menu" id="importMenu" hidden&gt;
+<span class="ln">  437</span>         &lt;button type="button" data-act="paste"&gt;&lt;span&gt;한셀(엑셀)에서 복사한 내용 붙여넣기&lt;span class="desc"&gt;여러 시트를 합친 것도 됩니다 · 입력칸 밖에서 바로 Ctrl+V 해도 됨&lt;/span&gt;&lt;/span&gt;&lt;kbd&gt;Ctrl+V&lt;/kbd&gt;&lt;/button&gt;
+<span class="ln">  438</span>         &lt;hr&gt;
+<span class="ln">  439</span>         &lt;button type="button" data-act="template"&gt;&lt;span&gt;공동편집용 엑셀 양식 만들기&lt;span class="desc"&gt;임원별 시트 + 맨 밑 표 시트가 들어 있는 .xlsx&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;</pre></div></div></section>
+<section class="chg" id="c2"><header><div class="t">2. 파일 고르기 창에서 작업 파일(.json)만 고르게 <span class="k 선택">선택 · 쓰지 않게 된 코드 정리 — 안 해도 동작은 같음</span></div><div class="m">기준판 451–451줄 (1줄) → 새 1줄 · </div></header>
+<div class="find">찾을 글 (기준판 451번째 줄): <code>&lt;input type="file" id="fileInput" multiple accept=".xlsx,.xlsm,.csv,.tsv,.json,.xls" hidden&gt;</code><br>방법: 「수정 전」 1줄을 「수정 후」 1줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  451</span>   &lt;input type="file" id="fileInput" multiple accept=".xlsx,.xlsm,.csv,.tsv,.json,.xls" hidden&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  450</span>   &lt;input type="file" id="fileInput" accept=".json,application/json" hidden&gt;</pre></div></div></section>
+<section class="chg" id="c3"><header><div class="t">3. 입력 방법 탭: 엑셀 모으기 안내 → 한셀 붙여넣기 안내 <span class="k 선택">선택 · 화면 안내 글만 바뀜 — 안 해도 동작은 같음</span></div><div class="m">기준판 565–573줄 (9줄) → 새 9줄 · 근처: 입력 방법</div></header>
+<div class="find">찾을 글 (기준판 565번째 줄): <code>&lt;h3&gt;엑셀(두레이 공동편집)로 모으기&lt;/h3&gt;</code><br>방법: 「수정 전」 9줄을 「수정 후」 9줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  565</span>             &lt;h3&gt;엑셀(두레이 공동편집)로 모으기&lt;/h3&gt;
+<span class="ln">  566</span>             &lt;ul&gt;
+<span class="ln">  567</span>               &lt;li&gt;처음 한 번: &lt;b&gt;엑셀 불러오기 ▾ → 공동편집용 엑셀 양식 만들기&lt;/b&gt;. 임원마다 시트가 하나씩(시트 이름 = 직위 성명) 있는 .xlsx가 만들어집니다. 두레이에 올려 함께 씁니다.&lt;/li&gt;
+<span class="ln">  568</span>               &lt;li&gt;칸: &lt;b&gt;시간 / 내용 / 비고 / ※ 참고&lt;/b&gt;. 비고 → &lt;code&gt;*&lt;/code&gt; 작은 글씨 부가 설명, ※ 참고 → 그 임원 칸 맨 밑 ※.&lt;/li&gt;
+<span class="ln">  569</span>               &lt;li&gt;매일: 파일을 내려받아 &lt;b&gt;[엑셀 불러오기]&lt;/b&gt;로 고르거나 화면에 끌어다 놓습니다. 확인 창에서 시트마다 넣을 임원을 보고 &lt;b&gt;[가져오기]&lt;/b&gt;.&lt;/li&gt;
+<span class="ln">  570</span>               &lt;li&gt;임원은 &lt;b&gt;시트 이름에 든 성명&lt;/b&gt;으로 찾습니다(성명이 없으면 겹치지 않는 직위로). 한 시트에 모두 쓰려면 &lt;code&gt;성명&lt;/code&gt; 열을 두세요(병합된 칸도 됩니다).&lt;/li&gt;
+<span class="ln">  571</span>               &lt;li&gt;&lt;code&gt;날짜&lt;/code&gt; 열이 있으면 문서 날짜의 줄만 가져옵니다. 문서 날짜에 일정이 없으면 가장 많은 날짜를 골라 주고, 확인 창에서 바꿀 수 있습니다.&lt;/li&gt;
+<span class="ln">  572</span>               &lt;li&gt;아직 안 쓴 빈 시트, &lt;code&gt;작성방법&lt;/code&gt; 시트, 숨긴 시트는 뺍니다. 엑셀에 없는 임원은 그대로 둡니다. 잘못 가져오면 알림의 &lt;b&gt;[되돌리기]&lt;/b&gt;.&lt;/li&gt;
+<span class="ln">  573</span>               &lt;li&gt;엑셀에서 범위를 복사해 &lt;b&gt;입력칸 밖&lt;/b&gt;에서 &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;V&lt;/kbd&gt; 해도 같은 확인 창이 뜹니다. 한 임원의 &lt;b&gt;일정 칸 안&lt;/b&gt;에 붙여넣으면 그 임원 일정으로 바로 들어갑니다.&lt;/li&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  564</span>             &lt;h3&gt;한셀(엑셀)에서 붙여넣기&lt;/h3&gt;
+<span class="ln">  565</span>             &lt;ul&gt;
+<span class="ln">  566</span>               &lt;li&gt;한셀 파일은 임원마다 시트 하나(시트 이름 = 직위 성명), 칸은 &lt;b&gt;시간 / 내용 / 비고 / ※ 참고&lt;/b&gt;. 맨 밑 표는 &lt;b&gt;맨 밑 표&lt;/b&gt; 시트(&lt;b&gt;표 이름 / 칸 / 칸 제목 / 내용&lt;/b&gt;, 한 줄에 한 칸). 서식은 붙여넣기 ▾ → &lt;b&gt;공동편집용 엑셀 양식 만들기&lt;/b&gt;로 받을 수 있습니다.&lt;/li&gt;
+<span class="ln">  567</span>               &lt;li&gt;모든 시트를 합쳐 붙일 때: 시트마다 맨 앞에 &lt;b&gt;A열 한 칸에 &lt;code&gt;# 시트 이름&lt;/code&gt;&lt;/b&gt; 줄을 넣고, 그 아래에 그 시트 내용을 머리글 줄부터 그대로 둡니다. 합친 범위를 복사해 &lt;b&gt;[붙여넣기]&lt;/b&gt; 창이나 입력칸 밖에서 &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;V&lt;/kbd&gt; → 확인 창 → &lt;b&gt;[가져오기]&lt;/b&gt;.&lt;/li&gt;
+<span class="ln">  568</span>               &lt;li&gt;임원은 이름 줄(시트 이름)에 든 성명으로 찾습니다(성명이 없으면 겹치지 않는 직위로). 못 찾으면 확인 창에서 고릅니다. 이름 줄 없이 붙이면 머리글 줄이 다시 나올 때마다 나누고, 넣을 임원은 확인 창에서 고릅니다.&lt;/li&gt;
+<span class="ln">  569</span>               &lt;li&gt;맨 밑 표: 표 이름(인접회사활동·휴가·출장/방문·근무)으로 표를 찾고, 칸 제목(회사명 등)이 같은 칸 → 칸 번호 → 빈 칸 차례로 넣습니다. 붙인 표에서 빠진 칸은 비웁니다.&lt;/li&gt;
+<span class="ln">  570</span>               &lt;li&gt;&lt;code&gt;날짜&lt;/code&gt; 열이 있으면 문서 날짜의 줄만 가져옵니다. &lt;code&gt;작성방법&lt;/code&gt;·안내 시트는 뺍니다. 엑셀에 없는 임원은 그대로 둡니다. 잘못 가져오면 알림의 &lt;b&gt;[되돌리기]&lt;/b&gt;.&lt;/li&gt;
+<span class="ln">  571</span>               &lt;li&gt;한 임원의 &lt;b&gt;일정 칸 안&lt;/b&gt;에 붙여넣으면 그 임원 일정으로 바로 들어갑니다.&lt;/li&gt;
+<span class="ln">  572</span>               &lt;li&gt;엑셀·한셀 파일을 직접 여는 기능은 없습니다(문서 보안 때문에 뺐습니다).&lt;/li&gt;</pre></div></div></section>
+<section class="chg" id="c4"><header><div class="t">4. 붙여넣기 창의 안내 글·예시 <span class="k 선택">선택 · 화면 안내 글만 바뀜 — 안 해도 동작은 같음</span></div><div class="m">기준판 632–634줄 (3줄) → 새 3줄 · 근처: 입력 방법</div></header>
+<div class="find">찾을 글 (기준판 632번째 줄): <code>&lt;h3 id="bulkTitle"&gt;엑셀에서 복사한 내용 붙여넣기&lt;/h3&gt;</code><br>방법: 「수정 전」 3줄을 「수정 후」 3줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  632</span>     &lt;h3 id="bulkTitle"&gt;엑셀에서 복사한 내용 붙여넣기&lt;/h3&gt;
+<span class="ln">  633</span>     &lt;p&gt;엑셀(두레이)에서 범위를 복사(&lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;C&lt;/kbd&gt;)해 아래에 붙여넣으세요. 머리글 줄(시간·내용·비고·※ 참고…)까지 같이 복사하면 더 정확합니다. &lt;b&gt;성명&lt;/b&gt;(또는 임원) 열이 있으면 임원별로 나눠 넣고, 없으면 확인 창에서 넣을 임원을 고릅니다.&lt;/p&gt;
+<span class="ln">  634</span>     &lt;textarea id="bulkText" spellcheck="false" placeholder="성명&amp;#9;시간&amp;#9;내용&amp;#9;비고&amp;#10;김민수&amp;#9;09:00&amp;#9;주간 경영회의&amp;#9;대회의실&amp;#10;이정훈&amp;#9;14:00&amp;#9;감사팀 업무보고&amp;#9;"&gt;&lt;/textarea&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  631</span>     &lt;h3 id="bulkTitle"&gt;한셀(엑셀)에서 복사한 내용 붙여넣기&lt;/h3&gt;
+<span class="ln">  632</span>     &lt;p&gt;시트 내용을 복사(&lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;C&lt;/kbd&gt;)해 아래에 붙여넣으세요. &lt;b&gt;여러 시트를 합쳐 붙일 때&lt;/b&gt;는 시트마다 맨 앞에 A열 한 칸짜리 &lt;code&gt;# 시트 이름&lt;/code&gt; 줄(예: &lt;code&gt;# 대표이사 김민수&lt;/code&gt;, &lt;code&gt;# 맨 밑 표&lt;/code&gt;)을 두면 시트별로 나눠 넣습니다. 한 시트만 붙이면 확인 창에서 넣을 임원을 고릅니다. 자세한 규칙은 '입력 방법' 탭.&lt;/p&gt;
+<span class="ln">  633</span>     &lt;textarea id="bulkText" spellcheck="false" placeholder="# 대표이사 김민수&amp;#10;시간&amp;#9;내용&amp;#9;비고&amp;#9;※ 참고&amp;#10;08:30&amp;#9;임원 조찬 간담회 @20층 라운지&amp;#9;참석: 임원 전원&amp;#9;&amp;#10;10:00&amp;#9;주간 경영회의&amp;#9;&amp;#9;&amp;#10;# 부사장 이정훈&amp;#10;시간&amp;#9;내용&amp;#9;비고&amp;#9;※ 참고&amp;#10;09:00&amp;#9;인사위원회&amp;#9;&amp;#9;16:00 이후 사내 대기&amp;#10;# 맨 밑 표&amp;#10;표 이름&amp;#9;칸 제목&amp;#9;내용&amp;#10;인접회사활동&amp;#9;A사&amp;#9;10:00 사장 주간회의&amp;#10;휴가&amp;#9;&amp;#9;상무 한소영 오전 반차&amp;#10;근무&amp;#9;당직&amp;#9;총무팀 과장"&gt;&lt;/textarea&gt;</pre></div></div></section>
+<section class="chg" id="c5"><header><div class="t">5. 끌어다 놓기 안내 글 <span class="k 선택">선택 · 화면 안내 글만 바뀜 — 안 해도 동작은 같음</span></div><div class="m">기준판 661–661줄 (1줄) → 새 1줄 · 근처: 입력 방법</div></header>
+<div class="find">찾을 글 (기준판 661번째 줄): <code>&lt;div class="drop" id="dropOverlay" hidden&gt;엑셀(.xlsx)이나 작업 파일(.json)을 놓으면 불러옵니다&lt;/div&gt;</code><br>방법: 「수정 전」 1줄을 「수정 후」 1줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  661</span> &lt;div class="drop" id="dropOverlay" hidden&gt;엑셀(.xlsx)이나 작업 파일(.json)을 놓으면 불러옵니다&lt;/div&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  660</span> &lt;div class="drop" id="dropOverlay" hidden&gt;작업 파일(.json)을 놓으면 엽니다&lt;/div&gt;</pre></div></div></section>
+<section class="chg must" id="c6"><header><div class="t">6. 시간 칸이 숫자(0.375 등)로 와도 09:00으로 읽기 <span class="k 필수">필수</span></div><div class="m">기준판 1037번째 줄 다음에 넣기 (새 줄 1줄) · 근처: 함수 rowLines</div></header>
+<div class="find">찾을 글 (기준판 1037번째 줄): <code>var tm = '';</code><br>방법: 찾은 줄 바로 다음에 「수정 후」를 넣기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><div class="none">(없음)</div></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 1037</span>     if (/^0?\.\d+$/.test(time) &amp;&amp; +time &lt; 1) { var mins = Math.round(+time * 1440); time = pad2(Math.floor(mins / 60)) + ':' + pad2(mins % 60); }</pre></div></div></section>
+<section class="chg" id="c7"><header><div class="t">7. 엑셀 파일 읽기 코드 지우기 <span class="k 선택">선택 · 쓰지 않게 된 코드 정리 — 안 해도 동작은 같음</span></div><div class="m">기준판 2025–2251줄 (227줄) → 새 2줄 · 근처: 함수 hasFiles</div></header>
+<div class="find">찾을 글 (기준판 2025번째 줄): <code>엑셀(.xlsx) 읽기·쓰기 — daily_schedule.html과 같은 코드 (외부 라이브러리 없음)</code><br>방법: 「수정 전」 227줄을 「수정 후」 2줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2025</span>      엑셀(.xlsx) 읽기·쓰기 — daily_schedule.html과 같은 코드 (외부 라이브러리 없음)
+<span class="ln"> 2026</span>      ------------------------------------------------------------------ */
+<span class="ln"> 2027</span>   var LBASE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+<span class="ln"> 2028</span>   var LEXT = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+<span class="skip">      … 중간 219줄 (위 첫 줄부터 아래 끝 줄까지 모두) …</span>
+<span class="ln"> 2248</span>     for (var i = 0; i &lt; grid.length; i++) { grid[i] = grid[i] || []; for (var j = 0; j &lt; grid[i].length; j++) if (grid[i][j] == null) grid[i][j] = ''; }
+<span class="ln"> 2249</span>     return grid;
+<span class="ln"> 2250</span>   }
+<span class="ln"> 2251</span> </pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2025</span>      엑셀(.xlsx) 쓰기 — 공동편집 양식 만들기용 (외부 라이브러리 없음)
+<span class="ln"> 2026</span>      ------------------------------------------------------------------ */</pre></div></div></section>
+<section class="chg" id="c8"><header><div class="t">8. readBuf·decodeBytes 지우기, 구역 제목 바꾸기 <span class="k 선택">선택 · 쓰지 않게 된 코드 정리 — 안 해도 동작은 같음</span></div><div class="m">기준판 2341–2361줄 (21줄) → 새 2줄 · 근처: 함수 readBuf</div></header>
+<div class="find">찾을 글 (기준판 2341번째 줄): <code>function readBuf(file) {</code><br>방법: 「수정 전」 21줄을 「수정 후」 2줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2341</span>   function readBuf(file) {
+<span class="ln"> 2342</span>     return new Promise(function (resolve, reject) {
+<span class="ln"> 2343</span>       var r = new FileReader();
+<span class="ln"> 2344</span>       r.onload = function () { resolve(r.result); };
+<span class="ln"> 2345</span>       r.onerror = function () { reject(r.error); };
+<span class="ln"> 2346</span>       r.readAsArrayBuffer(file);
+<span class="ln"> 2347</span>     });
+<span class="ln"> 2348</span>   }
+<span class="ln"> 2349</span>   function decodeBytes(buf) {
+<span class="ln"> 2350</span>     var b = new Uint8Array(buf);
+<span class="ln"> 2351</span>     if (b.length &gt;= 2 &amp;&amp; b[0] === 0xFF &amp;&amp; b[1] === 0xFE) return new TextDecoder('utf-16le').decode(b);
+<span class="ln"> 2352</span>     if (b.length &gt;= 2 &amp;&amp; b[0] === 0xFE &amp;&amp; b[1] === 0xFF) return new TextDecoder('utf-16be').decode(b);
+<span class="ln"> 2353</span>     try { return new TextDecoder('utf-8', { fatal: true }).decode(b); }
+<span class="ln"> 2354</span>     catch (e) {
+<span class="ln"> 2355</span>       try { return new TextDecoder('euc-kr').decode(b); }      // 예전 엑셀 CSV(ANSI)
+<span class="ln"> 2356</span>       catch (e2) { return new TextDecoder('utf-8').decode(b); }
+<span class="ln"> 2357</span>     }
+<span class="ln"> 2358</span>   }
+<span class="ln"> 2359</span> 
+<span class="ln"> 2360</span>   /* ------------------------------------------------------------------
+<span class="ln"> 2361</span>      엑셀 불러오기: 시트(표) → 임원별 일정</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2116</span>   /* ------------------------------------------------------------------
+<span class="ln"> 2117</span>      붙여넣기: 한셀(엑셀)에서 복사한 시트들 → 임원별 일정·맨 밑 표</pre></div></div></section>
+<section class="chg must" id="c9"><header><div class="t">9. openImport: 맨 밑 표(bottom)도 받기 <span class="k 필수">필수</span></div><div class="m">기준판 2429–2430줄 (2줄) → 새 2줄 · 근처: 함수 openImport</div></header>
+<div class="find">찾을 글 (기준판 2429번째 줄): <code>function openImport(groups, srcLabel) {</code><br>방법: 「수정 전」 2줄을 「수정 후」 2줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2429</span>   function openImport(groups, srcLabel) {
+<span class="ln"> 2430</span>     if (!groups.length) { toast('가져올 일정을 찾지 못했습니다. 머리글(시간·내용)이 있는지 확인하세요.'); return false; }</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2185</span>   function openImport(groups, srcLabel, bottom) {
+<span class="ln"> 2186</span>     if (!groups.length &amp;&amp; !bottom) { toast('가져올 일정을 찾지 못했습니다. 시트마다 머리글(시간·내용) 줄이 있는지 확인하세요.'); return false; }</pre></div></div></section>
+<section class="chg must" id="c10"><header><div class="t">10. openImport: 맨 밑 표만 있어도 확인 창 열기 <span class="k 필수">필수</span></div><div class="m">기준판 2441–2443줄 (3줄) → 새 3줄 · 근처: 함수 openImport</div></header>
+<div class="find">찾을 글 (기준판 2441번째 줄): <code>imp = { groups: groups, dates: dates, counts: counts, D: D, src: srcLabel };</code><br>방법: 「수정 전」 3줄을 「수정 후」 3줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2441</span>     imp = { groups: groups, dates: dates, counts: counts, D: D, src: srcLabel };
+<span class="ln"> 2442</span>     buildEntries();
+<span class="ln"> 2443</span>     if (!imp.entries.length &amp;&amp; !dates.length) { toast('시트에 일정이 비어 있습니다.'); imp = null; return false; }</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2197</span>     imp = { groups: groups, dates: dates, counts: counts, D: D, src: srcLabel, bottom: bottom || null };
+<span class="ln"> 2198</span>     buildEntries();
+<span class="ln"> 2199</span>     if (!imp.entries.length &amp;&amp; !dates.length &amp;&amp; !imp.bottom) { toast('시트에 일정이 비어 있습니다.'); imp = null; return false; }</pre></div></div></section>
+<section class="chg" id="c11"><header><div class="t">11. 확인 창 맨 위 안내 글 <span class="k 선택">선택 · 화면 안내 글만 바뀜 — 안 해도 동작은 같음</span></div><div class="m">기준판 2451–2451줄 (1줄) → 새 1줄 · 근처: 함수 renderImport</div></header>
+<div class="find">찾을 글 (기준판 2451번째 줄): <code>$('#impIntro').textContent = imp.src + ' — 시트 이름(또는 성명 열)으로 임원을 찾았습니다. 넣을 임원이 맞는지 보고 [가져오기]를 누르세요. 고른 임원의 일정·※ 참고는 엑셀 내용으로 바뀝니다.';</code><br>방법: 「수정 전」 1줄을 「수정 후」 1줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2451</span>     $('#impIntro').textContent = imp.src + ' — 시트 이름(또는 성명 열)으로 임원을 찾았습니다. 넣을 임원이 맞는지 보고 [가져오기]를 누르세요. 고른 임원의 일정·※ 참고는 엑셀 내용으로 바뀝니다.';</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2207</span>     $('#impIntro').textContent = imp.src + ' — 시트 이름 줄(또는 성명 열)로 임원을 찾았습니다. 넣을 임원이 맞는지 보고 [가져오기]를 누르세요. 고른 임원의 일정·※ 참고' + (imp.bottom ? '와 맨 밑 표' : '') + '는 붙여넣은 내용으로 바뀝니다.';</pre></div></div></section>
+<section class="chg must" id="c12"><header><div class="t">12. 확인 창에 "맨 밑 표" 줄 넣기, 요약·[가져오기] 단추 <span class="k 필수">필수</span></div><div class="m">기준판 2475–2480줄 (6줄) → 새 20줄 · 근처: 함수 renderImport</div></header>
+<div class="find">찾을 글 (기준판 2475번째 줄): <code>var n = Object.keys(used).length;</code><br>방법: 「수정 전」 6줄을 「수정 후」 20줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2475</span>     var n = Object.keys(used).length;
+<span class="ln"> 2476</span>     var miss = state.execs.map(function (ex, i) { return i; }).filter(function (i) { return !used[i]; }).map(execName);
+<span class="ln"> 2477</span>     $('#impSummary').textContent = n + '명에게 넣습니다' + (miss.length ? ' · 그대로 두는 임원: ' + miss.join(', ') : '') + (imp.empty ? ' · 비어 있는 시트 ' + imp.empty + '개는 뺐습니다' : '');
+<span class="ln"> 2478</span>     $('#impApply').disabled = !n;
+<span class="ln"> 2479</span>   }
+<span class="ln"> 2480</span>   $('#impBody').addEventListener('change', function (e) {</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2231</span>     if (imp.bottom) {
+<span class="ln"> 2232</span>       var bt = imp.bottom, ks = Object.keys(bt.tables);
+<span class="ln"> 2233</span>       var desc = ks.map(function (k) { return state.tables[k].label + (state.tables[k].cells.length &gt; 1 ? ' ' + bt.tables[k].length + '칸' : ''); }).join(' · ');
+<span class="ln"> 2234</span>       var pvb = ks.map(function (k) {
+<span class="ln"> 2235</span>         return state.tables[k].label + ': ' + bt.tables[k].map(function (it) { return (it.head ? it.head + ' ' : '') + it.text.split('\n')[0]; }).join(' / ');
+<span class="ln"> 2236</span>       }).join('\n');
+<span class="ln"> 2237</span>       $('#impBody').insertAdjacentHTML('beforeend', '&lt;tr data-bottom' + (bt.on ? '' : ' class="off"') + '&gt;' +
+<span class="ln"> 2238</span>         '&lt;td&gt;&lt;input type="checkbox" data-f="bottom"' + (bt.on ? ' checked' : '') + ' aria-label="맨 밑 표 가져오기"&gt;&lt;/td&gt;' +
+<span class="ln"> 2239</span>         '&lt;td&gt;&lt;b&gt;맨 밑 표&lt;/b&gt;&lt;/td&gt;' +
+<span class="ln"> 2240</span>         '&lt;td&gt;&lt;div class="fn"&gt;붙여넣기 › 맨 밑 표&lt;/div&gt;' + (bt.unknown.length ? '&lt;div class="note"&gt;모르는 표 이름(뺌): ' + esc(bt.unknown.join(', ')) + '&lt;/div&gt;' : '&lt;div class="meta"&gt;표 이름으로 찾음&lt;/div&gt;') + '&lt;/td&gt;' +
+<span class="ln"> 2241</span>         '&lt;td&gt;&lt;div class="meta"&gt;' + esc(desc) + '&lt;/div&gt;&lt;div class="pv"&gt;' + esc(pvb) + '&lt;/div&gt;&lt;/td&gt;&lt;/tr&gt;');
+<span class="ln"> 2242</span>     }
+<span class="ln"> 2243</span>     var n = Object.keys(used).length;
+<span class="ln"> 2244</span>     var miss = state.execs.map(function (ex, i) { return i; }).filter(function (i) { return !used[i]; }).map(execName);
+<span class="ln"> 2245</span>     var bOn = !!(imp.bottom &amp;&amp; imp.bottom.on);
+<span class="ln"> 2246</span>     $('#impSummary').textContent = n + '명에게 넣습니다' + (bOn ? ' · 맨 밑 표 ' + imp.bottom.count + '개' : '') + (miss.length ? ' · 그대로 두는 임원: ' + miss.join(', ') : '') + (imp.empty ? ' · 비어 있는 시트 ' + imp.empty + '개는 뺐습니다' : '');
+<span class="ln"> 2247</span>     $('#impApply').disabled = !n &amp;&amp; !bOn;
+<span class="ln"> 2248</span>   }
+<span class="ln"> 2249</span>   $('#impBody').addEventListener('change', function (e) {
+<span class="ln"> 2250</span>     if (e.target.getAttribute('data-f') === 'bottom') { imp.bottom.on = e.target.checked; renderImport(); return; }</pre></div></div></section>
+<section class="chg must" id="c13"><header><div class="t">13. [가져오기]: 맨 밑 표 넣기 <span class="k 필수">필수</span></div><div class="m">기준판 2498–2500줄 (3줄) → 새 5줄 · 근처: 함수 renderImport</div></header>
+<div class="find">찾을 글 (기준판 2498번째 줄): <code>if (!n) return;</code><br>방법: 「수정 전」 3줄을 「수정 후」 5줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2498</span>     if (!n) return;
+<span class="ln"> 2499</span>     var prev = clone(state);
+<span class="ln"> 2500</span>     Object.keys(acc).forEach(function (t) { state.execs[t].sched = acc[t].s.join('\n'); state.execs[t].ref = acc[t].r.join('\n'); });</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2268</span>     var bOn = !!(imp.bottom &amp;&amp; imp.bottom.on);
+<span class="ln"> 2269</span>     if (!n &amp;&amp; !bOn) return;
+<span class="ln"> 2270</span>     var prev = clone(state);
+<span class="ln"> 2271</span>     Object.keys(acc).forEach(function (t) { state.execs[t].sched = acc[t].s.join('\n'); state.execs[t].ref = acc[t].r.join('\n'); });
+<span class="ln"> 2272</span>     if (bOn) applyBottom(imp.bottom);</pre></div></div></section>
+<section class="chg" id="c14"><header><div class="t">14. 가져온 뒤 알림 글 <span class="k 선택">선택 · 화면 안내 글만 바뀜 — 안 해도 동작은 같음</span></div><div class="m">기준판 2506–2506줄 (1줄) → 새 1줄 · 근처: 함수 renderImport</div></header>
+<div class="find">찾을 글 (기준판 2506번째 줄): <code>toast('엑셀에서 ' + n + '명의 일정을 가져왔습니다.', '되돌리기', function () {</code><br>방법: 「수정 전」 1줄을 「수정 후」 1줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2506</span>     toast('엑셀에서 ' + n + '명의 일정을 가져왔습니다.', '되돌리기', function () {</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2278</span>     toast('붙여넣은 내용에서 ' + (n ? n + '명의 일정' : '') + (n &amp;&amp; bOn ? '과 ' : '') + (bOn ? '맨 밑 표' : '') + '를 가져왔습니다.', '되돌리기', function () {</pre></div></div></section>
+<section class="chg" id="c15"><header><div class="t">15. readSheetsFromFile 지우기 <span class="k 선택">선택 · 쓰지 않게 된 코드 정리 — 안 해도 동작은 같음</span></div><div class="m">기준판 2511–2522줄 지우기 (12줄) · 근처: 함수 readSheetsFromFile</div></header>
+<div class="find">찾을 글 (기준판 2511번째 줄): <code>function readSheetsFromFile(f) {</code><br>방법: 「수정 전」 12줄 지우기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2511</span>   function readSheetsFromFile(f) {
+<span class="ln"> 2512</span>     var n = f.name;
+<span class="ln"> 2513</span>     if (/\.xls$/i.test(n)) return Promise.reject(new Error('예전 엑셀(.xls)은 읽을 수 없습니다. 엑셀에서 .xlsx로 저장해 올려 주세요.'));
+<span class="ln"> 2514</span>     if (/\.(xlsx|xlsm)$/i.test(n)) return readBuf(f).then(readXlsx).then(function (sh) { return { file: n, sheets: sh }; });
+<span class="ln"> 2515</span>     if (/\.(csv|tsv)$/i.test(n)) {
+<span class="ln"> 2516</span>       return readBuf(f).then(decodeBytes).then(function (t) {
+<span class="ln"> 2517</span>         var tab = /\.tsv$/i.test(n) || (t.split('\n')[0] || '').indexOf('\t') &gt;= 0;
+<span class="ln"> 2518</span>         return { file: n, isFile: true, sheets: [{ name: n.replace(/\.[^.]+$/, ''), grid: parseTSV(t, tab ? '\t' : ',') }] };
+<span class="ln"> 2519</span>       });
+<span class="ln"> 2520</span>     }
+<span class="ln"> 2521</span>     return Promise.reject(new Error(n + ': 엑셀(.xlsx)·CSV·작업 파일(.json)만 불러올 수 있습니다.'));
+<span class="ln"> 2522</span>   }</pre></div><div class="n"><h4>수정 후</h4><div class="none">(없음)</div></div></div></section>
+<section class="chg must" id="c16"><header><div class="t">16. openFiles(작업 파일만 열기) + 붙여넣기: 시트 나누기·맨 밑 표 읽기 (새 함수들) <span class="k 필수">필수</span></div><div class="m">기준판 2528–2550줄 (23줄) → 새 111줄 · 근처: 함수 openFiles</div></header>
+<div class="find">찾을 글 (기준판 2528번째 줄): <code>Promise.all(files.map(function (f) {</code><br>방법: 「수정 전」 23줄을 「수정 후」 111줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2528</span>     Promise.all(files.map(function (f) {
+<span class="ln"> 2529</span>       return readSheetsFromFile(f).catch(function (err) { return { error: (err &amp;&amp; err.message) || String(err), file: f.name }; });
+<span class="ln"> 2530</span>     })).then(function (srcs) {
+<span class="ln"> 2531</span>       var bad = srcs.filter(function (s) { return s.error; }), ok = srcs.filter(function (s) { return !s.error; });
+<span class="ln"> 2532</span>       var groups = [];
+<span class="ln"> 2533</span>       ok.forEach(function (src) {
+<span class="ln"> 2534</span>         src.sheets.forEach(function (sh) {
+<span class="ln"> 2535</span>           if (sh.hidden || SKIP_SHEET.test(String(sh.name).trim())) return;
+<span class="ln"> 2536</span>           sheetGroups(sh.name, sh.grid).forEach(function (g) {
+<span class="ln"> 2537</span>             g.source = src.file + (src.isFile ? '' : ' › ' + sh.name) + (g.hasExecCol &amp;&amp; g.label ? ' › ' + g.label : '');
+<span class="ln"> 2538</span>             groups.push(g);
+<span class="ln"> 2539</span>           });
+<span class="ln"> 2540</span>         });
+<span class="ln"> 2541</span>       });
+<span class="ln"> 2542</span>       var shown = ok.length ? openImport(groups, ok.map(function (s) { return s.file; }).join(', ')) : false;
+<span class="ln"> 2543</span>       if (bad.length) toast(bad.map(function (b) { return b.error; }).join(' / '));
+<span class="ln"> 2544</span>       return shown;
+<span class="ln"> 2545</span>     });
+<span class="ln"> 2546</span>   }
+<span class="ln"> 2547</span>   function importPasted(text) {
+<span class="ln"> 2548</span>     var groups = sheetGroups('붙여넣은 내용', parseTSV(text));
+<span class="ln"> 2549</span>     groups.forEach(function (g) { g.source = '붙여넣은 내용' + (g.hasExecCol &amp;&amp; g.label ? ' › ' + g.label : ''); });
+<span class="ln"> 2550</span>     return openImport(groups, '붙여넣은 내용');</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2288</span>     toast('엑셀 파일은 불러오지 않습니다(문서 보안). 한셀에서 시트 내용을 복사해 [붙여넣기]로 넣어 주세요.');
+<span class="ln"> 2289</span>   }
+<span class="ln"> 2290</span>   /* 여러 시트를 이어 붙인 표를 시트마다 나눈다.
+<span class="ln"> 2291</span>      - A열 한 칸에 '# 이름'(또는 [이름])이 있는 줄에서 새 시트. 이름만 있어도, 아는 임원·'맨 밑 표'이고 바로 아래가 머리글이면 새 시트
+<span class="ln"> 2292</span>      - 이름 줄 없이 붙였으면 머리글 줄이 다시 나올 때마다 나눔 (넣을 임원은 확인 창에서 고름) */
+<span class="ln"> 2293</span>   var RE_BOTTOM_NAME = /^맨\s*밑\s*표/;
+<span class="ln"> 2294</span>   function isBottomName(t) { return RE_BOTTOM_NAME.test(String(t || '').trim()); }
+<span class="ln"> 2295</span>   function isBottomHeader(row) {
+<span class="ln"> 2296</span>     var k = (row || []).map(normKey);
+<span class="ln"> 2297</span>     return k.some(function (c) { return /^(표|표이름|구분)$/.test(c); }) &amp;&amp; k.indexOf('내용') &gt;= 0;
+<span class="ln"> 2298</span>   }
+<span class="ln"> 2299</span>   function nextFilled(grid, r) { for (var k = r + 1; k &lt; grid.length; k++) if (grid[k].some(Boolean)) return grid[k]; return null; }
+<span class="ln"> 2300</span>   function blockName(grid, r) {
+<span class="ln"> 2301</span>     var row = grid[r], filled = row.filter(Boolean), m;
+<span class="ln"> 2302</span>     if (filled.length !== 1 || !row[0]) return null;
+<span class="ln"> 2303</span>     var t = row[0].trim();
+<span class="ln"> 2304</span>     if ((m = /^#(?!#)\s*(.+)$/.exec(t))) return m[1].trim();
+<span class="ln"> 2305</span>     if ((m = /^\[(.+)\]$/.exec(t))) return m[1].trim();
+<span class="ln"> 2306</span>     if (t.length &gt; 30) return null;
+<span class="ln"> 2307</span>     var nx = nextFilled(grid, r);
+<span class="ln"> 2308</span>     if (!nx) return null;
+<span class="ln"> 2309</span>     if (isBottomName(t) &amp;&amp; isBottomHeader(nx)) return t;
+<span class="ln"> 2310</span>     if (matchExec(t) &gt;= 0 &amp;&amp; isHeaderRow(nx)) return t;
+<span class="ln"> 2311</span>     return null;
+<span class="ln"> 2312</span>   }
+<span class="ln"> 2313</span>   function pasteBlocks(grid) {
+<span class="ln"> 2314</span>     var blocks = [], cur = null;
+<span class="ln"> 2315</span>     for (var r = 0; r &lt; grid.length; r++) {
+<span class="ln"> 2316</span>       var nm = blockName(grid, r), head = isHeaderRow(grid[r]);
+<span class="ln"> 2317</span>       if (nm != null) { cur = { name: nm, rows: [] }; blocks.push(cur); continue; }
+<span class="ln"> 2318</span>       if (!cur || (!cur.name &amp;&amp; cur.head &amp;&amp; head)) { cur = { name: '', rows: [] }; blocks.push(cur); }
+<span class="ln"> 2319</span>       if (head) cur.head = true;
+<span class="ln"> 2320</span>       cur.rows.push(grid[r]);
+<span class="ln"> 2321</span>     }
+<span class="ln"> 2322</span>     return blocks.filter(function (b) { return b.name || b.rows.some(function (row) { return row.some(Boolean); }); });
+<span class="ln"> 2323</span>   }
+<span class="ln"> 2324</span> 
+<span class="ln"> 2325</span>   /* 맨 밑 표 블록: 머리글 '표 이름 | (칸) | 칸 제목 | 내용', 한 줄에 한 칸. 표 이름은 그 표 첫 줄에만 써도 됨 */
+<span class="ln"> 2326</span>   var BOTTOM_ALIAS = [['인접회사활동', '인접회사', '인접회사동향', '인접회사일정'], ['휴가', '휴가자', '연가'],
+<span class="ln"> 2327</span>     ['출장/방문', '출장방문', '출장·방문', '출장및방문', '출장', '방문'], ['근무', '당직', '당직근무', '근무자']];
+<span class="ln"> 2328</span>   function bottomIndex(label) {
+<span class="ln"> 2329</span>     var k0 = normKey(label).replace(/[\/·및]/g, '');
+<span class="ln"> 2330</span>     if (!k0) return -1;
+<span class="ln"> 2331</span>     for (var k = 0; k &lt; state.tables.length; k++) if (normKey(state.tables[k].label).replace(/[\/·및]/g, '') === k0) return k;
+<span class="ln"> 2332</span>     for (var j = 0; j &lt; BOTTOM_ALIAS.length; j++) {
+<span class="ln"> 2333</span>       if (BOTTOM_ALIAS[j].some(function (a) { return normKey(a).replace(/[\/·및]/g, '') === k0; })) return j;
+<span class="ln"> 2334</span>     }
+<span class="ln"> 2335</span>     return -1;
+<span class="ln"> 2336</span>   }
+<span class="ln"> 2337</span>   function parseBottom(rows) {
+<span class="ln"> 2338</span>     rows = rows.filter(function (r) { return r.some(Boolean); });
+<span class="ln"> 2339</span>     var cols = { label: 0, no: -1, head: 1, text: 2 }, start = 0;
+<span class="ln"> 2340</span>     for (var h = 0; h &lt; Math.min(rows.length, 8); h++) {
+<span class="ln"> 2341</span>       if (!isBottomHeader(rows[h])) continue;
+<span class="ln"> 2342</span>       var ks = rows[h].map(normKey), at = function (re) { for (var i = 0; i &lt; ks.length; i++) if (re.test(ks[i])) return i; return -1; };
+<span class="ln"> 2343</span>       cols = { label: at(/^(표|표이름|구분)$/), no: at(/^(칸|번호|순번|칸번호)$/), head: at(/^(칸제목|제목|회사|회사명|이름)$/), text: at(/^내용$/) };
+<span class="ln"> 2344</span>       start = h + 1;
+<span class="ln"> 2345</span>       break;
+<span class="ln"> 2346</span>     }
+<span class="ln"> 2347</span>     if (!start &amp;&amp; rows.length &amp;&amp; rows[0].length &gt;= 4 &amp;&amp; /^\d+$/.test(rows[0][1] || '')) cols = { label: 0, no: 1, head: 2, text: 3 };
+<span class="ln"> 2348</span>     var cur = -1, tables = {}, unknown = [], count = 0;
+<span class="ln"> 2349</span>     rows.slice(start).forEach(function (r) {
+<span class="ln"> 2350</span>       var lab = cols.label &gt;= 0 ? (r[cols.label] || '') : '';
+<span class="ln"> 2351</span>       if (lab) { cur = bottomIndex(lab); if (cur &lt; 0 &amp;&amp; unknown.indexOf(lab) &lt; 0) unknown.push(lab); }
+<span class="ln"> 2352</span>       if (cur &lt; 0) return;
+<span class="ln"> 2353</span>       var head = cols.head &gt;= 0 ? (r[cols.head] || '') : '', text = cols.text &gt;= 0 ? (r[cols.text] || '') : '';
+<span class="ln"> 2354</span>       var blank = /^\(?제목\s*없음\)?$/.test(head);
+<span class="ln"> 2355</span>       if (blank) head = '';
+<span class="ln"> 2356</span>       if (!head &amp;&amp; !text &amp;&amp; !blank) return;
+<span class="ln"> 2357</span>       if (!tables[cur]) { tables[cur] = []; count++; }
+<span class="ln"> 2358</span>       tables[cur].push({ no: cols.no &gt;= 0 ? parseInt(r[cols.no], 10) : NaN, head: head, blankHead: blank, text: text });
+<span class="ln"> 2359</span>     });
+<span class="ln"> 2360</span>     return { tables: tables, unknown: unknown, count: count, on: true };
+<span class="ln"> 2361</span>   }
+<span class="ln"> 2362</span>   function applyBottom(bt) {
+<span class="ln"> 2363</span>     Object.keys(bt.tables).forEach(function (k) {
+<span class="ln"> 2364</span>       var t = state.tables[k], items = bt.tables[k], n = t.cells.length;
+<span class="ln"> 2365</span>       if (n === 1) { t.cells[0].text = items.map(function (it) { return it.text; }).filter(Boolean).join('\n'); return; }
+<span class="ln"> 2366</span>       var place = [], used = [];
+<span class="ln"> 2367</span>       items.forEach(function (it) { it.done = false; if (it.no &gt;= 1 &amp;&amp; it.no &lt;= n &amp;&amp; !used[it.no - 1]) { place[it.no - 1] = it; used[it.no - 1] = it.done = true; } });
+<span class="ln"> 2368</span>       items.forEach(function (it) {                       // 칸 제목(회사명)이 같은 칸에
+<span class="ln"> 2369</span>         if (it.done || !it.head) return;
+<span class="ln"> 2370</span>         for (var j = 0; j &lt; n; j++) if (!used[j] &amp;&amp; normKey(t.cells[j].head) === normKey(it.head)) { place[j] = it; used[j] = it.done = true; return; }
+<span class="ln"> 2371</span>       });
+<span class="ln"> 2372</span>       items.forEach(function (it) {                       // 나머지는 빈 칸에 차례로
+<span class="ln"> 2373</span>         if (it.done) return;
+<span class="ln"> 2374</span>         for (var j = 0; j &lt; n; j++) if (!used[j]) { place[j] = it; used[j] = it.done = true; return; }
+<span class="ln"> 2375</span>       });
+<span class="ln"> 2376</span>       for (var j = 0; j &lt; n; j++) {
+<span class="ln"> 2377</span>         var it = place[j];
+<span class="ln"> 2378</span>         if (!it) { t.cells[j].text = ''; continue; }
+<span class="ln"> 2379</span>         if (it.head || it.blankHead) t.cells[j].head = it.head;
+<span class="ln"> 2380</span>         t.cells[j].text = it.text;
+<span class="ln"> 2381</span>       }
+<span class="ln"> 2382</span>     });
+<span class="ln"> 2383</span>   }
+<span class="ln"> 2384</span> 
+<span class="ln"> 2385</span>   function importPasted(text) {
+<span class="ln"> 2386</span>     var grid = parseTSV(text).map(function (r) { return r.map(cellStr); });
+<span class="ln"> 2387</span>     var blocks = pasteBlocks(grid), groups = [], bottom = null, k = 0;
+<span class="ln"> 2388</span>     var unnamed = blocks.filter(function (b) { return !b.name; }).length;
+<span class="ln"> 2389</span>     blocks.forEach(function (b) {
+<span class="ln"> 2390</span>       if (b.name &amp;&amp; isBottomName(b.name)) { bottom = parseBottom(b.rows); return; }
+<span class="ln"> 2391</span>       if (b.name &amp;&amp; SKIP_SHEET.test(b.name)) return;
+<span class="ln"> 2392</span>       var label = b.name || ('붙여넣은 내용' + (unnamed &gt; 1 ? ' ' + (++k) : ''));
+<span class="ln"> 2393</span>       sheetGroups(b.name, b.rows).forEach(function (g) {
+<span class="ln"> 2394</span>         g.source = '붙여넣기 › ' + label + (g.hasExecCol &amp;&amp; g.label ? ' › ' + g.label : '');
+<span class="ln"> 2395</span>         groups.push(g);
+<span class="ln"> 2396</span>       });
+<span class="ln"> 2397</span>     });
+<span class="ln"> 2398</span>     return openImport(groups, '붙여넣은 내용', bottom &amp;&amp; bottom.count ? bottom : null);</pre></div></div></section>
+<section class="chg" id="c17"><header><div class="t">17. 공동편집 양식의 작성방법 안내 줄 <span class="k 선택">선택 · 화면 안내 글만 바뀜 — 안 해도 동작은 같음</span></div><div class="m">기준판 2591–2591줄 (1줄) → 새 2줄 · 근처: 함수 makeExcelTemplate</div></header>
+<div class="find">찾을 글 (기준판 2591번째 줄): <code>G('7. 다 쓰면 담당자가 파일을 내려받아 [엑셀 불러오기]로 올리거나, 범위를 복사해 프로그램 화면에서 Ctrl+V 합니다.'),</code><br>방법: 「수정 전」 1줄을 「수정 후」 2줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2591</span>       G('7. 다 쓰면 담당자가 파일을 내려받아 [엑셀 불러오기]로 올리거나, 범위를 복사해 프로그램 화면에서 Ctrl+V 합니다.'),</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2439</span>       G('7. 맨 밑 표 시트에는 표 이름 / 칸 / 칸 제목 / 내용을 한 줄에 한 칸씩 씁니다(표 이름은 그 표 첫 줄에만 써도 됨).'),
+<span class="ln"> 2440</span>       G('8. 다 쓰면 모든 시트를 한 시트에 합쳐(시트마다 맨 앞에 A열 한 칸 "# 시트 이름" 줄) 복사한 뒤 프로그램 화면에서 Ctrl+V 합니다.'),</pre></div></div></section>
+<section class="chg" id="c18"><header><div class="t">18. 공동편집 양식에 "맨 밑 표" 시트 넣기 <span class="k 선택">선택 · 양식 만들기를 쓸 때만</span></div><div class="m">기준판 2608–2609줄 (2줄) → 새 7줄 · 근처: 함수 makeExcelTemplate</div></header>
+<div class="find">찾을 글 (기준판 2608번째 줄): <code>downloadBlob('임원일일예정_공동편집양식.xlsx', buildXlsx(sheets));</code><br>방법: 「수정 전」 2줄을 「수정 후」 7줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2608</span>     downloadBlob('임원일일예정_공동편집양식.xlsx', buildXlsx(sheets));
+<span class="ln"> 2609</span>     toast('공동편집용 엑셀 양식을 저장했습니다: 임원일일예정_공동편집양식.xlsx (임원 ' + N + '명) — 두레이에 올려 함께 작성하세요.');</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2457</span>     var bRows = [H(['표 이름', '칸', '칸 제목', '내용'])];
+<span class="ln"> 2458</span>     state.tables.forEach(function (t) {
+<span class="ln"> 2459</span>       t.cells.forEach(function (c, j) { bRows.push(B([j ? '' : t.label, String(j + 1), t.cells.length &gt; 1 ? c.head : '(제목 없음)', ''])); });
+<span class="ln"> 2460</span>     });
+<span class="ln"> 2461</span>     sheets.push({ name: '맨 밑 표', rows: bRows, widths: [16, 6, 18, 70], freeze: true, colStyle: 2 });
+<span class="ln"> 2462</span>     downloadBlob('임원일일예정_공동편집양식.xlsx', buildXlsx(sheets));
+<span class="ln"> 2463</span>     toast('공동편집용 엑셀 양식을 저장했습니다: 임원일일예정_공동편집양식.xlsx (임원 ' + N + '명 + 맨 밑 표)');</pre></div></div></section>
+<section class="chg must" id="c19"><header><div class="t">19. [붙여넣기] 단추를 누르면 붙여넣기 창 열기 <span class="k 필수">필수</span></div><div class="m">기준판 2628–2628줄 (1줄) → 새 1줄 · 근처: 함수 closeMenus</div></header>
+<div class="find">찾을 글 (기준판 2628번째 줄): <code>$('#btnImport').addEventListener('click', function () { $('#fileInput').click(); });</code><br>방법: 「수정 전」 1줄을 「수정 후」 1줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2628</span>   $('#btnImport').addEventListener('click', function () { $('#fileInput').click(); });</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2482</span>   $('#btnImport').addEventListener('click', function () { $('#bulkModal').hidden = false; $('#bulkText').focus(); });</pre></div></div></section>
+<section class="chg" id="c20"><header><div class="t">20. 메뉴의 "files" 처리 빼기 <span class="k 선택">선택 · 쓰지 않게 된 코드 정리 — 안 해도 동작은 같음</span></div><div class="m">기준판 2634–2634줄 (1줄) → 새 1줄 · 근처: 함수 closeMenus</div></header>
+<div class="find">찾을 글 (기준판 2634번째 줄): <code>if (act === 'files' || act === 'json') $('#fileInput').click();</code><br>방법: 「수정 전」 1줄을 「수정 후」 1줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2634</span>     if (act === 'files' || act === 'json') $('#fileInput').click();</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2488</span>     if (act === 'json') $('#fileInput').click();</pre></div></div></section>
+<h2>daily_schedule.html</h2>
+<section class="chg must" id="c21"><header><div class="t">21. 위쪽 [엑셀 불러오기] 단추를 [붙여넣기]로, 펼침 메뉴에서 "엑셀 파일 고르기" 빼기 <span class="k 필수">필수</span></div><div class="m">기준판 426–433줄 (8줄) → 새 7줄 · </div></header>
+<div class="find">찾을 글 (기준판 426번째 줄): <code>&lt;button class="btn strong" id="btnImport" title="두레이에서 내려받은 엑셀(.xlsx)을 불러옵니다"&gt;엑셀 불러오기&lt;/button&gt;</code><br>방법: 「수정 전」 8줄을 「수정 후」 7줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  426</span>         &lt;button class="btn strong" id="btnImport" title="두레이에서 내려받은 엑셀(.xlsx)을 불러옵니다"&gt;엑셀 불러오기&lt;/button&gt;
+<span class="ln">  427</span>         &lt;button class="btn caret" data-menu="importMenu" aria-haspopup="true" aria-expanded="false" title="불러오는 방법 더 보기"&gt;▾&lt;/button&gt;
+<span class="ln">  428</span>       &lt;/div&gt;
+<span class="ln">  429</span>       &lt;div class="menu" id="importMenu" hidden&gt;
+<span class="ln">  430</span>         &lt;button type="button" data-act="files"&gt;&lt;span&gt;엑셀 파일 고르기&lt;span class="desc"&gt;.xlsx (XML·CSV로 저장한 것도 됩니다)&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
+<span class="ln">  431</span>         &lt;button type="button" data-act="paste"&gt;&lt;span&gt;엑셀에서 복사한 내용 붙여넣기&lt;span class="desc"&gt;이 화면에서 바로 Ctrl+V 해도 됩니다&lt;/span&gt;&lt;/span&gt;&lt;kbd&gt;Ctrl+V&lt;/kbd&gt;&lt;/button&gt;
+<span class="ln">  432</span>         &lt;hr&gt;
+<span class="ln">  433</span>         &lt;button type="button" data-act="template"&gt;&lt;span&gt;공동편집용 엑셀 양식 만들기&lt;span class="desc"&gt;부서별 시트가 들어 있는 .xlsx — 두레이에 올려 함께 작성&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  426</span>         &lt;button class="btn strong" id="btnImport" title="한셀(엑셀)에서 복사한 시트 내용을 붙여넣습니다 (입력칸 밖에서 Ctrl+V 해도 됩니다)"&gt;붙여넣기&lt;/button&gt;
+<span class="ln">  427</span>         &lt;button class="btn caret" data-menu="importMenu" aria-haspopup="true" aria-expanded="false" title="더 보기"&gt;▾&lt;/button&gt;
+<span class="ln">  428</span>       &lt;/div&gt;
+<span class="ln">  429</span>       &lt;div class="menu" id="importMenu" hidden&gt;
+<span class="ln">  430</span>         &lt;button type="button" data-act="paste"&gt;&lt;span&gt;한셀(엑셀)에서 복사한 내용 붙여넣기&lt;span class="desc"&gt;여러 시트를 합친 것도 됩니다 · 이 화면에서 바로 Ctrl+V 해도 됨&lt;/span&gt;&lt;/span&gt;&lt;kbd&gt;Ctrl+V&lt;/kbd&gt;&lt;/button&gt;
+<span class="ln">  431</span>         &lt;hr&gt;
+<span class="ln">  432</span>         &lt;button type="button" data-act="template"&gt;&lt;span&gt;공동편집용 엑셀 양식 만들기&lt;span class="desc"&gt;부서별 시트가 들어 있는 .xlsx&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;</pre></div></div></section>
+<section class="chg" id="c22"><header><div class="t">22. 파일 고르기 창에서 작업 파일(.json)만 고르게 <span class="k 선택">선택 · 쓰지 않게 된 코드 정리 — 안 해도 동작은 같음</span></div><div class="m">기준판 460–460줄 (1줄) → 새 1줄 · </div></header>
+<div class="find">찾을 글 (기준판 460번째 줄): <code>&lt;input type="file" id="fileInput" multiple accept=".xlsx,.xlsm,.xml,.csv,.tsv,.json,.xls" hidden&gt;</code><br>방법: 「수정 전」 1줄을 「수정 후」 1줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  460</span>   &lt;input type="file" id="fileInput" multiple accept=".xlsx,.xlsm,.xml,.csv,.tsv,.json,.xls" hidden&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  459</span>   &lt;input type="file" id="fileInput" accept=".json,application/json" hidden&gt;</pre></div></div></section>
+<section class="chg must" id="c23"><header><div class="t">23. "부서별 예정사항" 칸 위의 [엑셀 불러오기]를 [붙여넣기]로 <span class="k 필수">필수</span></div><div class="m">기준판 485–486줄 (2줄) → 새 2줄 · 근처: 입력 (취합)</div></header>
+<div class="find">찾을 글 (기준판 485번째 줄): <code>&lt;button class="btn small" id="btnTemplate" type="button" title="부서마다 시트가 있는 .xlsx를 만듭니다 — 두레이에 올려 공동편집"&gt;엑셀 양식 만들기&lt;/button&gt;</code><br>방법: 「수정 전」 2줄을 「수정 후」 2줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  485</span>                 &lt;button class="btn small" id="btnTemplate" type="button" title="부서마다 시트가 있는 .xlsx를 만듭니다 — 두레이에 올려 공동편집"&gt;엑셀 양식 만들기&lt;/button&gt;
+<span class="ln">  486</span>                 &lt;button class="btn small strong" id="btnImport2" type="button"&gt;엑셀 불러오기&lt;/button&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  484</span>                 &lt;button class="btn small" id="btnTemplate" type="button" title="부서마다 시트가 있는 .xlsx를 만듭니다"&gt;엑셀 양식 만들기&lt;/button&gt;
+<span class="ln">  485</span>                 &lt;button class="btn small strong" id="btnImport2" type="button" title="한셀(엑셀)에서 복사한 시트 내용을 붙여넣습니다"&gt;붙여넣기&lt;/button&gt;</pre></div></div></section>
+<section class="chg" id="c24"><header><div class="t">24. 도움말: 모으기 순서 <span class="k 선택">선택 · 화면 안내 글만 바뀜 — 안 해도 동작은 같음</span></div><div class="m">기준판 588–592줄 (5줄) → 새 5줄 · 근처: 도움말</div></header>
+<div class="find">찾을 글 (기준판 588번째 줄): <code>&lt;h3&gt;엑셀로 모으기 (두레이 공동편집)&lt;/h3&gt;</code><br>방법: 「수정 전」 5줄을 「수정 후」 5줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  588</span>             &lt;h3&gt;엑셀로 모으기 (두레이 공동편집)&lt;/h3&gt;
+<span class="ln">  589</span>             &lt;ol class="steps"&gt;
+<span class="ln">  590</span>               &lt;li&gt;&lt;b&gt;처음 한 번&lt;/b&gt;: 입력 탭의 &lt;b&gt;[엑셀 양식 만들기]&lt;/b&gt;를 누릅니다. 부서마다 시트가 하나씩 있는 &lt;code&gt;일일예정_공동편집양식.xlsx&lt;/code&gt;가 만들어집니다. 이 파일을 두레이에 올려 공동편집으로 엽니다. (부서가 바뀌면 다시 만드세요.)&lt;/li&gt;
+<span class="ln">  591</span>               &lt;li&gt;&lt;b&gt;매일 (각 부서)&lt;/b&gt;: &lt;b&gt;자기 부서 시트에만&lt;/b&gt; 씁니다. 한 줄에 일정 하나, &lt;b&gt;시간 / 내용 / 장소 / 비고 / 설명 / 링크&lt;/b&gt; 칸에 나눠 씁니다.&lt;/li&gt;
+<span class="ln">  592</span>               &lt;li&gt;&lt;b&gt;취합&lt;/b&gt;: 두레이에서 파일을 내려받아 &lt;b&gt;[엑셀 불러오기]&lt;/b&gt;로 고르고, 확인 창에서 [가져오기]. 또는 두레이(엑셀)에서 범위를 복사해 이 화면에서 &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;V&lt;/kbd&gt;.&lt;/li&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  587</span>             &lt;h3&gt;한셀(엑셀)에서 붙여넣어 모으기&lt;/h3&gt;
+<span class="ln">  588</span>             &lt;ol class="steps"&gt;
+<span class="ln">  589</span>               &lt;li&gt;&lt;b&gt;처음 한 번&lt;/b&gt;: 부서마다 시트가 하나씩(시트 이름 = 부서명) 있는 한셀 파일을 씁니다. 서식은 입력 탭의 &lt;b&gt;[엑셀 양식 만들기]&lt;/b&gt;로 받을 수 있습니다.&lt;/li&gt;
+<span class="ln">  590</span>               &lt;li&gt;&lt;b&gt;매일 (각 부서)&lt;/b&gt;: &lt;b&gt;자기 부서 시트에만&lt;/b&gt; 씁니다. 한 줄에 일정 하나, &lt;b&gt;시간 / 내용 / 장소 / 비고 / 설명 / 링크&lt;/b&gt; 칸에 나눠 씁니다.&lt;/li&gt;
+<span class="ln">  591</span>               &lt;li&gt;&lt;b&gt;취합&lt;/b&gt;: 모든 시트를 한 시트에 합칩니다 — 시트마다 맨 앞에 &lt;b&gt;A열 한 칸에 &lt;code&gt;# 시트 이름&lt;/code&gt;&lt;/b&gt; 줄, 그 아래에 그 시트 내용을 머리글 줄부터 그대로(표 포함). 합친 범위를 복사해 &lt;b&gt;[붙여넣기]&lt;/b&gt; 창이나 이 화면에서 &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;V&lt;/kbd&gt; → 확인 창 → [가져오기].&lt;/li&gt;</pre></div></div></section>
+<section class="chg" id="c25"><header><div class="t">25. 도움말: 부서 찾기·빼는 시트 <span class="k 선택">선택 · 화면 안내 글만 바뀜 — 안 해도 동작은 같음</span></div><div class="m">기준판 609–612줄 (4줄) → 새 4줄 · 근처: 도움말</div></header>
+<div class="find">찾을 글 (기준판 609번째 줄): <code>&lt;li&gt;부서는 &lt;b&gt;시트 이름&lt;/b&gt;으로 찾습니다. 한 시트에 모든 부서를 쓰려면 맨 앞에 &lt;b&gt;부서&lt;/b&gt; 열을 두세요(병합된 칸도 됩니다).&lt;/li&gt;</code><br>방법: 「수정 전」 4줄을 「수정 후」 4줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  609</span>               &lt;li&gt;부서는 &lt;b&gt;시트 이름&lt;/b&gt;으로 찾습니다. 한 시트에 모든 부서를 쓰려면 맨 앞에 &lt;b&gt;부서&lt;/b&gt; 열을 두세요(병합된 칸도 됩니다).&lt;/li&gt;
+<span class="ln">  610</span>               &lt;li&gt;&lt;b&gt;날짜&lt;/b&gt; 열을 넣으면 문서 날짜에 맞는 줄만 가져옵니다. 날짜 열이 없으면 시트에 있는 내용을 모두 가져오니, 지난 일정은 지워 주세요.&lt;/li&gt;
+<span class="ln">  611</span>               &lt;li&gt;아직 안 쓴 부서 시트, ‘작성방법’ 같은 안내 시트, 숨긴 시트는 알아서 뺍니다.&lt;/li&gt;
+<span class="ln">  612</span>               &lt;li&gt;열 이름이 정해진 것과 다르면 표 그대로 넣습니다. XML·CSV로 저장한 파일도 됩니다. 예전 엑셀(.xls)은 .xlsx로 저장해서 올려 주세요.&lt;/li&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  608</span>               &lt;li&gt;부서는 &lt;b&gt;&lt;code&gt;# 시트 이름&lt;/code&gt; 줄&lt;/b&gt;로 찾습니다(&lt;code&gt;[부서명]&lt;/code&gt;이나 부서명만 있어도, 아는 부서이고 바로 아래가 머리글이면 됨). 처음 보는 이름이면 새 부서로 받습니다. 이름 줄 없이 붙이면 머리글 줄이 다시 나올 때마다 나누고, 넣을 부서는 확인 창에서 고릅니다. 한 시트에 모든 부서를 쓰려면 맨 앞에 &lt;b&gt;부서&lt;/b&gt; 열을 두세요(병합된 칸도 됩니다).&lt;/li&gt;
+<span class="ln">  609</span>               &lt;li&gt;&lt;b&gt;날짜&lt;/b&gt; 열을 넣으면 문서 날짜에 맞는 줄만 가져옵니다. 날짜 열이 없으면 시트에 있는 내용을 모두 가져오니, 지난 일정은 지워 주세요.&lt;/li&gt;
+<span class="ln">  610</span>               &lt;li&gt;아직 안 쓴 부서(머리글만 있는 시트), &lt;code&gt;# 작성방법&lt;/code&gt; 같은 안내 시트는 알아서 뺍니다.&lt;/li&gt;
+<span class="ln">  611</span>               &lt;li&gt;열 이름이 정해진 것과 다르면 표 그대로 넣습니다. 엑셀·한셀 파일을 직접 여는 기능은 없습니다(문서 보안 때문에 뺐습니다).&lt;/li&gt;</pre></div></div></section>
+<section class="chg" id="c26"><header><div class="t">26. 붙여넣기 창의 안내 글·예시 <span class="k 선택">선택 · 화면 안내 글만 바뀜 — 안 해도 동작은 같음</span></div><div class="m">기준판 714–716줄 (3줄) → 새 3줄 · 근처: 도움말</div></header>
+<div class="find">찾을 글 (기준판 714번째 줄): <code>&lt;h3 id="bulkTitle"&gt;엑셀에서 복사한 내용 붙여넣기&lt;/h3&gt;</code><br>방법: 「수정 전」 3줄을 「수정 후」 3줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  714</span>     &lt;h3 id="bulkTitle"&gt;엑셀에서 복사한 내용 붙여넣기&lt;/h3&gt;
+<span class="ln">  715</span>     &lt;p&gt;엑셀(두레이)에서 범위를 복사(&lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;C&lt;/kbd&gt;)해 아래에 붙여넣으세요. 머리글 줄(시간·내용·장소…)까지 같이 복사하면 더 정확합니다. &lt;b&gt;부서&lt;/b&gt; 열이 있으면 부서별로 나눠 넣고, 없으면(한 부서 시트만 복사했으면) 확인 창에서 부서를 고릅니다.&lt;/p&gt;
+<span class="ln">  716</span>     &lt;textarea id="bulkText" spellcheck="false" placeholder="부서&amp;#9;시간&amp;#9;내용&amp;#9;장소&amp;#10;기획과&amp;#9;09:00&amp;#9;주간회의&amp;#9;대회의실&amp;#10;총무과&amp;#9;14:00&amp;#9;소방점검&amp;#9;전 층"&gt;&lt;/textarea&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  713</span>     &lt;h3 id="bulkTitle"&gt;한셀(엑셀)에서 복사한 내용 붙여넣기&lt;/h3&gt;
+<span class="ln">  714</span>     &lt;p&gt;시트 내용을 복사(&lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;C&lt;/kbd&gt;)해 아래에 붙여넣으세요. &lt;b&gt;여러 시트를 합쳐 붙일 때&lt;/b&gt;는 시트마다 맨 앞에 A열 한 칸짜리 &lt;code&gt;# 부서명&lt;/code&gt; 줄을 두면 부서별로 나눠 넣습니다(시트 안의 표도 그대로). 한 시트만 붙이면 확인 창에서 부서를 고릅니다. &lt;b&gt;부서&lt;/b&gt; 열이 있는 한 시트도 됩니다. 자세한 규칙은 '입력 방법' 탭.&lt;/p&gt;
+<span class="ln">  715</span>     &lt;textarea id="bulkText" spellcheck="false" placeholder="# 기획조정과&amp;#10;시간&amp;#9;내용&amp;#9;장소&amp;#9;비고&amp;#10;09:00&amp;#9;주간 업무보고&amp;#9;대회의실&amp;#9;&amp;#10;&amp;#10;■ 이번 주 교육 일정&amp;#10;교육명&amp;#9;일자&amp;#9;장소&amp;#10;청렴 교육&amp;#9;11.12.&amp;#9;대회의실&amp;#10;# 총무과&amp;#10;시간&amp;#9;내용&amp;#9;장소&amp;#9;비고&amp;#10;14:00&amp;#9;소방점검&amp;#9;전 층&amp;#9;"&gt;&lt;/textarea&gt;</pre></div></div></section>
+<section class="chg" id="c27"><header><div class="t">27. 끌어다 놓기 안내 글 <span class="k 선택">선택 · 화면 안내 글만 바뀜 — 안 해도 동작은 같음</span></div><div class="m">기준판 744–744줄 (1줄) → 새 1줄 · 근처: 도움말</div></header>
+<div class="find">찾을 글 (기준판 744번째 줄): <code>&lt;div class="drop" id="dropOverlay" hidden&gt;엑셀 파일을 놓으면 불러옵니다 (.xlsx)&lt;/div&gt;</code><br>방법: 「수정 전」 1줄을 「수정 후」 1줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln">  744</span> &lt;div class="drop" id="dropOverlay" hidden&gt;엑셀 파일을 놓으면 불러옵니다 (.xlsx)&lt;/div&gt;</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln">  743</span> &lt;div class="drop" id="dropOverlay" hidden&gt;작업 파일(.json)을 놓으면 엽니다&lt;/div&gt;</pre></div></div></section>
+<section class="chg" id="c28"><header><div class="t">28. ZIP·XLSX·XML 읽기 코드 지우기 <span class="k 선택">선택 · 쓰지 않게 된 코드 정리 — 안 해도 동작은 같음</span></div><div class="m">기준판 2225–2507줄 지우기 (283줄) · 근처: 함수 saveHTML</div></header>
+<div class="find">찾을 글 (기준판 2226번째 줄): <code>ZIP / XLSX (라이브러리 없이)</code><br>방법: 「수정 전」 283줄 지우기 (찾을 글은 「수정 전」의 2번째 줄)<br><span class="dep">이 항목을 하면 35번도 꼭 하세요. 안 하면 오류(inflateJS is not defined)가 납니다.</span></div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2225</span>   /* ------------------------------------------------------------------
+<span class="ln"> 2226</span>      ZIP / XLSX (라이브러리 없이)
+<span class="ln"> 2227</span>      ------------------------------------------------------------------ */
+<span class="ln"> 2228</span>   var LBASE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+<span class="skip">      … 중간 275줄 (위 첫 줄부터 아래 끝 줄까지 모두) …</span>
+<span class="ln"> 2504</span>     });
+<span class="ln"> 2505</span>     return [keys].concat(rows.map(function (o) { return keys.map(function (k) { return o[k] || ''; }); }));
+<span class="ln"> 2506</span>   }
+<span class="ln"> 2507</span> </pre></div><div class="n"><h4>수정 후</h4><div class="none">(없음)</div></div></div></section>
+<section class="chg" id="c29"><header><div class="t">29. sheetsToRows·readAnyFile·collectRows 지우기 <span class="k 선택">선택 · 쓰지 않게 된 코드 정리 — 안 해도 동작은 같음</span></div><div class="m">기준판 2731–2764줄 지우기 (34줄) · 근처: 함수 sheetsToRows</div></header>
+<div class="find">찾을 글 (기준판 2731번째 줄): <code>function sheetsToRows(file, sheets) {</code><br>방법: 「수정 전」 34줄 지우기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2731</span>   function sheetsToRows(file, sheets) {
+<span class="ln"> 2732</span>     var rows = [], skipped = 0;
+<span class="ln"> 2733</span>     sheets.forEach(function (s) {
+<span class="ln"> 2734</span>       if (s.hidden || SKIP_SHEET.test(String(s.name).trim())) { skipped++; return; }
+<span class="skip">      … 중간 26줄 (위 첫 줄부터 아래 끝 줄까지 모두) …</span>
+<span class="ln"> 2761</span>       return { rows: rows, skipped: skipped, errors: errors };
+<span class="ln"> 2762</span>     });
+<span class="ln"> 2763</span>   }
+<span class="ln"> 2764</span> </pre></div><div class="n"><h4>수정 후</h4><div class="none">(없음)</div></div></div></section>
+<section class="chg" id="c30"><header><div class="t">30. openImportReview 지우기 <span class="k 선택">선택 · 쓰지 않게 된 코드 정리 — 안 해도 동작은 같음</span></div><div class="m">기준판 2877–2880줄 지우기 (4줄) · 근처: 함수 openImportReview</div></header>
+<div class="find">찾을 글 (기준판 2877번째 줄): <code>function openImportReview(files) {</code><br>방법: 「수정 전」 4줄 지우기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2877</span>   function openImportReview(files) {
+<span class="ln"> 2878</span>     if (!files.length) return;
+<span class="ln"> 2879</span>     collectRows(files).then(function (res) { openReviewRows(res.rows, res); });
+<span class="ln"> 2880</span>   }</pre></div><div class="n"><h4>수정 후</h4><div class="none">(없음)</div></div></div></section>
+<section class="chg must" id="c31"><header><div class="t">31. handleFiles(작업 파일만 열기) + 붙여넣기: 시트 나누기 (새 함수들) <span class="k 필수">필수</span></div><div class="m">기준판 2937–2956줄 (20줄) → 새 53줄 · 근처: 함수 handleFiles</div></header>
+<div class="find">찾을 글 (기준판 2937번째 줄): <code>var others = files.filter(function (f) { return !/\.json$/i.test(f.name); });</code><br>방법: 「수정 전」 20줄을 「수정 후」 53줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2937</span>     var others = files.filter(function (f) { return !/\.json$/i.test(f.name); });
+<span class="ln"> 2938</span>     if (json.length) {
+<span class="ln"> 2939</span>       loadJSONFile(json[json.length - 1]).then(function () { if (others.length) openImportReview(others); });
+<span class="ln"> 2940</span>       return;
+<span class="ln"> 2941</span>     }
+<span class="ln"> 2942</span>     openImportReview(others);
+<span class="ln"> 2943</span>   }
+<span class="ln"> 2944</span> 
+<span class="ln"> 2945</span>   /* 붙여넣기: 엑셀에서 복사한 범위(탭으로 나뉨) 또는 “# 부서명”으로 나눈 글 */
+<span class="ln"> 2946</span>   function importPastedText(text) {
+<span class="ln"> 2947</span>     text = String(text || '');
+<span class="ln"> 2948</span>     if (!text.trim()) return false;
+<span class="ln"> 2949</span>     var rows;
+<span class="ln"> 2950</span>     if (text.indexOf('\t') &gt;= 0) rows = sectionRows('붙여넣기 (엑셀)', Date.now(), interpretGrid('', parseDelimited(text, '\t')));
+<span class="ln"> 2951</span>     else {
+<span class="ln"> 2952</span>       var sp = splitSections(text, true);
+<span class="ln"> 2953</span>       if (!sp.found) { toast('엑셀 범위가 아닌 것 같습니다. 엑셀(두레이)에서 칸을 골라 복사해 주세요. 한 부서 내용이면 그 부서 입력칸에 붙여넣으면 됩니다.'); return false; }
+<span class="ln"> 2954</span>       rows = sectionRows('붙여넣기', Date.now(), sp.sections.map(function (s) { return { name: s.name, known: true, date: s.date, content: s.content }; }));
+<span class="ln"> 2955</span>     }
+<span class="ln"> 2956</span>     openReviewRows(rows, {});</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2615</span>     if (json.length) { loadJSONFile(json[json.length - 1]); return; }
+<span class="ln"> 2616</span>     toast('엑셀 파일은 불러오지 않습니다(문서 보안). 한셀에서 시트 내용을 복사해 [붙여넣기]로 넣어 주세요.');
+<span class="ln"> 2617</span>   }
+<span class="ln"> 2618</span> 
+<span class="ln"> 2619</span>   /* 붙여넣기: 한셀(엑셀)에서 복사한 범위. 여러 시트를 이어 붙였으면 시트(부서)마다 나눈다
+<span class="ln"> 2620</span>      - A열 한 칸에 '# 부서명'(또는 [부서명])이 있는 줄에서 새 시트. 부서명만 있어도, 아는 부서이고 바로 아래가 머리글이면 새 시트
+<span class="ln"> 2621</span>      - 이름 줄 없이 붙였으면 머리글 줄이 다시 나올 때마다 나눔 (넣을 부서는 확인 창에서 고름)
+<span class="ln"> 2622</span>      - 시트 안의 표는 지금처럼: 일정 아래 빈 줄 → (표 제목) → 표 머리글 → 표 내용, 다음 빈 줄까지 */
+<span class="ln"> 2623</span>   function isSchedHeaderRow(row) {
+<span class="ln"> 2624</span>     var cells = (row || []).filter(Boolean);
+<span class="ln"> 2625</span>     if (cells.length &lt; 2 || !cells.every(function (c) { return c.length &lt;= 24 &amp;&amp; c.indexOf('\n') &lt; 0; })) return false;
+<span class="ln"> 2626</span>     var roles = row.map(headerRole);
+<span class="ln"> 2627</span>     return (roles.indexOf('content') &gt;= 0 || roles.indexOf('time') &gt;= 0) &amp;&amp; roles.filter(Boolean).length &gt;= 2;
+<span class="ln"> 2628</span>   }
+<span class="ln"> 2629</span>   function pasteBlockName(grid, r) {
+<span class="ln"> 2630</span>     var row = grid[r], filled = row.filter(Boolean), m;
+<span class="ln"> 2631</span>     if (filled.length !== 1 || !row[0]) return null;
+<span class="ln"> 2632</span>     var t = row[0].trim();
+<span class="ln"> 2633</span>     if ((m = /^#(?!#)\s*(.+)$/.exec(t))) return m[1].trim();
+<span class="ln"> 2634</span>     if ((m = /^\[(.+)\]$/.exec(t))) return m[1].trim();
+<span class="ln"> 2635</span>     if (t.length &gt; 30 || !findDeptByName(t)) return null;
+<span class="ln"> 2636</span>     for (var k = r + 1; k &lt; grid.length; k++) if (grid[k].some(Boolean)) return isSchedHeaderRow(grid[k]) ? t : null;
+<span class="ln"> 2637</span>     return null;
+<span class="ln"> 2638</span>   }
+<span class="ln"> 2639</span>   function splitPasteBlocks(grid) {
+<span class="ln"> 2640</span>     var blocks = [], cur = null;
+<span class="ln"> 2641</span>     for (var r = 0; r &lt; grid.length; r++) {
+<span class="ln"> 2642</span>       var nm = pasteBlockName(grid, r), head = isSchedHeaderRow(grid[r]);
+<span class="ln"> 2643</span>       if (nm != null) { cur = { name: nm, rows: [] }; blocks.push(cur); continue; }
+<span class="ln"> 2644</span>       if (!cur || (!cur.name &amp;&amp; cur.head &amp;&amp; head)) { cur = { name: '', rows: [] }; blocks.push(cur); }
+<span class="ln"> 2645</span>       if (head) cur.head = true;
+<span class="ln"> 2646</span>       cur.rows.push(grid[r]);
+<span class="ln"> 2647</span>     }
+<span class="ln"> 2648</span>     return blocks.filter(function (b) { return b.name || b.rows.some(function (row) { return row.some(Boolean); }); });
+<span class="ln"> 2649</span>   }
+<span class="ln"> 2650</span>   function importPastedText(text) {
+<span class="ln"> 2651</span>     text = String(text || '');
+<span class="ln"> 2652</span>     if (!text.trim()) return false;
+<span class="ln"> 2653</span>     var rows = [], skipped = 0;
+<span class="ln"> 2654</span>     if (text.indexOf('\t') &gt;= 0) {
+<span class="ln"> 2655</span>       var grid = parseDelimited(text, '\t').map(function (r) { return r.map(cellStr); });
+<span class="ln"> 2656</span>       var blocks = splitPasteBlocks(grid), unnamed = blocks.filter(function (b) { return !b.name; }).length, k = 0, now = Date.now();
+<span class="ln"> 2657</span>       blocks.forEach(function (b) {
+<span class="ln"> 2658</span>         if (b.name &amp;&amp; SKIP_SHEET.test(b.name)) { skipped++; return; }
+<span class="ln"> 2659</span>         var label = '붙여넣기 › ' + (b.name || '붙여넣은 내용' + (unnamed &gt; 1 ? ' ' + (++k) : ''));
+<span class="ln"> 2660</span>         rows = rows.concat(sectionRows(label, now, interpretGrid(b.name, b.rows, !!b.name)));
+<span class="ln"> 2661</span>       });
+<span class="ln"> 2662</span>     } else {
+<span class="ln"> 2663</span>       var sp = splitSections(text, true);
+<span class="ln"> 2664</span>       if (!sp.found) { toast('한셀(엑셀)에서 복사한 범위가 아닌 것 같습니다. 칸을 골라 복사해 주세요. 한 부서 내용이면 그 부서 입력칸에 붙여넣으면 됩니다.'); return false; }
+<span class="ln"> 2665</span>       rows = sectionRows('붙여넣기', Date.now(), sp.sections.map(function (s) { return { name: s.name, known: true, date: s.date, content: s.content }; }));
+<span class="ln"> 2666</span>     }
+<span class="ln"> 2667</span>     openReviewRows(rows, { skipped: skipped });</pre></div></div></section>
+<section class="chg must" id="c32"><header><div class="t">32. [붙여넣기] 단추 2개를 누르면 붙여넣기 창 열기 <span class="k 필수">필수</span></div><div class="m">기준판 2973–2974줄 (2줄) → 새 2줄 · 근처: 함수 pickFiles</div></header>
+<div class="find">찾을 글 (기준판 2973번째 줄): <code>$('#btnImport').addEventListener('click', pickFiles);</code><br>방법: 「수정 전」 2줄을 「수정 후」 2줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2973</span>   $('#btnImport').addEventListener('click', pickFiles);
+<span class="ln"> 2974</span>   $('#btnImport2').addEventListener('click', pickFiles);</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2684</span>   $('#btnImport').addEventListener('click', function () { openBulk(); });
+<span class="ln"> 2685</span>   $('#btnImport2').addEventListener('click', function () { openBulk(); });</pre></div></div></section>
+<section class="chg" id="c33"><header><div class="t">33. 메뉴의 "files" 처리 빼기 <span class="k 선택">선택 · 쓰지 않게 된 코드 정리 — 안 해도 동작은 같음</span></div><div class="m">기준판 2981–2981줄 (1줄) → 새 1줄 · 근처: 함수 pickFiles</div></header>
+<div class="find">찾을 글 (기준판 2981번째 줄): <code>if (act === 'files' || act === 'json') pickFiles();</code><br>방법: 「수정 전」 1줄을 「수정 후」 1줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 2981</span>     if (act === 'files' || act === 'json') pickFiles();</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2692</span>     if (act === 'json') pickFiles();</pre></div></div></section>
+<section class="chg" id="c34"><header><div class="t">34. 공동편집 양식의 작성방법 안내 줄 <span class="k 선택">선택 · 화면 안내 글만 바뀜 — 안 해도 동작은 같음</span></div><div class="m">기준판 3120–3120줄 (1줄) → 새 1줄 · 근처: 함수 makeExcelTemplate</div></header>
+<div class="find">찾을 글 (기준판 3120번째 줄): <code>G('8. 다 쓰면 담당자가 파일을 내려받아 [엑셀 불러오기]로 올리거나, 범위를 복사해 프로그램 화면에서 Ctrl+V 합니다.'),</code><br>방법: 「수정 전」 1줄을 「수정 후」 1줄로 바꾸기</div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 3120</span>       G('8. 다 쓰면 담당자가 파일을 내려받아 [엑셀 불러오기]로 올리거나, 범위를 복사해 프로그램 화면에서 Ctrl+V 합니다.'),</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 2831</span>       G('8. 다 쓰면 모든 시트를 한 시트에 합쳐(시트마다 맨 앞에 A열 한 칸 "# 시트 이름" 줄) 복사한 뒤 프로그램 화면에서 Ctrl+V 합니다.'),</pre></div></div></section>
+<section class="chg" id="c35"><header><div class="t">35. 확인용 연결(window.DailySchedule)에서 지운 함수 빼기 <span class="k 선택">선택 · 쓰지 않게 된 코드 정리 — 안 해도 동작은 같음</span></div><div class="m">기준판 3312–3315줄 (4줄) → 새 2줄 · 근처: 함수 start</div></header>
+<div class="find">찾을 글 (기준판 3312번째 줄): <code>_inflate: inflateJS,</code><br>방법: 「수정 전」 4줄을 「수정 후」 2줄로 바꾸기<br><span class="dep">28번(읽기 코드 지우기)을 했으면 반드시 하세요. 이것만 해도 문제는 없습니다.</span></div>
+<div class="cols"><div class="o"><h4>수정 전 (기준판)</h4><pre><span class="ln"> 3312</span>     _inflate: inflateJS,
+<span class="ln"> 3313</span>     _readXlsx: readXlsx,
+<span class="ln"> 3314</span>     _interpret: interpretGrid,
+<span class="ln"> 3315</span>     _forceJsInflate: function (v) { FORCE_JS_INFLATE = !!v; }</pre></div><div class="n"><h4>수정 후</h4><pre><span class="ln"> 3023</span>     _interpret: interpretGrid,
+<span class="ln"> 3024</span>     _paste: importPastedText</pre></div></div></section>
+<h2>다 고친 뒤 확인용 붙여넣기 예시</h2>
+<div class="box">아래를 메모장에 붙인 뒤 <b>칸 사이를 Tab으로</b> 바꿔 복사하거나, 한셀 시트에 같은 모양으로 적어 복사해 [붙여넣기] 창에 넣어 보세요. 확인 창에 시트(부서·임원)별로 나뉘어 나오면 됩니다.
+<pre>
+# 대표이사 김민수            (임원 화면)
+시간	내용	비고	※ 참고
+09:00	주간 경영회의 @대회의실	참석: 임원 전원	오후 외부 일정
+# 맨 밑 표
+표 이름	칸	칸 제목	내용
+인접회사활동	1	A사	10:00 사장 주간회의
+휴가	1	(제목 없음)	상무 한소영 오전 반차
+
+# 기획조정과                (부서별 화면)
+시간	내용	장소	비고
+09:00	주간 업무보고	대회의실
+# 총무과
+시간	내용	장소	비고
+14:00	소방 안전점검	전 층
+</pre></div>
+</main></body></html>
