@@ -423,14 +423,13 @@ body.locked > *:not(.lock) { display: none !important; }
     <button class="btn edit-only" id="btnNew" title="부서 목록·서식은 그대로 두고 내용만 비웁니다">새 문서</button>
     <div class="menu-wrap edit-only">
       <div class="btn-split">
-        <button class="btn strong" id="btnImport" title="두레이에서 내려받은 엑셀(.xlsx)을 불러옵니다">엑셀 불러오기</button>
-        <button class="btn caret" data-menu="importMenu" aria-haspopup="true" aria-expanded="false" title="불러오는 방법 더 보기">▾</button>
+        <button class="btn strong" id="btnImport" title="한셀(엑셀)에서 복사한 시트 내용을 붙여넣습니다 (입력칸 밖에서 Ctrl+V 해도 됩니다)">붙여넣기</button>
+        <button class="btn caret" data-menu="importMenu" aria-haspopup="true" aria-expanded="false" title="더 보기">▾</button>
       </div>
       <div class="menu" id="importMenu" hidden>
-        <button type="button" data-act="files"><span>엑셀 파일 고르기<span class="desc">.xlsx (XML·CSV로 저장한 것도 됩니다)</span></span></button>
-        <button type="button" data-act="paste"><span>엑셀에서 복사한 내용 붙여넣기<span class="desc">이 화면에서 바로 Ctrl+V 해도 됩니다</span></span><kbd>Ctrl+V</kbd></button>
+        <button type="button" data-act="paste"><span>한셀(엑셀)에서 복사한 내용 붙여넣기<span class="desc">여러 시트를 합친 것도 됩니다 · 이 화면에서 바로 Ctrl+V 해도 됨</span></span><kbd>Ctrl+V</kbd></button>
         <hr>
-        <button type="button" data-act="template"><span>공동편집용 엑셀 양식 만들기<span class="desc">부서별 시트가 들어 있는 .xlsx — 두레이에 올려 함께 작성</span></span></button>
+        <button type="button" data-act="template"><span>공동편집용 엑셀 양식 만들기<span class="desc">부서별 시트가 들어 있는 .xlsx</span></span></button>
         <hr>
         <button type="button" data-act="json"><span>저장해 둔 작업(.json) 열기</span></button>
       </div>
@@ -457,7 +456,7 @@ body.locked > *:not(.lock) { display: none !important; }
     <span class="save-state edit-only" id="saveState"></span>
     <button class="btn primary" id="btnPrint" title="Ctrl+P · 인쇄 창에서 'PDF로 저장'도 됩니다">인쇄 / PDF</button>
   </header>
-  <input type="file" id="fileInput" multiple accept=".xlsx,.xlsm,.xml,.csv,.tsv,.json,.xls" hidden>
+  <input type="file" id="fileInput" accept=".json,application/json" hidden>
 
   <main class="workspace">
     <aside class="editor">
@@ -482,8 +481,8 @@ body.locked > *:not(.lock) { display: none !important; }
             <div class="panel-head">
               <h2>부서별 예정사항</h2>
               <div style="display:flex;gap:6px">
-                <button class="btn small" id="btnTemplate" type="button" title="부서마다 시트가 있는 .xlsx를 만듭니다 — 두레이에 올려 공동편집">엑셀 양식 만들기</button>
-                <button class="btn small strong" id="btnImport2" type="button">엑셀 불러오기</button>
+                <button class="btn small" id="btnTemplate" type="button" title="부서마다 시트가 있는 .xlsx를 만듭니다">엑셀 양식 만들기</button>
+                <button class="btn small strong" id="btnImport2" type="button" title="한셀(엑셀)에서 복사한 시트 내용을 붙여넣습니다">붙여넣기</button>
               </div>
             </div>
             <div class="recv" id="recvSummary"></div>
@@ -585,11 +584,11 @@ body.locked > *:not(.lock) { display: none !important; }
         <!-- 도움말 -->
         <div class="tab-page help" data-page="help" hidden>
           <section class="panel">
-            <h3>엑셀로 모으기 (두레이 공동편집)</h3>
+            <h3>한셀(엑셀)에서 붙여넣어 모으기</h3>
             <ol class="steps">
-              <li><b>처음 한 번</b>: 입력 탭의 <b>[엑셀 양식 만들기]</b>를 누릅니다. 부서마다 시트가 하나씩 있는 <code>일일예정_공동편집양식.xlsx</code>가 만들어집니다. 이 파일을 두레이에 올려 공동편집으로 엽니다. (부서가 바뀌면 다시 만드세요.)</li>
+              <li><b>처음 한 번</b>: 부서마다 시트가 하나씩(시트 이름 = 부서명) 있는 한셀 파일을 씁니다. 서식은 입력 탭의 <b>[엑셀 양식 만들기]</b>로 받을 수 있습니다.</li>
               <li><b>매일 (각 부서)</b>: <b>자기 부서 시트에만</b> 씁니다. 한 줄에 일정 하나, <b>시간 / 내용 / 장소 / 비고 / 설명 / 링크</b> 칸에 나눠 씁니다.</li>
-              <li><b>취합</b>: 두레이에서 파일을 내려받아 <b>[엑셀 불러오기]</b>로 고르고, 확인 창에서 [가져오기]. 또는 두레이(엑셀)에서 범위를 복사해 이 화면에서 <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
+              <li><b>취합</b>: 모든 시트를 한 시트에 합칩니다 — 시트마다 맨 앞에 <b>A열 한 칸에 <code># 시트 이름</code></b> 줄, 그 아래에 그 시트 내용을 머리글 줄부터 그대로(표 포함). 합친 범위를 복사해 <b>[붙여넣기]</b> 창이나 이 화면에서 <kbd>Ctrl</kbd>+<kbd>V</kbd> → 확인 창 → [가져오기].</li>
               <li><b>인쇄</b>: [인쇄 / PDF]. 화면으로 돌려 보게 하려면 저장 ▾ → 배포용 보기 파일.</li>
             </ol>
             <h3>엑셀 칸 → 인쇄물</h3>
@@ -606,10 +605,10 @@ body.locked > *:not(.lock) { display: none !important; }
               <tr><td>일정 아래 <b>한 줄 비우고</b> A열부터 표 제목(선택)·머리글·내용</td><td>그 부서 칸 안에 <b>표</b>로 들어갑니다 (제목은 표 바로 위에)</td></tr>
             </table>
             <ul>
-              <li>부서는 <b>시트 이름</b>으로 찾습니다. 한 시트에 모든 부서를 쓰려면 맨 앞에 <b>부서</b> 열을 두세요(병합된 칸도 됩니다).</li>
+              <li>부서는 <b><code># 시트 이름</code> 줄</b>로 찾습니다(<code>[부서명]</code>이나 부서명만 있어도, 아는 부서이고 바로 아래가 머리글이면 됨). 처음 보는 이름이면 새 부서로 받습니다. 이름 줄 없이 붙이면 머리글 줄이 다시 나올 때마다 나누고, 넣을 부서는 확인 창에서 고릅니다. 한 시트에 모든 부서를 쓰려면 맨 앞에 <b>부서</b> 열을 두세요(병합된 칸도 됩니다).</li>
               <li><b>날짜</b> 열을 넣으면 문서 날짜에 맞는 줄만 가져옵니다. 날짜 열이 없으면 시트에 있는 내용을 모두 가져오니, 지난 일정은 지워 주세요.</li>
-              <li>아직 안 쓴 부서 시트, ‘작성방법’ 같은 안내 시트, 숨긴 시트는 알아서 뺍니다.</li>
-              <li>열 이름이 정해진 것과 다르면 표 그대로 넣습니다. XML·CSV로 저장한 파일도 됩니다. 예전 엑셀(.xls)은 .xlsx로 저장해서 올려 주세요.</li>
+              <li>아직 안 쓴 부서(머리글만 있는 시트), <code># 작성방법</code> 같은 안내 시트는 알아서 뺍니다.</li>
+              <li>열 이름이 정해진 것과 다르면 표 그대로 넣습니다. 엑셀·한셀 파일을 직접 여는 기능은 없습니다(문서 보안 때문에 뺐습니다).</li>
             </ul>
           </section>
           <section class="panel">
@@ -711,9 +710,9 @@ body.locked > *:not(.lock) { display: none !important; }
 
 <div class="modal" id="bulkModal" hidden>
   <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="bulkTitle">
-    <h3 id="bulkTitle">엑셀에서 복사한 내용 붙여넣기</h3>
-    <p>엑셀(두레이)에서 범위를 복사(<kbd>Ctrl</kbd>+<kbd>C</kbd>)해 아래에 붙여넣으세요. 머리글 줄(시간·내용·장소…)까지 같이 복사하면 더 정확합니다. <b>부서</b> 열이 있으면 부서별로 나눠 넣고, 없으면(한 부서 시트만 복사했으면) 확인 창에서 부서를 고릅니다.</p>
-    <textarea id="bulkText" spellcheck="false" placeholder="부서&#9;시간&#9;내용&#9;장소&#10;기획과&#9;09:00&#9;주간회의&#9;대회의실&#10;총무과&#9;14:00&#9;소방점검&#9;전 층"></textarea>
+    <h3 id="bulkTitle">한셀(엑셀)에서 복사한 내용 붙여넣기</h3>
+    <p>시트 내용을 복사(<kbd>Ctrl</kbd>+<kbd>C</kbd>)해 아래에 붙여넣으세요. <b>여러 시트를 합쳐 붙일 때</b>는 시트마다 맨 앞에 A열 한 칸짜리 <code># 부서명</code> 줄을 두면 부서별로 나눠 넣습니다(시트 안의 표도 그대로). 한 시트만 붙이면 확인 창에서 부서를 고릅니다. <b>부서</b> 열이 있는 한 시트도 됩니다. 자세한 규칙은 '입력 방법' 탭.</p>
+    <textarea id="bulkText" spellcheck="false" placeholder="# 기획조정과&#10;시간&#9;내용&#9;장소&#9;비고&#10;09:00&#9;주간 업무보고&#9;대회의실&#9;&#10;&#10;■ 이번 주 교육 일정&#10;교육명&#9;일자&#9;장소&#10;청렴 교육&#9;11.12.&#9;대회의실&#10;# 총무과&#10;시간&#9;내용&#9;장소&#9;비고&#10;14:00&#9;소방점검&#9;전 층&#9;"></textarea>
     <div class="modal-actions">
       <button class="btn" type="button" data-close>취소</button>
       <button class="btn primary" type="button" id="bulkApply">다음</button>
@@ -741,7 +740,7 @@ body.locked > *:not(.lock) { display: none !important; }
 </div>
 
 <div class="tip-pop" id="tipPop" role="tooltip" hidden></div>
-<div class="drop" id="dropOverlay" hidden>엑셀 파일을 놓으면 불러옵니다 (.xlsx)</div>
+<div class="drop" id="dropOverlay" hidden>작업 파일(.json)을 놓으면 엽니다</div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button type="button" id="toastAct" hidden></button></div>
 
 <script type="text/plain" id="app-code">
@@ -2222,289 +2221,6 @@ body.locked > *:not(.lock) { display: none !important; }
     else toast('양식 파일을 저장했습니다: ' + name + ' — 앞으로 이 파일을 열어 쓰세요.');
   }
 
-  /* ------------------------------------------------------------------
-     ZIP / XLSX (라이브러리 없이)
-     ------------------------------------------------------------------ */
-  var LBASE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
-  var LEXT = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
-  var DBASE = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577];
-  var DEXT = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
-  var CL_ORDER = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
-  function huffTable(lengths, n) {
-    var count = new Uint16Array(16), offs = new Uint16Array(16), sym = new Uint16Array(n), i;
-    for (i = 0; i < n; i++) count[lengths[i]]++;
-    count[0] = 0;
-    for (i = 1; i < 16; i++) offs[i] = offs[i - 1] + count[i - 1];
-    for (i = 0; i < n; i++) if (lengths[i]) sym[offs[lengths[i]]++] = i;
-    return { count: count, sym: sym };
-  }
-  var FIXED_L = null, FIXED_D = null;
-  /* deflate 풀기 (브라우저 내장 기능이 없을 때 쓰는 예비용) */
-  function inflateJS(src, sizeHint) {
-    var out = new Uint8Array(sizeHint > 0 ? sizeHint : Math.max(1024, src.length * 4)), op = 0, ip = 0, bb = 0, bc = 0;
-    function need(n) { if (op + n > out.length) { var o = new Uint8Array(Math.max(out.length * 2, op + n)); o.set(out.subarray(0, op)); out = o; } }
-    function bits(n) {
-      while (bc < n) { if (ip >= src.length) throw new Error('압축 데이터가 잘렸습니다'); bb |= src[ip++] << bc; bc += 8; }
-      var v = bb & ((1 << n) - 1); bb >>>= n; bc -= n; return v;
-    }
-    function decode(h) {
-      var code = 0, first = 0, index = 0;
-      for (var len = 1; len < 16; len++) {
-        code |= bits(1);
-        var c = h.count[len];
-        if (code - c < first) return h.sym[index + (code - first)];
-        index += c; first += c; first <<= 1; code <<= 1;
-      }
-      throw new Error('압축 데이터가 올바르지 않습니다');
-    }
-    function codes(lc, dc) {
-      for (;;) {
-        var sym = decode(lc);
-        if (sym < 256) { need(1); out[op++] = sym; }
-        else if (sym === 256) return;
-        else {
-          sym -= 257;
-          if (sym >= 29) throw new Error('압축 데이터가 올바르지 않습니다');
-          var len = LBASE[sym] + bits(LEXT[sym]);
-          var ds = decode(dc);
-          if (ds >= 30) throw new Error('압축 데이터가 올바르지 않습니다');
-          var dist = DBASE[ds] + bits(DEXT[ds]);
-          if (dist > op) throw new Error('압축 데이터가 올바르지 않습니다');
-          need(len);
-          for (var k = 0; k < len; k++) { out[op] = out[op - dist]; op++; }
-        }
-      }
-    }
-    var last, type, i;
-    do {
-      last = bits(1); type = bits(2);
-      if (type === 0) {
-        bb = 0; bc = 0;
-        if (ip + 4 > src.length) throw new Error('압축 데이터가 잘렸습니다');
-        var len = src[ip] | (src[ip + 1] << 8); ip += 4;
-        need(len); out.set(src.subarray(ip, ip + len), op); op += len; ip += len;
-      } else if (type === 1) {
-        if (!FIXED_L) {
-          var l = new Uint8Array(288);
-          for (i = 0; i < 144; i++) l[i] = 8;
-          for (; i < 256; i++) l[i] = 9;
-          for (; i < 280; i++) l[i] = 7;
-          for (; i < 288; i++) l[i] = 8;
-          FIXED_L = huffTable(l, 288);
-          var dl = new Uint8Array(30); for (i = 0; i < 30; i++) dl[i] = 5;
-          FIXED_D = huffTable(dl, 30);
-        }
-        codes(FIXED_L, FIXED_D);
-      } else if (type === 2) {
-        var nlen = bits(5) + 257, ndist = bits(5) + 1, ncode = bits(4) + 4;
-        var cl = new Uint8Array(19);
-        for (i = 0; i < ncode; i++) cl[CL_ORDER[i]] = bits(3);
-        var lencode = huffTable(cl, 19);
-        var lens = new Uint8Array(nlen + ndist);
-        i = 0;
-        while (i < nlen + ndist) {
-          var sym = decode(lencode), rep, val = 0;
-          if (sym < 16) { lens[i++] = sym; continue; }
-          if (sym === 16) { if (!i) throw new Error('압축 데이터가 올바르지 않습니다'); val = lens[i - 1]; rep = 3 + bits(2); }
-          else if (sym === 17) rep = 3 + bits(3);
-          else rep = 11 + bits(7);
-          if (i + rep > nlen + ndist) throw new Error('압축 데이터가 올바르지 않습니다');
-          while (rep--) lens[i++] = val;
-        }
-        codes(huffTable(lens.subarray(0, nlen), nlen), huffTable(lens.subarray(nlen), ndist));
-      } else throw new Error('압축 데이터가 올바르지 않습니다');
-    } while (!last);
-    return out.subarray(0, op);
-  }
-  var FORCE_JS_INFLATE = false;
-  function inflateRaw(data, size) {
-    if (!FORCE_JS_INFLATE && typeof DecompressionStream !== 'undefined') {
-      try {
-        var stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-        return new Response(stream).arrayBuffer().then(function (b) { return new Uint8Array(b); }, function () { return inflateJS(data, size); });
-      } catch (e) { /* 예전 브라우저: 아래 예비용으로 */ }
-    }
-    try { return Promise.resolve(inflateJS(data, size)); } catch (e2) { return Promise.reject(e2); }
-  }
-  function unzip(buf) {
-    var u8 = new Uint8Array(buf), dv = new DataView(buf), eocd = -1, i;
-    for (i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) { if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; } }
-    if (eocd < 0) throw new Error('엑셀(.xlsx) 파일이 아니거나 손상되었습니다');
-    var count = dv.getUint16(eocd + 10, true), off = dv.getUint32(eocd + 16, true), entries = {};
-    for (var n = 0; n < count && off + 46 <= u8.length; n++) {
-      if (dv.getUint32(off, true) !== 0x02014b50) break;
-      var fnl = dv.getUint16(off + 28, true), exl = dv.getUint16(off + 30, true), cml = dv.getUint16(off + 32, true);
-      var name = UTF8.decode(u8.subarray(off + 46, off + 46 + fnl)).replace(/\\/g, '/').replace(/^\//, '');
-      entries[name.toLowerCase()] = { method: dv.getUint16(off + 10, true), csize: dv.getUint32(off + 20, true), usize: dv.getUint32(off + 24, true), lho: dv.getUint32(off + 42, true) };
-      off += 46 + fnl + exl + cml;
-    }
-    return {
-      has: function (nm) { return !!entries[String(nm).toLowerCase()]; },
-      read: function (nm) {
-        var e = entries[String(nm).toLowerCase()];
-        if (!e) return Promise.reject(new Error(nm + ' 없음'));
-        if (dv.getUint32(e.lho, true) !== 0x04034b50) return Promise.reject(new Error('엑셀 파일이 손상되었습니다'));
-        var start = e.lho + 30 + dv.getUint16(e.lho + 26, true) + dv.getUint16(e.lho + 28, true);
-        var data = u8.subarray(start, start + e.csize);
-        if (e.method === 0) return Promise.resolve(data);
-        if (e.method === 8) return inflateRaw(data, e.usize);
-        return Promise.reject(new Error('지원하지 않는 압축 방식입니다'));
-      }
-    };
-  }
-  function xmlDoc(text) {
-    var doc = new DOMParser().parseFromString(text, 'application/xml');
-    if (doc.getElementsByTagName('parsererror').length) throw new Error('XML 형식이 올바르지 않습니다');
-    return doc;
-  }
-  function byTag(node, name) { return Array.prototype.slice.call(node.getElementsByTagNameNS('*', name)); }
-  function kids(node, name) { return Array.prototype.filter.call(node.childNodes, function (n) { return n.localName === name; }); }
-  function attr(el, local) {
-    if (!el) return null;
-    if (el.hasAttribute(local)) return el.getAttribute(local);
-    for (var i = 0; i < el.attributes.length; i++) if (el.attributes[i].localName === local) return el.attributes[i].value;
-    return null;
-  }
-  function textOfRich(el) {   // 엑셀 글자: 일본어 읽기(rPh)는 빼고 이어 붙임
-    return byTag(el, 't').filter(function (t) { return !t.parentNode || t.parentNode.localName !== 'rPh'; }).map(function (t) { return t.textContent; }).join('');
-  }
-  function colIndex(ref) {
-    var m = /^([A-Z]+)/i.exec(ref || ''), n = 0;
-    if (!m) return -1;
-    for (var i = 0; i < m[1].length; i++) n = n * 26 + (m[1].toUpperCase().charCodeAt(i) - 64);
-    return n - 1;
-  }
-  function fmtKind(id, code) {
-    if ((id >= 18 && id <= 21) || (id >= 45 && id <= 47) || id === 32 || id === 33) return 'time';
-    if (id === 22) return 'datetime';
-    if ((id >= 14 && id <= 17) || (id >= 27 && id <= 31) || (id >= 34 && id <= 36) || (id >= 50 && id <= 58)) return 'date';
-    if (!code) return null;
-    var c = String(code).replace(/"[^"]*"/g, '').replace(/\\./g, '').replace(/\[(h+|m+|s+)\]/gi, '$1').replace(/\[[^\]]*\]/g, '').toLowerCase();
-    var d = /[yd]/.test(c), t = /[hs]/.test(c);
-    return d && t ? 'datetime' : d ? 'date' : t ? 'time' : null;
-  }
-  function serialText(n, kind, d1904) {
-    var days = Math.floor(n), mins = Math.round((n - days) * 1440);
-    if (mins >= 1440) { mins -= 1440; days++; }
-    var hm = pad2(Math.floor(mins / 60)) + ':' + pad2(mins % 60);
-    if (kind === 'time' || !days) return hm;
-    var d = new Date((days - 25569 + (d1904 ? 1462 : 0)) * 86400000);
-    var ds = d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
-    return kind === 'date' || !mins ? ds : ds + ' ' + hm;
-  }
-  function fmtNum(n) { return Number.isInteger(n) ? String(n) : String(parseFloat(n.toPrecision(12))); }
-  function readXlsx(buf) {
-    var z = unzip(buf);
-    function txt(nm) { return z.has(nm) ? z.read(nm).then(function (u) { return UTF8.decode(u); }) : Promise.resolve(null); }
-    return Promise.all([txt('xl/workbook.xml'), txt('xl/_rels/workbook.xml.rels'), txt('xl/sharedStrings.xml'), txt('xl/styles.xml')]).then(function (p) {
-      if (!p[0]) throw new Error('엑셀(.xlsx) 파일이 아닙니다');
-      var wb = xmlDoc(p[0]);
-      var pr = byTag(wb, 'workbookPr')[0], d1904 = pr ? /^(1|true)$/i.test(attr(pr, 'date1904') || '') : false;
-      var rels = {};
-      if (p[1]) byTag(xmlDoc(p[1]), 'Relationship').forEach(function (r) { rels[attr(r, 'Id')] = attr(r, 'Target'); });
-      var sst = p[2] ? byTag(xmlDoc(p[2]), 'si').map(textOfRich) : [];
-      var kinds = [];
-      if (p[3]) {
-        var sd = xmlDoc(p[3]), custom = {};
-        byTag(sd, 'numFmt').forEach(function (n) { custom[attr(n, 'numFmtId')] = attr(n, 'formatCode'); });
-        var cx = byTag(sd, 'cellXfs')[0];
-        if (cx) kinds = kids(cx, 'xf').map(function (x) { var id = +attr(x, 'numFmtId') || 0; return fmtKind(id, custom[id]); });
-      }
-      var sheets = byTag(wb, 'sheet').map(function (s) {
-        var t = rels[attr(s, 'id')] || '';
-        t = t.charAt(0) === '/' ? t.slice(1) : 'xl/' + t.replace(/^\.\//, '');
-        return { name: attr(s, 'name') || '시트', hidden: !!attr(s, 'state') && attr(s, 'state') !== 'visible', path: t };
-      }).filter(function (s) { return z.has(s.path); });
-      return Promise.all(sheets.map(function (s) {
-        return txt(s.path).then(function (x) { return { name: s.name, hidden: s.hidden, grid: sheetGrid(xmlDoc(x), sst, kinds, d1904) }; });
-      }));
-    });
-  }
-  function sheetGrid(doc, sst, kinds, d1904) {
-    var grid = [], rowNo = 0;
-    byTag(doc, 'row').forEach(function (row) {
-      var r = +attr(row, 'r') || rowNo + 1;
-      rowNo = r;
-      if (r > 5000) return;
-      var col = -1, cells = [];
-      kids(row, 'c').forEach(function (c) {
-        var ci = colIndex(attr(c, 'r'));
-        col = ci >= 0 ? ci : col + 1;
-        if (col > 60) return;
-        var t = attr(c, 't') || 'n', vEl = kids(c, 'v')[0], v = vEl ? vEl.textContent : '', out;
-        if (t === 's') out = sst[+v] || '';
-        else if (t === 'inlineStr') { var is = kids(c, 'is')[0]; out = is ? textOfRich(is) : ''; }
-        else if (t === 'str' || t === 'e') out = v;
-        else if (t === 'b') out = v === '1' ? 'TRUE' : 'FALSE';
-        else if (t === 'd') out = v.replace('T', ' ').replace(/(\d{2}:\d{2})(:\d{2}(\.\d+)?)?Z?$/, '$1').replace(/ 00:00$/, '');
-        else if (v === '') out = '';
-        else {
-          var num = parseFloat(v), kind = kinds[+attr(c, 's') || 0];
-          out = !isFinite(num) ? v : kind ? serialText(num, kind, d1904) : fmtNum(num);
-        }
-        cells[col] = out;
-      });
-      grid[r - 1] = cells;
-    });
-    for (var i = 0; i < grid.length; i++) { grid[i] = grid[i] || []; for (var j = 0; j < grid[i].length; j++) if (grid[i][j] == null) grid[i][j] = ''; }
-    return grid;
-  }
-
-  /* XML: 엑셀 'XML 스프레드시트 2003' 또는 일반 XML(되풀이되는 항목) */
-  function xmlDateTime(v) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(v || '');
-    if (!m) return v;
-    if (m[1] === '1899') return m[4] + ':' + m[5];
-    return m[1] + '-' + m[2] + '-' + m[3] + (m[4] + m[5] !== '0000' ? ' ' + m[4] + ':' + m[5] : '');
-  }
-  function xmlSheets(text, fileName) {
-    var doc = xmlDoc(text);
-    var ws = byTag(doc, 'Worksheet');
-    if (ws.length) {
-      return ws.map(function (w) {
-        var grid = [], r = -1;
-        byTag(w, 'Row').forEach(function (row) {
-          var ri = attr(row, 'Index'); r = ri ? +ri - 1 : r + 1;
-          var c = -1, cells = grid[r] = grid[r] || [];
-          kids(row, 'Cell').forEach(function (cell) {
-            var ci = attr(cell, 'Index'); c = ci ? +ci - 1 : c + 1;
-            var data = kids(cell, 'Data')[0], v = data ? data.textContent : '';
-            if (data && attr(data, 'Type') === 'DateTime') v = xmlDateTime(v);
-            cells[c] = v;
-            c += +attr(cell, 'MergeAcross') || 0;
-          });
-        });
-        for (var i = 0; i < grid.length; i++) { grid[i] = grid[i] || []; for (var j = 0; j < grid[i].length; j++) if (grid[i][j] == null) grid[i][j] = ''; }
-        return { name: attr(w, 'Name') || '시트', grid: grid };
-      });
-    }
-    return [{ name: fileName.replace(/\.[^.]+$/, ''), grid: genericXmlGrid(doc), isFile: true }];
-  }
-  function genericXmlGrid(doc) {
-    var all = byTag(doc, '*'), groups = {}, best = null;
-    function isLeaf(e) { return !Array.prototype.some.call(e.childNodes, function (n) { return n.nodeType === 1; }); }
-    all.forEach(function (e) {
-      var ch = Array.prototype.filter.call(e.childNodes, function (n) { return n.nodeType === 1; });
-      var rec = (ch.length && ch.every(isLeaf)) || (!ch.length && e.attributes.length >= 2);
-      if (rec) (groups[e.localName] = groups[e.localName] || []).push(e);
-    });
-    Object.keys(groups).forEach(function (k) { if (!best || groups[k].length > groups[best].length) best = k; });
-    if (!best) return [];
-    var keys = [], rows = [];
-    function put(obj, k, v) { if (obj[k] == null && v != null && String(v).trim() !== '') { obj[k] = String(v).trim(); if (keys.indexOf(k) < 0) keys.push(k); } }
-    groups[best].forEach(function (e) {
-      var o = {};
-      Array.prototype.forEach.call(e.attributes, function (a) { put(o, a.localName, a.value); });
-      Array.prototype.forEach.call(e.childNodes, function (n) { if (n.nodeType === 1) put(o, n.localName, n.textContent); });
-      for (var p = e.parentNode; p && p.nodeType === 1; p = p.parentNode) {       // 위쪽 요소의 이름(예: <부서 이름="기획과">)도 물려받음
-        Array.prototype.forEach.call(p.attributes, function (a) { put(o, /^(name|이름|명|title)$/i.test(a.localName) ? p.localName : a.localName, a.value); });
-        Array.prototype.forEach.call(p.childNodes, function (n) { if (n.nodeType === 1 && isLeaf(n) && n.localName !== best) put(o, /^(name|이름|명|title)$/i.test(n.localName) ? p.localName : n.localName, n.textContent); });
-      }
-      rows.push(o);
-    });
-    return [keys].concat(rows.map(function (o) { return keys.map(function (k) { return o[k] || ''; }); }));
-  }
-
   /* CSV / 탭으로 나뉜 글 (엑셀에서 복사하면 탭으로 나뉨) */
   function parseDelimited(text, delim) {
     text = String(text).split(BOM).join('').replace(/\r\n?/g, '\n');
@@ -2728,40 +2444,6 @@ body.locked > *:not(.lock) { display: none !important; }
       return { fileName: label, modified: modified || 0, name: s.name, content: s.content, date: s.date || '', viaHeader: !!s.known, target: d ? d.id : 'new', checked: true, notes: [] };
     });
   }
-  function sheetsToRows(file, sheets) {
-    var rows = [], skipped = 0;
-    sheets.forEach(function (s) {
-      if (s.hidden || SKIP_SHEET.test(String(s.name).trim())) { skipped++; return; }
-      var label = file.name + (sheets.length > 1 ? ' › ' + s.name : '');
-      rows = rows.concat(sectionRows(label, file.lastModified, interpretGrid(s.name, s.grid, !s.isFile)));
-    });
-    return { rows: rows, skipped: skipped };
-  }
-  function readAnyFile(f) {
-    var n = f.name;
-    if (/\.xls$/i.test(n)) return Promise.reject(new Error('예전 엑셀(.xls)은 읽을 수 없습니다. 엑셀에서 .xlsx로 저장해 올려 주세요.'));
-    if (/\.(xlsx|xlsm)$/i.test(n)) return readBuf(f).then(readXlsx).then(function (sh) { return sheetsToRows(f, sh); });
-    if (/\.xml$/i.test(n)) return readFile(f).then(function (t) { return sheetsToRows(f, xmlSheets(t, n)); });
-    if (/\.(csv|tsv)$/i.test(n)) {
-      return readFile(f).then(function (t) {
-        var name = n.replace(/\.[^.]+$/, ''), d = findDeptInText(name);
-        var tab = /\.tsv$/i.test(n) || (t.split('\n')[0] || '').indexOf('\t') >= 0;
-        return sheetsToRows(f, [{ name: d ? d.name : name, grid: parseDelimited(t, tab ? '\t' : ','), isFile: true }]);
-      });
-    }
-    return Promise.reject(new Error('엑셀 파일(.xlsx)이 아닙니다'));
-  }
-  function collectRows(files) {
-    var skipped = 0, errors = [];
-    return Promise.all(files.map(function (f) {
-      return readAnyFile(f).catch(function (err) { errors.push(f.name + ': ' + (err && err.message ? err.message : err)); return { rows: [], skipped: 0 }; });
-    })).then(function (res) {
-      var rows = [];
-      res.forEach(function (r) { skipped += r.skipped; rows = rows.concat(r.rows); });
-      return { rows: rows, skipped: skipped, errors: errors };
-    });
-  }
-
   /* 확인 창 */
   var importAll = [], importRows = [], importDate = '', importInfo = {};
   function chooseRef(rows) {
@@ -2874,10 +2556,6 @@ body.locked > *:not(.lock) { display: none !important; }
     importModal.hidden = false;
     $('#impApply').focus();
   }
-  function openImportReview(files) {
-    if (!files.length) return;
-    collectRows(files).then(function (res) { openReviewRows(res.rows, res); });
-  }
   $('#impApply').addEventListener('click', function () {
     undoSnap = clone(state);
     var now = Date.now(), done = {}, report = { updated: [], added: [] };
@@ -2934,26 +2612,59 @@ body.locked > *:not(.lock) { display: none !important; }
     var files = Array.prototype.slice.call(fileList || []);
     if (!files.length) return;
     var json = files.filter(function (f) { return /\.json$/i.test(f.name); });
-    var others = files.filter(function (f) { return !/\.json$/i.test(f.name); });
-    if (json.length) {
-      loadJSONFile(json[json.length - 1]).then(function () { if (others.length) openImportReview(others); });
-      return;
-    }
-    openImportReview(others);
+    if (json.length) { loadJSONFile(json[json.length - 1]); return; }
+    toast('엑셀 파일은 불러오지 않습니다(문서 보안). 한셀에서 시트 내용을 복사해 [붙여넣기]로 넣어 주세요.');
   }
 
-  /* 붙여넣기: 엑셀에서 복사한 범위(탭으로 나뉨) 또는 “# 부서명”으로 나눈 글 */
+  /* 붙여넣기: 한셀(엑셀)에서 복사한 범위. 여러 시트를 이어 붙였으면 시트(부서)마다 나눈다
+     - A열 한 칸에 '# 부서명'(또는 [부서명])이 있는 줄에서 새 시트. 부서명만 있어도, 아는 부서이고 바로 아래가 머리글이면 새 시트
+     - 이름 줄 없이 붙였으면 머리글 줄이 다시 나올 때마다 나눔 (넣을 부서는 확인 창에서 고름)
+     - 시트 안의 표는 지금처럼: 일정 아래 빈 줄 → (표 제목) → 표 머리글 → 표 내용, 다음 빈 줄까지 */
+  function isSchedHeaderRow(row) {
+    var cells = (row || []).filter(Boolean);
+    if (cells.length < 2 || !cells.every(function (c) { return c.length <= 24 && c.indexOf('\n') < 0; })) return false;
+    var roles = row.map(headerRole);
+    return (roles.indexOf('content') >= 0 || roles.indexOf('time') >= 0) && roles.filter(Boolean).length >= 2;
+  }
+  function pasteBlockName(grid, r) {
+    var row = grid[r], filled = row.filter(Boolean), m;
+    if (filled.length !== 1 || !row[0]) return null;
+    var t = row[0].trim();
+    if ((m = /^#(?!#)\s*(.+)$/.exec(t))) return m[1].trim();
+    if ((m = /^\[(.+)\]$/.exec(t))) return m[1].trim();
+    if (t.length > 30 || !findDeptByName(t)) return null;
+    for (var k = r + 1; k < grid.length; k++) if (grid[k].some(Boolean)) return isSchedHeaderRow(grid[k]) ? t : null;
+    return null;
+  }
+  function splitPasteBlocks(grid) {
+    var blocks = [], cur = null;
+    for (var r = 0; r < grid.length; r++) {
+      var nm = pasteBlockName(grid, r), head = isSchedHeaderRow(grid[r]);
+      if (nm != null) { cur = { name: nm, rows: [] }; blocks.push(cur); continue; }
+      if (!cur || (!cur.name && cur.head && head)) { cur = { name: '', rows: [] }; blocks.push(cur); }
+      if (head) cur.head = true;
+      cur.rows.push(grid[r]);
+    }
+    return blocks.filter(function (b) { return b.name || b.rows.some(function (row) { return row.some(Boolean); }); });
+  }
   function importPastedText(text) {
     text = String(text || '');
     if (!text.trim()) return false;
-    var rows;
-    if (text.indexOf('\t') >= 0) rows = sectionRows('붙여넣기 (엑셀)', Date.now(), interpretGrid('', parseDelimited(text, '\t')));
-    else {
+    var rows = [], skipped = 0;
+    if (text.indexOf('\t') >= 0) {
+      var grid = parseDelimited(text, '\t').map(function (r) { return r.map(cellStr); });
+      var blocks = splitPasteBlocks(grid), unnamed = blocks.filter(function (b) { return !b.name; }).length, k = 0, now = Date.now();
+      blocks.forEach(function (b) {
+        if (b.name && SKIP_SHEET.test(b.name)) { skipped++; return; }
+        var label = '붙여넣기 › ' + (b.name || '붙여넣은 내용' + (unnamed > 1 ? ' ' + (++k) : ''));
+        rows = rows.concat(sectionRows(label, now, interpretGrid(b.name, b.rows, !!b.name)));
+      });
+    } else {
       var sp = splitSections(text, true);
-      if (!sp.found) { toast('엑셀 범위가 아닌 것 같습니다. 엑셀(두레이)에서 칸을 골라 복사해 주세요. 한 부서 내용이면 그 부서 입력칸에 붙여넣으면 됩니다.'); return false; }
+      if (!sp.found) { toast('한셀(엑셀)에서 복사한 범위가 아닌 것 같습니다. 칸을 골라 복사해 주세요. 한 부서 내용이면 그 부서 입력칸에 붙여넣으면 됩니다.'); return false; }
       rows = sectionRows('붙여넣기', Date.now(), sp.sections.map(function (s) { return { name: s.name, known: true, date: s.date, content: s.content }; }));
     }
-    openReviewRows(rows, {});
+    openReviewRows(rows, { skipped: skipped });
     return true;
   }
   document.addEventListener('paste', function (e) {
@@ -2970,15 +2681,15 @@ body.locked > *:not(.lock) { display: none !important; }
   var fileInput = $('#fileInput');
   function pickFiles() { fileInput.value = ''; fileInput.click(); }
   fileInput.addEventListener('change', function () { handleFiles(fileInput.files); });
-  $('#btnImport').addEventListener('click', pickFiles);
-  $('#btnImport2').addEventListener('click', pickFiles);
+  $('#btnImport').addEventListener('click', function () { openBulk(); });
+  $('#btnImport2').addEventListener('click', function () { openBulk(); });
   $('#btnTemplate').addEventListener('click', function () { makeExcelTemplate(); });
   $('#importMenu').addEventListener('click', function (e) {
     var b = e.target.closest('[data-act]');
     if (!b) return;
     closeMenus();
     var act = b.getAttribute('data-act');
-    if (act === 'files' || act === 'json') pickFiles();
+    if (act === 'json') pickFiles();
     else if (act === 'paste') openBulk();
     else if (act === 'template') makeExcelTemplate();
   });
@@ -3117,7 +2828,7 @@ body.locked > *:not(.lock) { display: none !important; }
       G('5. 비고는 작은 글씨로 붙고, 설명은 화면에서 마우스를 올리면 보이는 팝업, 링크는 누르면 열리는 주소입니다(설명·링크는 인쇄되지 않음).'),
       G('6. 여러 날을 한 시트에 쓰려면 맨 앞에 "날짜" 열을 넣으세요. 문서 날짜에 맞는 줄만 가져옵니다.'),
       G('7. 표를 넣으려면 일정 아래 한 줄을 비우고, A열부터 표 제목(한 칸, 선택) → 표 머리글 → 표 내용 순서로 적습니다. 다음 빈 줄까지가 표입니다.'),
-      G('8. 다 쓰면 담당자가 파일을 내려받아 [엑셀 불러오기]로 올리거나, 범위를 복사해 프로그램 화면에서 Ctrl+V 합니다.'),
+      G('8. 다 쓰면 모든 시트를 한 시트에 합쳐(시트마다 맨 앞에 A열 한 칸 "# 시트 이름" 줄) 복사한 뒤 프로그램 화면에서 Ctrl+V 합니다.'),
       [], [{ v: '예시', s: 3 }],
       H(HEAD),
       B(['09:00', '주간 업무보고 회의\n- 안건: 예산안 검토', '본관 3층 대회의실', '참석: 실장, 각 과장', '자료는 회의 전날 배포', 'http://intranet/board/123']),
@@ -3309,10 +3020,8 @@ body.locked > *:not(.lock) { display: none !important; }
     getMode: function () { return appMode; },
     render: renderPreview,
     parse: function (src) { return blocksHTML(parseBlocks(src, state.style).blocks, state.style); },
-    _inflate: inflateJS,
-    _readXlsx: readXlsx,
     _interpret: interpretGrid,
-    _forceJsInflate: function (v) { FORCE_JS_INFLATE = !!v; }
+    _paste: importPastedText
   };
 })();
 </script>
