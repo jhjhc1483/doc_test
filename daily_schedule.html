@@ -323,9 +323,27 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .md .li .mk { flex: none; min-width: .9em; margin-right: .3em; }
 .md .li .tx { flex: 1 1 auto; min-width: 0; }
 .md .li.small > .mk, .md .li.small > .tx { font-size: max(calc(1em - 2pt), .75em, 6pt); }
+/* 하위 줄(들여 쓴 -, * 작은 글씨)은 윗줄에 붙임 — 간격은 서식 탭 '하위 줄 붙이기' */
+.md .li.sub { line-height: var(--sub-lh-dash, var(--lh)); }
+.md .li.small { line-height: var(--sub-lh-star, var(--lh)); }
+.md .li.sub:not(:first-child) { margin-top: var(--sub-mt-dash, var(--gap)); }
+.md .li.small:not(:first-child) { margin-top: var(--sub-mt-star, var(--gap)); }
+.md .li.sub + .li.sub:not(:first-child), .md .li.small + .li.small:not(:first-child),
+.md .li.sub + .li.small:not(:first-child), .md .li.small + .li.sub:not(:first-child) { margin-top: var(--sub-mt-next, var(--gap)); }
 .md .tm { font-weight: 700; font-variant-numeric: tabular-nums; }
 .md b, .md strong { font-weight: 700; }
 .md mark { background: #ffeb5a; color: inherit; padding: 0 .08em; }
+/* 표 칸 폭 조절 손잡이 (화면에서만) */
+.rz-layer { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; z-index: 5; }
+.rz { position: absolute; pointer-events: auto; touch-action: none; cursor: col-resize; }
+.rz::after { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 3px; margin-left: -1.5px; background: #2257c5; opacity: 0; transition: opacity .12s; border-radius: 2px; }
+.doc-body:hover .rz::after { opacity: .25; }
+.rz:hover::after, .rz.active::after, .rz:focus::after { opacity: 1; }
+.rz:focus { outline: none; }
+.rz:focus::after { background: #e8590c; }
+body.resizing, body.resizing * { user-select: none; cursor: col-resize !important; }
+.rz-tip { position: fixed; z-index: 120; pointer-events: none; background: #222b36; color: #fff; font: 12px/1.4 var(--ui-font); padding: 4px 9px; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.25); white-space: pre; }
+.rz-tip[hidden] { display: none; }
 /* 형광펜 */
 .hl-btn .hl-sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: #ffeb5a; border: 1px solid #d9b400; }
 .hl-btn.on { background: #fff6bf; border-color: #d9b400; font-weight: 700; }
@@ -336,6 +354,7 @@ body.hl-mode .sheet ::selection { background: rgba(255, 214, 0, .6); }
 .md .q { border-left: 2px solid #999; padding-left: .5em; color: #333; }
 .md hr { border: 0; border-top: 1px dashed #999; height: 0; }
 .md .mdt { width: 100%; border-collapse: collapse; }
+.md .mdt.fixed { table-layout: fixed; }
 .md .mdt th, .md .mdt td { border: 1px solid #a0a0a0; padding: .08em .35em; vertical-align: top; }
 .md .mdt th { background: #f0f1f3; font-weight: 700; text-align: center; }
 .md .empty { color: #777; }
@@ -358,7 +377,7 @@ body.hl-mode .sheet ::selection { background: rgba(255, 214, 0, .6); }
 @media print {
   html, body { height: auto; overflow: visible; background: #fff; }
   .app { display: block; height: auto; }
-  .topbar, .editor, .preview-bar, .toast, .modal, .drop, .tip-pop { display: none !important; }
+  .topbar, .editor, .preview-bar, .toast, .modal, .drop, .tip-pop, .rz-layer, .rz-tip { display: none !important; }
   .workspace, .preview-pane, .preview-scroll { display: block; overflow: visible; padding: 0; margin: 0; height: auto; }
   .sheet-holder { width: auto !important; height: auto !important; margin: 0; }
   .sheet { position: relative; transform: none !important; box-shadow: none; overflow: hidden; outline: none; }
@@ -540,6 +559,11 @@ body.locked > *:not(.lock) { display: none !important; }
               </div>
               <p class="hint">내용이 적으면 최대 크기까지 키우고, 많으면 최소 크기까지 줄입니다. <code>*</code> 하위 항목은 이보다 2pt 작게 나옵니다.</p>
             </div>
+            <div class="set-row">
+              <span class="row-label">하위 줄 붙이기</span>
+              <select class="grow" data-bind="style.subGap"><option value="normal">보통</option><option value="close">가깝게</option><option value="closest">아주 가깝게</option></select>
+            </div>
+            <p class="hint">일정 밑 하위 줄(<code>*</code> 작은 글씨, 들여 쓴 <code>-</code>)을 윗줄에 얼마나 붙일지 고릅니다.</p>
             <div class="mode-manual" hidden>
               <div class="range-row"><span class="row-label">글자크기</span><input type="range" min="5" max="20" step="0.1" data-bind="style.manualFont"><output data-out="manualFont"></output></div>
               <div class="range-row"><span class="row-label">줄간격</span><input type="range" min="1" max="2.2" step="0.01" data-bind="style.manualLine"><output data-out="manualLine"></output></div>
@@ -624,7 +648,7 @@ body.locked > *:not(.lock) { display: none !important; }
               <tr><td><code>**굵게**</code></td><td><b>굵게</b></td></tr>
               <tr><td><code>__밑줄__</code></td><td><u>밑줄</u></td></tr>
               <tr><td><code>~~취소~~</code></td><td><s>취소</s></td></tr>
-              <tr><td><code>==형광펜==</code></td><td><mark style="background:#ffeb5a">형광펜</mark> — 미리보기 위 [형광펜]을 누르고 글자를 마우스로 끌어 칠해도 됨(칠한 곳을 다시 끌면 지움). 입력칸에서는 글자를 고르고 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></td></tr>
+              <tr><td><code>[[형광펜]]</code></td><td><mark style="background:#ffeb5a">형광펜</mark> — 미리보기 위 [형광펜]을 누르고 글자를 마우스로 끌어 칠해도 됨(칠한 곳을 다시 끌면 지움). 입력칸에서는 글자를 고르고 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></td></tr>
               <tr><td><code>!!중요!!</code></td><td><b style="color:#c40000">중요</b></td></tr>
               <tr><td><code>## 소제목</code></td><td><b>소제목</b></td></tr>
               <tr><td><code>&gt; 비고</code></td><td>왼쪽 선이 있는 비고</td></tr>
@@ -698,7 +722,7 @@ body.locked > *:not(.lock) { display: none !important; }
                 </div>
                 <div class="doc-meta"><span class="doc-sub" id="docSub"></span><span class="doc-date" id="docDate"></span></div>
               </div>
-              <div class="doc-body" id="docBody"><div class="flow" id="flow"></div></div>
+              <div class="doc-body" id="docBody"><div class="flow" id="flow"></div><div class="rz-layer edit-only" id="rzLayer"></div></div>
               <div class="doc-foot" id="docFoot" hidden></div>
             </div>
           </div>
@@ -740,6 +764,7 @@ body.locked > *:not(.lock) { display: none !important; }
 </div>
 
 <div class="tip-pop" id="tipPop" role="tooltip" hidden></div>
+<div class="rz-tip" id="rzTip" hidden></div>
 <div class="drop" id="dropOverlay" hidden>작업 파일(.json)을 놓으면 엽니다</div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button type="button" id="toastAct" hidden></button></div>
 
@@ -848,7 +873,9 @@ body.locked > *:not(.lock) { display: none !important; }
     emptyMode: 'text',
     emptyText: '특이사항 없음',
     showApproval: false,
-    approvalLabels: '담당, 과장, 국장'
+    approvalLabels: '담당, 과장, 국장',
+    subGap: 'close',            // normal | close | closest  (하위 줄을 윗줄에 붙이는 정도)
+    mdtCols: {}                 // 내용 안 표의 칸 폭 (머리글이 같은 표끼리 같음)
   };
   var NUM_RANGE = {
     minFont: [4, 16], maxFont: [6, 24], manualFont: [4, 24], manualLine: [0.9, 2.5],
@@ -870,6 +897,15 @@ body.locked > *:not(.lock) { display: none !important; }
     if (out.style.split !== 'none') out.style.split = 'two';
     delete out.style.colHeadTime; delete out.style.colHeadPlace;
     if (out.style.orientation !== 'landscape') out.style.orientation = 'portrait';
+    if (['normal', 'close', 'closest'].indexOf(out.style.subGap) < 0) out.style.subGap = 'close';
+    var mc = {}, src = out.style.mdtCols && typeof out.style.mdtCols === 'object' ? out.style.mdtCols : {};
+    Object.keys(src).forEach(function (key) {
+      var a = src[key];
+      if (!Array.isArray(a) || a.length < 2 || !a.every(function (x) { return isFinite(+x) && +x > 0; })) return;
+      var sum = a.reduce(function (p, x) { return p + (+x); }, 0);
+      mc[key] = a.map(function (x) { return +x / sum; });
+    });
+    out.style.mdtCols = mc;
     out.departments = (Array.isArray(s.departments) ? s.departments : []).map(function (d) {
       d = d || {};
       return {
@@ -893,7 +929,7 @@ body.locked > *:not(.lock) { display: none !important; }
       style: {},
       departments: [
         { name: '기획조정과', content: '>> 담당: 기획조정과 ○○○ 주무관 (내선 1234)\n- 09:00 주간 업무보고 회의 @본관 3층 대회의실\n  >> 안건: 2027년 예산안 검토, 하반기 인사 발령\n  >> 자료: http://intranet.example/board/123\n* 참석: 실장, 각 과장\n- 14:00~15:30 2027년도 예산안 검토 회의 (소회의실)\n- 상반기 업무계획 실적 취합 **(17:00 마감)**' },
-        { name: '총무과', content: '- 10:00 청사 소방 안전점검 (전 층) http://intranet.example/notice/77\n- 13:30 신규 직원 임용장 수여식 @접견실\n* 대상: 신규 임용자 ==3명==\n- 관용차량 정기점검: 1호차, 3호차' },
+        { name: '총무과', content: '- 10:00 청사 소방 안전점검 (전 층) http://intranet.example/notice/77\n- 13:30 신규 직원 임용장 수여식 @접견실\n* 대상: 신규 임용자 [[3명]]\n- 관용차량 정기점검: 1호차, 3호차' },
         { name: '인사과', content: '○ 하반기 승진심사 서류 접수 마감\n - 대상: 6급 이하 승진 후보자\n - 제출처: 인사과 담당자\n○ 15:00 교육훈련 수요조사 설명회 (2층 교육장)' },
         { name: '재무과', content: '| 시간 | 내용 | 장소 | 비고 |\n|---|---|---|---|\n| 10:00 | 계약심의위원회 | 소회의실 | 3건 심의 |\n| 16:00 | 월말 결산 점검 | 재무과 | |' },
         { name: '정보화담당관', content: '- 18:00~20:00 !!내부망 서버 정기 점검!! (업무 시스템 일시 중단)\n  >> 점검 대상: 전자결재, 내부 메일, 인트라넷 게시판\n  >> 문의: 정보화담당관 (내선 5678)\n- 보안 취약점 점검 결과 보고\n> 점검 시간에는 전자결재에 접속할 수 없습니다.' },
@@ -1096,7 +1132,7 @@ body.locked > *:not(.lock) { display: none !important; }
     s = s.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, '<b>$1</b>');
     s = s.replace(/__(?=\S)([\s\S]*?\S)__/g, '<u>$1</u>');
     s = s.replace(/~~(?=\S)([\s\S]*?\S)~~/g, '<s>$1</s>');
-    s = s.replace(/==(?=\S)([\s\S]*?\S)==/g, '<mark>$1</mark>');
+    s = s.replace(/\[\[(?=\S)([\s\S]*?\S)\]\]/g, '<mark>$1</mark>');
     s = s.replace(/!!(?=\S)([\s\S]*?\S)!!/g, '<strong class="imp">$1</strong>');
     s = s.replace(/(^|[^*\w])\*(?=\S)([^*]*?\S)\*(?!\*)/g, '$1<i>$2</i>');
     return s.replace(RE_PH, function (_, n) { return keep[+n]; });
@@ -1138,11 +1174,16 @@ body.locked > *:not(.lock) { display: none !important; }
 
   function liHTML(b, st, level) {
     var r = linkedLines(b.text.split('\n'), st), tip = tipTemplate(b.details, r.urls);
-    return '<div' + tipAttrs('li' + (b.kind === 'small' ? ' small' : ''), tip) +
+    return '<div' + tipAttrs('li' + (b.kind === 'small' ? ' small' : '') + (level ? ' sub' : ''), tip) +
       (level ? ' style="padding-left:' + (level * 1.15).toFixed(2) + 'em"' : '') + '>' +
       '<span class="mk">' + esc(b.marker) + '</span><span class="tx">' + r.html + '</span>' + tip + '</div>';
   }
 
+  /* 표 칸 폭을 기억하는 열쇠: 열 수 + 머리글(없으면 첫 줄) 글자 */
+  function mdtKey(b, cols) {
+    var row = b.head || b.body[0] || [];
+    return cols + ':' + row.map(function (c) { return String(c || '').replace(/\s+/g, '').toLowerCase(); }).join('|');
+  }
   function blocksHTML(blocks, st) {
     var h = '';
     blocks.forEach(function (b) {
@@ -1163,7 +1204,10 @@ body.locked > *:not(.lock) { display: none !important; }
           var al = b.align[ci] ? ' style="text-align:' + b.align[ci] + '"' : '';
           return '<' + tag + al + '>' + linkedLine(txt || '', st).html + '</' + tag + '>';
         };
-        h += '<table class="mdt">';
+        var key = mdtKey(b, cols), fr = st.mdtCols && st.mdtCols[key];
+        if (!(fr && fr.length === cols)) fr = null;
+        h += '<table class="mdt' + (fr ? ' fixed' : '') + '" data-key="' + esc(key) + '">';
+        if (fr) h += '<colgroup>' + fr.map(function (f) { return '<col style="width:' + (f * 100).toFixed(3) + '%">'; }).join('') + '</colgroup>';
         if (b.head) { h += '<thead><tr>'; for (var c = 0; c < cols; c++) h += cell('th', b.head[c], c); h += '</tr></thead>'; }
         h += '<tbody>';
         b.body.forEach(function (row) { h += '<tr>'; for (var c2 = 0; c2 < cols; c2++) h += cell('td', row[c2], c2); h += '</tr>'; });
@@ -1393,6 +1437,14 @@ body.locked > *:not(.lock) { display: none !important; }
     s.setProperty('--padh', v.padh.toFixed(3) + 'em');
     s.setProperty('--title-fs', clamp(v.fs * 1.75, 15, 22).toFixed(2) + 'pt');
     s.setProperty('--meta-fs', clamp(v.fs * 0.92, 8.5, 11).toFixed(2) + 'pt');
+    var g = state.style.subGap, half = (v.lh - 1) / 2, k = { normal: 0, close: 0.5, closest: 0.72 }[g] || 0;
+    var lhS = g === 'normal' ? v.lh : (g === 'close' ? 1.24 : 1.14), lhD = g === 'normal' ? v.lh : Math.min(v.lh, g === 'close' ? 1.36 : 1.24);
+    // 윗줄 아래 여백(반 줄간격) + 하위 줄 위 여백만큼만 당겨서 글자가 겹치지 않게 (* 줄 글자는 약 0.8배)
+    s.setProperty('--sub-lh-star', lhS.toFixed(3));
+    s.setProperty('--sub-lh-dash', lhD.toFixed(3));
+    s.setProperty('--sub-mt-star', (g === 'normal' ? v.gap : -k * (half + (lhS - 1) / 2 * 0.8)).toFixed(3) + 'em');
+    s.setProperty('--sub-mt-dash', (g === 'normal' ? v.gap : -k * (half + (lhD - 1) / 2)).toFixed(3) + 'em');
+    s.setProperty('--sub-mt-next', (g === 'normal' ? v.gap : (g === 'close' ? 0 : -0.03)).toFixed(3) + 'em');
   }
 
   function layoutAt(v, st, single) {
@@ -1441,8 +1493,10 @@ body.locked > *:not(.lock) { display: none !important; }
       : '<div class="empty-all">표시할 부서가 없습니다. 왼쪽에서 부서를 추가하세요.</div>';
     var fits = function (r) { return r.need <= r.avail - SAFETY_PX; };
     var v, r, lo, hi;
-    if (!st.autoFit) {
-      v = varsFor(0, st); r = layoutAt(v, st, single);
+    if (!st.autoFit || (holdFont && lastFit && lastFit.v)) {      // 수동이거나, 표 칸 폭을 끄는 동안(글자크기 그대로)
+      v = st.autoFit ? lastFit.v : varsFor(0, st);
+      if (st.autoFit) { lo = lastFit.lo; hi = lastFit.hi; }
+      r = layoutAt(v, st, single);
     } else {
       lo = Math.min(st.minFont, st.maxFont); hi = Math.max(st.minFont, st.maxFont);
       v = varsFor(hi, st); r = layoutAt(v, st, single);
@@ -1506,6 +1560,7 @@ body.locked > *:not(.lock) { display: none !important; }
     fit(st);
     updateZoom();
     updateStatus();
+    placeMdtHandles();
   }
 
   var renderTimer = 0;
@@ -1550,6 +1605,7 @@ body.locked > *:not(.lock) { display: none !important; }
     else if (zoomMode === 'width') z = Math.min(aw / w, 1.6);
     else z = parseFloat(zoomMode) || 1;
     z = clamp(z, 0.2, 2.5);
+    curZoom = z;
     sheet.style.transform = 'scale(' + z.toFixed(4) + ')';
     holder.style.width = (w * z) + 'px';
     holder.style.height = (h * z) + 'px';
@@ -1835,7 +1891,7 @@ body.locked > *:not(.lock) { display: none !important; }
 
 
   /* ------------------------------------------------------------------
-     형광펜 (==글자==): 미리보기에서 마우스로 칠하기·지우기, 입력칸에서 Ctrl+Shift+H
+     형광펜 ([[글자]]): 미리보기에서 마우스로 칠하기·지우기, 입력칸에서 Ctrl+Shift+H
      ------------------------------------------------------------------ */
   var RE_HL_LINK = new RegExp(MD_LINK_SRC + '|' + URL_SRC, 'gi');
   /* 한 줄에서 칠할 수 있는 부분들: 목록 기호·번호·소제목·시간과 끝의 '@장소'는 빼고, 표는 칸마다 */
@@ -1868,7 +1924,7 @@ body.locked > *:not(.lock) { display: none !important; }
   /* [s, e)를 칠하거나, 이미 칠한 곳과 겹치면 지운다 */
   function toggleMark(text, s, e) {
     if (e < s) { var tmp = s; s = e; e = tmp; }
-    var spans = [], re = /==(\S(?:.*?\S)?)==/g, m;
+    var spans = [], re = /\[\[(\S(?:.*?\S)?)\]\]/g, m;
     while ((m = re.exec(text))) spans.push([m.index, m.index + m[0].length]);
     var hit = spans.filter(function (sp) { return s === e ? (s > sp[0] && s < sp[1]) : (s < sp[1] && e > sp[0]); });
     if (hit.length) {
@@ -1904,8 +1960,8 @@ body.locked > *:not(.lock) { display: none !important; }
     if (!wraps.length) return null;
     var nt = text;
     for (var j = wraps.length - 1; j >= 0; j--) {
-      nt = nt.slice(0, wraps[j][1]) + '==' + nt.slice(wraps[j][1]);
-      nt = nt.slice(0, wraps[j][0]) + '==' + nt.slice(wraps[j][0]);
+      nt = nt.slice(0, wraps[j][1]) + ']]' + nt.slice(wraps[j][1]);
+      nt = nt.slice(0, wraps[j][0]) + '[[' + nt.slice(wraps[j][0]);
     }
     return { text: nt, s: wraps[0][0], e: wraps[wraps.length - 1][1] + 4 * wraps.length, removed: false };
   }
@@ -1931,7 +1987,7 @@ body.locked > *:not(.lock) { display: none !important; }
     var out = '', map = [], i = 0, LINK = new RegExp('^' + MD_LINK_SRC);
     while (i < text.length) {
       var two = text.substr(i, 2);
-      if (two === '==' || two === '**' || two === '__' || two === '~~' || two === '!!') { i += 2; continue; }
+      if (two === '[[' || two === ']]' || two === '**' || two === '__' || two === '~~' || two === '!!') { i += 2; continue; }
       if (text.charAt(i) === '[') {
         var lm = LINK.exec(text.slice(i));
         if (lm) { for (var k = 0; k < lm[1].length; k++) { out += lm[1].charAt(k); map.push(i + 1 + k); } i += lm[0].length; continue; }
@@ -2011,6 +2067,150 @@ body.locked > *:not(.lock) { display: none !important; }
       if (a && a.classList && a.classList.contains('dept-text')) markTextarea(a);
       else if (!paintSelection()) setHlMode(!hlMode);
     } else if (e.key === 'Escape' && hlMode) setHlMode(false);
+  });
+
+
+  /* ------------------------------------------------------------------
+     내용 안 표: 칸 폭 조절 (경계 끌기 · 방향키 0.5mm, Shift 5mm · 두 번 누르면 자동)
+     머리글이 같은 표는 같은 폭을 씀 → 다음 날 붙여넣어도 그대로
+     ------------------------------------------------------------------ */
+  var rzLayer = $('#rzLayer'), rzTip = $('#rzTip'), rzPool = [];
+  var PX_MM = 96 / 25.4, HW = 10, MDT_MIN_MM = 6, SNAP_MM = 1.5, curZoom = 1, holdFont = false;
+  function setBox(el, x, y, w, h) { el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.width = w + 'px'; el.style.height = h + 'px'; }
+  function box(el) {                       // docBody 안에서의 위치·크기 (미리보기 배율을 뺀 크기)
+    var r = el.getBoundingClientRect(), b = docBody.getBoundingClientRect();
+    return { x: (r.left - b.left) / curZoom, y: (r.top - b.top) / curZoom, w: r.width / curZoom, h: r.height / curZoom };
+  }
+  function mdtTables() { return Array.prototype.slice.call(flow.querySelectorAll('table.mdt')); }
+  function mdtCells(t) { return Array.prototype.map.call(t.rows[0].cells, box); }
+  function placeMdtHandles() {
+    var n = 0;
+    if (appMode === 'edit') {
+      mdtTables().forEach(function (t, ti) {
+        if (!t.rows.length) return;
+        var cs = mdtCells(t), tb = box(t);
+        for (var j = 0; j + 1 < cs.length; j++) {
+          var el = rzPool[n];
+          if (!el) {
+            el = document.createElement('div');
+            el.className = 'rz';
+            el.tabIndex = 0;
+            el.setAttribute('role', 'separator');
+            el.title = '좌우로 끌어 표 칸 폭 조정 · 누른 뒤 방향키 0.5mm(Shift 5mm) · Alt 누르고 끌면 붙지 않음 · 두 번 누르면 자동';
+            rzLayer.appendChild(el);
+            rzPool.push(el);
+          }
+          el.style.display = '';
+          el.setAttribute('data-t', ti);
+          el.setAttribute('data-j', j);
+          el.setAttribute('data-key', t.getAttribute('data-key'));
+          el.rzPos = cs[j].x + cs[j].w;
+          setBox(el, el.rzPos - HW / 2, tb.y, HW, tb.h);
+          n++;
+        }
+      });
+    }
+    for (; n < rzPool.length; n++) rzPool[n].style.display = 'none';
+  }
+  function mdtFracs(t, key) {
+    var cs = mdtCells(t), fr = state.style.mdtCols[key];
+    if (fr && fr.length === cs.length) return fr.slice();
+    var tot = cs.reduce(function (a, c) { return a + c.w; }, 0);
+    return cs.map(function (c) { return c.w / tot; });
+  }
+  function moveMdt(el, pos, snap) {
+    var t = mdtTables()[+el.getAttribute('data-t')];
+    if (!t) return;
+    var key = el.getAttribute('data-key'), j = +el.getAttribute('data-j'), tb = box(t), fr = mdtFracs(t, key), n = fr.length, before = 0;
+    for (var i = 0; i < j; i++) before += fr[i];
+    var pair = fr[j] + fr[j + 1];
+    if (snap) {
+      var cands = [tb.x + (before + pair / 2) * tb.w, tb.x + tb.w * (j + 1) / n], best = null;
+      cands.forEach(function (c) { var d = Math.abs(c - pos); if (d <= SNAP_MM * PX_MM && (!best || d < best.d)) best = { d: d, c: c }; });
+      if (best) pos = best.c;
+    }
+    var val = (pos - tb.x) / tb.w - before, mf = Math.min(pair / 2, MDT_MIN_MM * PX_MM / tb.w);
+    val = clamp(val, mf, pair - mf);
+    fr[j] = val; fr[j + 1] = pair - val;
+    state.style.mdtCols[key] = fr;
+  }
+  function showRzTip(el, cx, cy) {
+    var t = mdtTables()[+el.getAttribute('data-t')];
+    if (!t) return;
+    var j = +el.getAttribute('data-j'), cells = t.rows[0].cells, cs = mdtCells(t);
+    var nm = function (k) { var x = (cells[k].textContent || '').trim(); return x ? (x.length > 8 ? x.slice(0, 8) + '…' : x) : (k + 1) + '칸'; };
+    rzTip.textContent = nm(j) + ' ' + (cs[j].w / PX_MM).toFixed(1) + ' mm  |  ' + nm(j + 1) + ' ' + (cs[j + 1].w / PX_MM).toFixed(1) + ' mm';
+    rzTip.hidden = false;
+    rzTip.style.left = Math.max(4, Math.min(window.innerWidth - rzTip.offsetWidth - 8, cx + 14)) + 'px';
+    rzTip.style.top = Math.max(4, Math.min(window.innerHeight - rzTip.offsetHeight - 8, cy + 16)) + 'px';
+  }
+  var rzUndo = null, nudgeTimer = 0;
+  function beginResize() { if (rzUndo == null) rzUndo = JSON.stringify(state.style.mdtCols); holdFont = true; }
+  function finishResize(msg) {
+    clearTimeout(nudgeTimer);
+    holdFont = false;
+    var before = rzUndo;
+    rzUndo = null;
+    rzTip.hidden = true;
+    renderPreview();
+    if (before != null && before !== JSON.stringify(state.style.mdtCols)) {
+      changed();
+      toast(msg || '표 칸 폭을 바꿨습니다. 머리글이 같은 표는 다음에도 이 폭으로 나옵니다.', { label: '되돌리기', fn: function () { state.style.mdtCols = JSON.parse(before); changed(true); } });
+    }
+  }
+  var mdrag = null, mdragRaf = 0, mdragPt = null;
+  rzLayer.addEventListener('pointerdown', function (e) {
+    var el = e.target.closest('.rz');
+    if (!el || e.button !== 0) return;
+    e.preventDefault();
+    try { el.focus({ preventScroll: true }); } catch (err) { el.focus(); }
+    try { el.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
+    mdrag = { el: el };
+    beginResize();
+    el.classList.add('active');
+    document.body.classList.add('resizing');
+  });
+  rzLayer.addEventListener('pointermove', function (e) {
+    if (!mdrag) return;
+    mdragPt = { x: e.clientX, y: e.clientY, alt: e.altKey };
+    if (!mdragRaf) mdragRaf = requestAnimationFrame(applyMdtDrag);
+  });
+  function applyMdtDrag() {
+    mdragRaf = 0;
+    if (!mdrag || !mdragPt) return;
+    moveMdt(mdrag.el, (mdragPt.x - docBody.getBoundingClientRect().left) / curZoom, !mdragPt.alt);
+    renderPreview();
+    showRzTip(mdrag.el, mdragPt.x, mdragPt.y);
+  }
+  function endMdtDrag() {
+    if (!mdrag) return;
+    if (mdragRaf) { cancelAnimationFrame(mdragRaf); applyMdtDrag(); }
+    mdrag.el.classList.remove('active');
+    document.body.classList.remove('resizing');
+    mdrag = null; mdragPt = null;
+    finishResize();
+  }
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) { rzLayer.addEventListener(ev, endMdtDrag); });
+  rzLayer.addEventListener('keydown', function (e) {
+    var el = e.target.closest('.rz');
+    if (!el) return;
+    if (e.key === 'Escape') { el.blur(); return; }
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    beginResize();
+    moveMdt(el, el.rzPos + (e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 5 : 0.5) * PX_MM, false);
+    renderPreview();
+    var r = el.getBoundingClientRect();
+    showRzTip(el, r.left + r.width / 2, r.top + 20);
+    clearTimeout(nudgeTimer);
+    nudgeTimer = setTimeout(function () { finishResize(); }, 900);
+  });
+  rzLayer.addEventListener('dblclick', function (e) {
+    var el = e.target.closest('.rz');
+    if (!el) return;
+    beginResize();
+    delete state.style.mdtCols[el.getAttribute('data-key')];
+    finishResize('표 칸 폭을 자동으로 되돌렸습니다.');
   });
 
   /* 미리보기에서 부서 클릭 → 해당 입력칸으로 (링크는 그대로 열림) */
@@ -2631,7 +2831,7 @@ body.locked > *:not(.lock) { display: none !important; }
     if (filled.length !== 1 || !row[0]) return null;
     var t = row[0].trim();
     if ((m = /^#(?!#)\s*(.+)$/.exec(t))) return m[1].trim();
-    if ((m = /^\[(.+)\]$/.exec(t))) return m[1].trim();
+    if ((m = /^\[(?!\[)(.+)\]$/.exec(t))) return m[1].trim();
     if (t.length > 30 || !findDeptByName(t)) return null;
     for (var k = r + 1; k < grid.length; k++) if (grid[k].some(Boolean)) return isSchedHeaderRow(grid[k]) ? t : null;
     return null;
