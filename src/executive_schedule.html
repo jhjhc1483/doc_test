@@ -780,15 +780,15 @@ body.locked > *:not(.lock) { display: none !important; }
 
   /* 맨 밑 표 4개: 표마다 한 줄, 칸 수는 고정 */
   var TABLES = [
-    { label: '인접회사활동', n: 5, heads: true, headPh: '회사명', textPh: '10:00 사장 주간회의' },
-    { label: '휴가', n: 1, textPh: '상무 한소영 오전 반차' },
-    { label: '출장/방문', n: 1, textPh: '부사장 박서연: 부산지사 (14:00~17:00)' },
-    { label: '근무', n: 2, heads: true, headPh: '칸 제목(선택)', textPh: '총무팀 과장' }
+    { label: '인접회사활동', n: 5, heads: true, headPh: '회사명' },
+    { label: '휴가', n: 1 },
+    { label: '출장/방문', n: 1 },
+    { label: '근무', n: 2, heads: true, headPh: '칸 제목(선택)' }
   ];
   function defaultTables() {
     return TABLES.map(function (d) {
       var cells = [];
-      for (var j = 0; j < d.n; j++) cells.push({ head: d.n === 5 ? String.fromCharCode(65 + j) + '사' : '', text: '' });
+      for (var j = 0; j < d.n; j++) cells.push({ head: '', text: '' });
       return { label: d.label, cells: cells };
     });
   }
@@ -803,81 +803,40 @@ body.locked > *:not(.lock) { display: none !important; }
 
   function defaultDoc() { return { title: '일일 예정사항', date: todayISO(), subtitle: '', footer: '' }; }
 
-  function sampleState() {
-    var E = function (pos, name, sched, ref) { return { pos: pos, name: name, sched: sched.join('\n'), ref: ref.join('\n') }; };
+  function sampleState() {          // 처음 열 때: 직위·성명만, 일정·참고·맨 밑 표는 비움
+    var E = function (pos, name) { return { pos: pos, name: name, sched: '', ref: '' }; };
     return {
       doc: defaultDoc(),
       style: clone(DEFAULT_STYLE),
       execs: [
-        E('부사장', '이정훈', [
-          '09:00 인사위원회 @소회의실',
-          '* 하반기 승진 심사',
-          '10:00 주간 경영회의 @대회의실',
-          '13:30 감사팀 업무보고',
-          '15:00 외부 감사인 미팅 @접견실'
-        ], ['16:00 이후 사내 대기']),
-        E('부사장', '박서연', [
-          '08:30 임원 조찬 간담회 @20층 라운지',
-          '10:00 주간 경영회의 @대회의실',
-          '14:00~17:00 영업 현장 점검 (부산지사)',
-          '* 동행: 영업본부장, 영남지역팀장'
-        ], ['현장 점검 후 직퇴']),
-        E('전무', '최영호', [
-          '10:00 주간 경영회의 @대회의실',
-          '11:00 신사업 TF 회의',
-          '* 2027년 신규 진출 시장 검토',
-          '15:00 협력사 대표 면담 @접견실'
-        ], []),
-        E('대표이사', '김민수', [
-          '08:30 임원 조찬 간담회 @20층 라운지',
-          '* 참석: 부사장 이하 임원 전원',
-          '10:00 주간 경영회의 @대회의실',
-          '- 안건: 4분기 실적 전망, 2027년 사업계획 방향',
-          '11:30 신규 고객사 대표 접견 @접견실',
-          '12:00 오찬 (고객사 대표)',
-          '14:00 노사협의회 정기회의 @3층 회의실',
-          '* 노측 6명, 사측 6명',
-          '16:00 투자심의위원회 @대회의실',
-          '* 안건: 제2공장 설비 증설 (!!승인 필요!!)',
-          '17:30 결재',
-          '19:00 업계 CEO 만찬'
-        ], ['11/10(화) 싱가포르 출장 (08:00 인천 출발)']),
-        E('전무', '정다은', [
-          '09:30 재무팀 자금 현황 보고',
-          '10:00 주간 경영회의 @대회의실',
-          '14:00 주거래 은행 미팅 @외부'
-        ], ['오후 외부 일정 후 복귀']),
-        E('상무', '강태준', [
-          '종일 해외 바이어 상담 (서울사무소)',
-          '* 베트남 바이어 3개사'
-        ], ['10:00 경영회의 불참 (정다은 전무 대리 보고)']),
-        E('상무', '윤지훈', [
-          '10:00 주간 경영회의 @대회의실',
-          '13:00 연구소 과제 점검 @기술연구소',
-          '* 하반기 중점과제 5건',
-          '16:30 품질 회의'
-        ], []),
-        E('상무', '한소영', [
-          '09:00 홍보 전략 회의',
-          '11:00 언론사 인터뷰 @홍보실',
-          '* 주제: 친환경 경영',
-          '15:00 사회공헌 위원회'
-        ], ['내일 오전 반차'])
+        E('부사장', '이정훈'),
+        E('부사장', '박서연'),
+        E('전무', '최영호'),
+        E('대표이사', '김민수'),
+        E('전무', '정다은'),
+        E('상무', '강태준'),
+        E('상무', '윤지훈'),
+        E('상무', '한소영')
       ],
-      tables: [
-        { label: '인접회사활동', cells: [
-          { head: 'A사', text: '10:00 사장 주간회의\n14:00 노사협의회' },
-          { head: 'B사', text: '임원 워크숍 (1박 2일)' },
-          { head: 'C사', text: '특이사항 없음' },
-          { head: 'D사', text: '15:00 신제품 발표회\n* 본사 강당' },
-          { head: 'E사', text: '11:00 대표 언론 인터뷰' }
-        ] },
-        { label: '휴가', cells: [{ head: '', text: '상무 한소영 (11/10 오전 반차) · 기획팀장 (11/9~11/11 연차)' }] },
-        { label: '출장/방문', cells: [{ head: '', text: '부사장 박서연: 부산지사 현장 점검 (14:00~17:00) · 상무 강태준: 서울사무소 (종일)' }] },
-        { label: '근무', cells: [{ head: '당직', text: '총무팀 과장 (18:00~익일 09:00)' }, { head: '비상대기', text: '비서실장' }] }
-      ]
+      tables: defaultTables()
     };
   }
+  /* 예전에 처음 열 때 들어 있던 예시 내용 — 자동저장·양식 파일에 그대로 남아 있으면 열 때 비움 */
+  var OLD_SAMPLE = {"execs": [["09:00 인사위원회 @소회의실\n* 하반기 승진 심사\n10:00 주간 경영회의 @대회의실\n13:30 감사팀 업무보고\n15:00 외부 감사인 미팅 @접견실", "16:00 이후 사내 대기"], ["08:30 임원 조찬 간담회 @20층 라운지\n10:00 주간 경영회의 @대회의실\n14:00~17:00 영업 현장 점검 (부산지사)\n* 동행: 영업본부장, 영남지역팀장", "현장 점검 후 직퇴"], ["10:00 주간 경영회의 @대회의실\n11:00 신사업 TF 회의\n* 2027년 신규 진출 시장 검토\n15:00 협력사 대표 면담 @접견실", ""], ["08:30 임원 조찬 간담회 @20층 라운지\n* 참석: 부사장 이하 임원 전원\n10:00 주간 경영회의 @대회의실\n- 안건: 4분기 실적 전망, 2027년 사업계획 방향\n11:30 신규 고객사 대표 접견 @접견실\n12:00 오찬 (고객사 대표)\n14:00 노사협의회 정기회의 @3층 회의실\n* 노측 6명, 사측 6명\n16:00 투자심의위원회 @대회의실\n* 안건: 제2공장 설비 증설 (!!승인 필요!!)\n17:30 결재\n19:00 업계 CEO 만찬", "11/10(화) 싱가포르 출장 (08:00 인천 출발)"], ["09:30 재무팀 자금 현황 보고\n10:00 주간 경영회의 @대회의실\n14:00 주거래 은행 미팅 @외부", "오후 외부 일정 후 복귀"], ["종일 해외 바이어 상담 (서울사무소)\n* 베트남 바이어 3개사", "10:00 경영회의 불참 (정다은 전무 대리 보고)"], ["10:00 주간 경영회의 @대회의실\n13:00 연구소 과제 점검 @기술연구소\n* 하반기 중점과제 5건\n16:30 품질 회의", ""], ["09:00 홍보 전략 회의\n11:00 언론사 인터뷰 @홍보실\n* 주제: 친환경 경영\n15:00 사회공헌 위원회", "내일 오전 반차"]], "cells": [[["A사", "10:00 사장 주간회의\n14:00 노사협의회"], ["B사", "임원 워크숍 (1박 2일)"], ["C사", "특이사항 없음"], ["D사", "15:00 신제품 발표회\n* 본사 강당"], ["E사", "11:00 대표 언론 인터뷰"]], [["", "상무 한소영 (11/10 오전 반차) · 기획팀장 (11/9~11/11 연차)"]], [["", "부사장 박서연: 부산지사 현장 점검 (14:00~17:00) · 상무 강태준: 서울사무소 (종일)"]], [["당직", "총무팀 과장 (18:00~익일 09:00)"], ["비상대기", "비서실장"]]]};
+  function clearOldSample(st) {
+    st.execs.forEach(function (e) {
+      OLD_SAMPLE.execs.forEach(function (o) { if (o[0] && e.sched === o[0]) { e.sched = ''; if (e.ref === o[1]) e.ref = ''; } });
+    });
+    st.tables.forEach(function (t, k) {
+      t.cells.forEach(function (c, j) {
+        var o = (OLD_SAMPLE.cells[k] || [])[j];
+        if (o && c.head === o[0] && c.text === o[1]) { c.head = ''; c.text = ''; }                // 손대지 않은 예시 칸 (예: A사 / 10:00 사장 주간회의)
+        else if (k === 0 && !c.text && c.head === String.fromCharCode(65 + j) + '사') c.head = '';   // 예전 기본 회사명 A사~E사
+      });
+    });
+    return st;
+  }
+
 
   function normalizeState(s) {
     s = s && typeof s === 'object' ? s : {};
@@ -934,7 +893,7 @@ body.locked > *:not(.lock) { display: none !important; }
         ref: String(e.ref == null ? '' : e.ref).replace(/\r\n?/g, '\n')
       });
     }
-    return out;
+    return clearOldSample(out);
   }
 
   /* ------------------------------------------------------------------
@@ -1748,7 +1707,7 @@ body.locked > *:not(.lock) { display: none !important; }
         '<button type="button" class="icon-btn" data-act="up" title="앞 자리와 바꾸기"' + (i === 0 ? ' disabled' : '') + '>▲</button>' +
         '<button type="button" class="icon-btn" data-act="down" title="뒤 자리와 바꾸기"' + (i === N - 1 ? ' disabled' : '') + '>▼</button>' +
       '</div>' +
-      '<textarea class="f-sched" data-f="sched" spellcheck="false" aria-label="' + (i + 1) + '번 칸 일정" placeholder="09:00 주간 업무회의 @대회의실&#10;* 참석: 본부장 이상&#10;14:00~16:00 현장 점검">' + esc(ex.sched) + '</textarea>' +
+      '<textarea class="f-sched" data-f="sched" spellcheck="false" aria-label="' + (i + 1) + '번 칸 일정">' + esc(ex.sched) + '</textarea>' +
       '<label class="ref-row"><span class="ref-mk" title="칸 맨 밑 참고">※</span>' +
         '<textarea class="f-ref" data-f="ref" rows="1" spellcheck="false" aria-label="' + (i + 1) + '번 칸 참고" placeholder="참고 (한 줄마다 ※가 붙어 칸 맨 밑에 인쇄됩니다)">' + esc(ex.ref) + '</textarea></label>' +
       '<div class="ex-sum' + (sm.warn ? ' warn' : '') + '" data-sum>' + esc(SLOTS[i].label) + ' · ' + esc(sm.text) + '</div>' +
@@ -1776,7 +1735,7 @@ body.locked > *:not(.lock) { display: none !important; }
           t.cells.map(function (c, j) {
             return '<div class="xt-cell" data-c="' + j + '">' +
               (d.heads ? '<input type="text" class="xt-head" data-x="head" value="' + esc(c.head) + '" placeholder="' + esc(d.headPh) + '" aria-label="' + esc(d.label) + ' ' + (j + 1) + '번째 칸 제목">' : '') +
-              '<textarea data-x="text" rows="1" spellcheck="false" placeholder="' + esc(d.textPh) + '" aria-label="' + esc(d.label) + ' ' + (j + 1) + '번째 칸 내용">' + esc(c.text) + '</textarea></div>';
+              '<textarea data-x="text" rows="1" spellcheck="false" aria-label="' + esc(d.label) + ' ' + (j + 1) + '번째 칸 내용">' + esc(c.text) + '</textarea></div>';
           }).join('') + '</div>';
       }).join('') +
       '<p class="hint">칸마다 여러 줄을 쓸 수 있습니다. <code>10:00 회의</code>처럼 시간으로 시작하면 시간이 굵게, <code>* </code>로 시작하면 작은 글씨입니다. 표 이름·회사명도 고칠 수 있고, 근무 칸 제목은 비워 두면 제목 줄 없이 나옵니다.</p>';
