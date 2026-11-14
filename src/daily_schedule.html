@@ -499,8 +499,8 @@ body.locked > *:not(.lock) { display: none !important; }
             <div class="grid2">
               <label class="fld span2"><span>제목</span><input type="text" data-bind="doc.title"></label>
               <label class="fld"><span>날짜</span><input type="date" data-bind="doc.date"></label>
-              <label class="fld"><span>작성 부서·부제 (선택)</span><input type="text" data-bind="doc.subtitle" placeholder="예: 기획조정실"></label>
-              <label class="fld span2"><span>하단 문구 (선택)</span><input type="text" data-bind="doc.footer" placeholder="예: ※ 일정 변경 시 기획조정과(내선 1234)로 알려 주세요."></label>
+              <label class="fld"><span>왼쪽 위 문구</span><input type="text" data-bind="doc.subtitle"></label>
+              <label class="fld span2"><span>하단 문구</span><input type="text" data-bind="doc.footer" placeholder="비워 두면 인쇄되지 않습니다"></label>
             </div>
           </section>
           <section class="panel">
@@ -914,6 +914,8 @@ body.locked > *:not(.lock) { display: none !important; }
     var out = { version: 1, savedAt: +s.savedAt || 0 };
     out.doc = Object.assign(defaultDoc(), s.doc || {});
     ['title', 'date', 'subtitle', 'footer'].forEach(function (k) { out.doc[k] = String(out.doc[k] == null ? '' : out.doc[k]); });
+    if (out.doc.subtitle === '○○○○실') out.doc.subtitle = '';                                   // 예전 예시 내용 → 빈칸
+    if (out.doc.footer === '※ 일정이 바뀌면 기획조정과(내선 1234)로 알려 주시기 바랍니다.') out.doc.footer = '';
     out.style = Object.assign({}, DEFAULT_STYLE, s.style || {});
     delete out.style.showApproval; delete out.style.approvalLabels;      // 예전 결재란 설정 (없앰)
     Object.keys(NUM_RANGE).forEach(function (k) {
@@ -956,8 +958,7 @@ body.locked > *:not(.lock) { display: none !important; }
   function sampleState() {
     return {
       doc: {
-        title: '부서별 일일 예정사항', date: todayISO(), subtitle: '○○○○실',
-        footer: '※ 일정이 바뀌면 기획조정과(내선 1234)로 알려 주시기 바랍니다.'
+        title: '부서별 일일 예정사항', date: todayISO(), subtitle: '', footer: ''
       },
       style: {},
       departments: [

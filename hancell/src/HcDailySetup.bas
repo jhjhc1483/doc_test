@@ -256,8 +256,8 @@ Private Sub SetupInput(ByVal ws As Object)
     Lbl ws, "B7", "날짜", False, 9, COL_GRAY: Inp ws, "C7:D7", Date, "d_date", False
     ws.Range("C7").NumberFormat = "yyyy-mm-dd"
     ws.Range("C7").HorizontalAlignment = XL_LEFT
-    Lbl ws, "E7:F7", "작성 부서·부제", False, 9, COL_GRAY: Inp ws, "G7:M7", "○○○○실", "d_sub"
-    Lbl ws, "B8", "하단 문구", False, 9, COL_GRAY: Inp ws, "C8:M8", "※ 일정이 바뀌면 기획조정과(내선 1234)로 알려 주시기 바랍니다.", "d_foot"
+    Lbl ws, "E7:F7", "왼쪽 위 문구", False, 9, COL_GRAY: Inp ws, "G7:M7", "", "d_sub"
+    Lbl ws, "B8", "하단 문구", False, 9, COL_GRAY: Inp ws, "C8:M8", "", "d_foot"
     ws.Range("C6:M8").Rows.RowHeight = 20
     Lbl ws, "B10:M10", "매일 하는 일", True, 11
     steps = Array("1. 처음 한 번 [공동편집용 엑셀 양식 만들기]로 부서마다 시트가 있는 .xlsx를 만들어 두레이에 올립니다.", _
