@@ -298,6 +298,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 
 /* 예정사항 칸을 좌우 2칸으로 (일정을 알아서 나눠 담음) */
 .sched td.half-a { border-right-color: #c4c4c4; }
+/* 표를 두 칸에 걸쳐 넓게: 한 부서 안에서 좌우 2칸 줄과 넓은 표 줄이 번갈아 나옴 */
+.sched tbody.unit tr.more > :first-child { border-left: 1px solid #8a8a8a; }
+.sched tbody.unit tr:not(:last-child) > td.cont { border-bottom-color: #c4c4c4; }
+.dblk > .seg-wide { padding-left: .2em; margin-top: calc(var(--gap) + .2em); }
+.dblk > .halves + .halves { margin-top: calc(var(--gap) + .2em); }
 .halves { display: flex; }
 .halves > .half-a, .halves > .half-b { flex: 1 1 0; min-width: 0; }
 .halves > .half-b { border-left: 1px solid #c4c4c4; padding-left: .7em; margin-left: .7em; }
@@ -342,6 +347,9 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .rz:focus { outline: none; }
 .rz:focus::after { background: #e8590c; }
 body.resizing, body.resizing * { user-select: none; cursor: col-resize !important; }
+.rz-wide { position: absolute; pointer-events: auto; font: 600 11px/1 var(--ui-font); color: #2257c5; background: #fff; border: 1px solid #9db8f0; border-radius: 10px; padding: 3px 8px; cursor: pointer; white-space: nowrap; opacity: .35; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.doc-body:hover .rz-wide { opacity: .85; }
+.rz-wide:hover, .rz-wide:focus-visible { opacity: 1; background: #e6eeff; outline: none; }
 .rz-tip { position: fixed; z-index: 120; pointer-events: none; background: #222b36; color: #fff; font: 12px/1.4 var(--ui-font); padding: 4px 9px; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.25); white-space: pre; }
 .rz-tip[hidden] { display: none; }
 /* 형광펜 */
@@ -530,7 +538,15 @@ body.locked > *:not(.lock) { display: none !important; }
                 <option value="none">한 칸</option>
               </select>
             </div>
-            <p class="hint" style="margin-top:0">일정이 하나뿐이거나 넓은 표(열 5개 이상)가 있는 부서는 두 칸을 합쳐 씁니다. 표는 제목과 함께 한 묶음으로 나눠 담습니다. 2단 레이아웃에서는 나누지 않습니다.</p>
+            <div class="set-row">
+              <span class="row-label">표 배치</span>
+              <select class="grow" data-bind="style.tableWide">
+                <option value="auto">자동 — 열 5개 이상인 표만 두 칸에 걸쳐 넓게</option>
+                <option value="all">모든 표를 두 칸에 걸쳐 넓게</option>
+                <option value="none">모든 표를 칸 안에 (일정과 함께 나눠 담기)</option>
+              </select>
+            </div>
+            <p class="hint" style="margin-top:0">좌우 2칸일 때: 일정은 왼쪽 → 오른쪽으로 나눠 담고, <b>넓게</b> 둔 표는 그 자리에서 두 칸에 걸쳐 들어갑니다. 표마다 따로 정하려면 미리보기에서 표 오른쪽 위 <b>[↔ 넓게] / [칸에 담기]</b>를 누르세요(머리글이 같은 표는 다음에도 그대로). 일정이 하나뿐이면 나누지 않고, 2단 레이아웃에서는 나누지 않습니다.</p>
             <div class="set-row">
               <span class="row-label">용지 방향</span>
               <div class="seg">
@@ -612,7 +628,7 @@ body.locked > *:not(.lock) { display: none !important; }
             <ol class="steps">
               <li><b>처음 한 번</b>: 부서마다 시트가 하나씩(시트 이름 = 부서명) 있는 한셀 파일을 씁니다. 서식은 입력 탭의 <b>[엑셀 양식 만들기]</b>로 받을 수 있습니다.</li>
               <li><b>매일 (각 부서)</b>: <b>자기 부서 시트에만</b> 씁니다. 한 줄에 일정 하나, <b>내용 / 날짜(괄호 안에 기입됨) / 비고(아스타로 표현) / 설명 / 링크(클릭하면 실행됨)</b> 칸에 나눠 씁니다. 시트 맨 위 A1에는 <code>#부서명</code>이 있습니다(양식에 들어 있음).</li>
-              <li><b>취합</b>: 모든 시트를 A1부터 그대로, 한 시트에 위에서부터 차례로 쌓습니다(시트 사이 한 줄 띄움). 시트마다 맨 앞이 <b>A열 한 칸 <code>#시트 이름</code></b> 줄이고, 그 아래가 머리글·내용(표 포함)입니다. 합친 범위를 복사해 <b>[붙여넣기]</b> 창이나 이 화면에서 <kbd>Ctrl</kbd>+<kbd>V</kbd> → 확인 창 → [가져오기].</li>
+              <li><b>취합</b>: 양식 맨 마지막 <b>합본</b> 시트가 모든 시트의 내용(표 포함)을 수식으로 자동으로 모읍니다. <b>합본 시트만</b> 전체 선택(<kbd>Ctrl</kbd>+<kbd>A</kbd>)·복사해 <b>[붙여넣기]</b> 창이나 이 화면에서 <kbd>Ctrl</kbd>+<kbd>V</kbd> → 확인 창 → [가져오기]. 시트 이름을 바꾸거나 지워도 합본이 알아서 맞추고, 새로 만든 시트는 합본 맨 위 <b>새로 만든 시트 이름</b> 칸에 이름을 적으면 들어갑니다. 각 시트 A1에는 <code>#시트 이름</code>이 수식으로 저절로 들어갑니다.</li>
               <li><b>인쇄</b>: [인쇄 / PDF]. 화면으로 돌려 보게 하려면 저장 ▾ → 배포용 보기 파일.</li>
             </ol>
             <h3>엑셀 칸 → 인쇄물</h3>
@@ -854,6 +870,8 @@ body.locked > *:not(.lock) { display: none !important; }
   var DEFAULT_STYLE = {
     layout: 'table',            // table | table2 | block | block2
     split: 'two',               // two | none  (예정사항 칸을 좌우 2칸으로)
+    tableWide: 'auto',          // auto(열 5개 이상만) | all | none — 좌우 2칸일 때 표를 두 칸에 걸쳐 넓게
+    mdtWide: {},                // 표마다 넓게(true)/칸 안에(false) — 머리글이 같은 표끼리 같음
     orientation: 'portrait',    // portrait | landscape
     font: 'malgun',
     autoFit: true,
@@ -906,6 +924,10 @@ body.locked > *:not(.lock) { display: none !important; }
       mc[key] = a.map(function (x) { return +x / sum; });
     });
     out.style.mdtCols = mc;
+    if (['auto', 'all', 'none'].indexOf(out.style.tableWide) < 0) out.style.tableWide = 'auto';
+    var mw = {}, srcW = out.style.mdtWide && typeof out.style.mdtWide === 'object' ? out.style.mdtWide : {};
+    Object.keys(srcW).forEach(function (key) { if (srcW[key] === true || srcW[key] === false) mw[key] = srcW[key]; });
+    out.style.mdtWide = mw;
     out.departments = (Array.isArray(s.departments) ? s.departments : []).map(function (d) {
       d = d || {};
       return {
@@ -1341,6 +1363,35 @@ body.locked > *:not(.lock) { display: none !important; }
     return groups;
   }
 
+  /* 표를 두 칸에 걸쳐 넓게 둘지: 표마다 정한 것 → 서식의 '표 배치' (자동: 열 5개 이상) */
+  function tableColsOf(b) { return Math.max(b.head ? b.head.length : 0, b.body.reduce(function (a, r) { return Math.max(a, r.length); }, 0)); }
+  function tableIsWide(b, st) {
+    var n = tableColsOf(b), o = st.mdtWide && st.mdtWide[mdtKey(b, n)];
+    if (o === true || o === false) return o;
+    return st.tableWide === 'all' ? true : st.tableWide === 'none' ? false : n > 4;
+  }
+  /* 좌우 2칸: 일정 묶음은 왼쪽 → 오른쪽으로, 넓은 표 묶음은 그 자리에서 두 칸에 걸쳐 (순서는 그대로) */
+  function splitSegments(u, groups, st) {
+    var segs = [], cur = null;
+    groups.forEach(function (g) {
+      if (g.some(function (b) { return b.t === 'table' && tableIsWide(b, st); })) { segs.push({ wide: true, gs: [g] }); cur = null; return; }
+      if (!cur) { cur = { wide: false, gs: [] }; segs.push(cur); }
+      cur.gs.push(g);
+    });
+    var anyWide = segs.some(function (sg) { return sg.wide; });
+    if (!anyWide) {                                   // 넓은 표가 없으면 지금처럼 (일정이 2묶음 이상일 때만 나눔)
+      if (groups.length >= 2) u.groups = groups.map(function (g) { return '<div class="grp">' + blocksHTML(g, st) + '</div>'; }).join('');
+      return;
+    }
+    u.segs = segs.map(function (sg) {
+      if (sg.wide || sg.gs.length < 2) {
+        var bl = []; sg.gs.forEach(function (g) { bl = bl.concat(g); });
+        return { wide: true, html: '<div class="md">' + blocksHTML(bl, st) + '</div>' };
+      }
+      return { wide: false, html: sg.gs.map(function (g) { return '<div class="grp">' + blocksHTML(g, st) + '</div>'; }).join('') };
+    });
+  }
+
   function buildUnits(st) {
     var halves = st.split === 'two' && !isTwoCol(st.layout);
     var list = [];
@@ -1353,9 +1404,7 @@ body.locked > *:not(.lock) { display: none !important; }
         html: '<div class="md">' + (parsed.blocks.length ? blocksHTML(parsed.blocks, st) : emptyHTML(st)) + '</div>',
         tip: tipTemplate(parsed.deptDetails, [])
       };
-      var wideTable = parsed.blocks.some(function (b) { return b.t === 'table' && Math.max(b.head ? b.head.length : 0, b.body.reduce(function (a, r) { return Math.max(a, r.length); }, 0)) > 4; });   // 열 5개 이상인 표는 반쪽 칸에 좁음
-      var groups = halves && !wideTable ? groupBlocks(parsed.blocks) : [];
-      if (groups.length >= 2) u.groups = groups.map(function (g) { return '<div class="grp">' + blocksHTML(g, st) + '</div>'; }).join('');
+      if (halves) splitSegments(u, groupBlocks(parsed.blocks), st);
       list.push(u);
     });
     return { units: list, halves: halves };
@@ -1369,6 +1418,18 @@ body.locked > *:not(.lock) { display: none !important; }
       if (st.showColHead) h += '<thead><tr><th>' + esc(st.colHead1) + '</th><th' + (hv ? ' colspan="2"' : '') + '>' + esc(st.colHead2) + '</th></tr></thead>';
       h += '<tbody>';
       list.forEach(function (u) {
+        if (u.segs) {                                 // 좌우 2칸 줄과 넓은 표 줄을 한 부서 안에 차례로 (부서 칸은 세로로 합침)
+          h += '</tbody><tbody class="unit" data-id="' + esc(u.id) + '">';
+          u.segs.forEach(function (sg, i) {
+            h += '<tr' + (i ? ' class="more"' : '') + '>' +
+              (i ? '' : '<td' + tipAttrs('dept', u.tip) + ' rowspan="' + u.segs.length + '">' + esc(u.name) + u.tip + '</td>') +
+              (sg.wide
+                ? '<td class="cont seg-wide" colspan="2">' + sg.html + '</td>'
+                : '<td class="cont half-a"><div class="md">' + sg.html + '</div></td><td class="cont half-b"><div class="md"></div></td>') + '</tr>';
+          });
+          h += '</tbody><tbody>';
+          return;
+        }
         h += '<tr class="unit" data-id="' + esc(u.id) + '"><td' + tipAttrs('dept', u.tip) + '>' + esc(u.name) + u.tip + '</td>' +
           (u.groups
             ? '<td class="cont half-a"><div class="md">' + u.groups + '</div></td><td class="cont half-b"><div class="md"></div></td>'
@@ -1377,7 +1438,12 @@ body.locked > *:not(.lock) { display: none !important; }
       return h + '</tbody></table>';
     }
     return list.map(function (u) {
-      var inner = u.groups
+      var inner = u.segs
+        ? u.segs.map(function (sg) {
+            return sg.wide ? '<div class="seg-wide">' + sg.html + '</div>'
+              : '<div class="halves"><div class="half-a"><div class="md">' + sg.html + '</div></div><div class="half-b"><div class="md"></div></div></div>';
+          }).join('')
+        : u.groups
         ? '<div class="halves"><div class="half-a"><div class="md">' + u.groups + '</div></div><div class="half-b"><div class="md"></div></div></div>'
         : u.html;
       return '<section class="unit dblk" data-id="' + esc(u.id) + '"><div' + tipAttrs('dname', u.tip) + '>' + esc(u.name) + u.tip + '</div>' + inner + '</section>';
@@ -2115,7 +2181,46 @@ body.locked > *:not(.lock) { display: none !important; }
       });
     }
     for (; n < rzPool.length; n++) rzPool[n].style.display = 'none';
+    placeWideButtons();
   }
+  /* 좌우 2칸일 때 표마다 [↔ 넓게] / [칸에 담기] (편집 화면에서만) */
+  var widePool = [];
+  function placeWideButtons() {
+    var n = 0;
+    if (appMode === 'edit' && curHalves) {
+      mdtTables().forEach(function (t) {
+        var inHalf = !!t.closest('.half-a, .half-b'), inWide = !!t.closest('.seg-wide');
+        if (!inHalf && !inWide) return;
+        var el = widePool[n];
+        if (!el) {
+          el = document.createElement('button');
+          el.type = 'button';
+          el.className = 'rz-wide';
+          rzLayer.appendChild(el);
+          widePool.push(el);
+        }
+        el.style.display = '';
+        el.textContent = inHalf ? '↔ 넓게' : '칸에 담기';
+        el.title = inHalf ? '이 표를 좌우 두 칸에 걸쳐 넓게 (머리글이 같은 표는 다음에도)' : '이 표를 일정과 함께 칸 안에 나눠 담기 (머리글이 같은 표는 다음에도)';
+        el.setAttribute('data-key', t.getAttribute('data-key'));
+        el.setAttribute('data-wide', inHalf ? '1' : '0');
+        var tb = box(t);
+        el.style.left = Math.max(0, tb.x + tb.w - el.offsetWidth) + 'px';
+        el.style.top = Math.max(0, tb.y - el.offsetHeight - 2) + 'px';
+        n++;
+      });
+    }
+    for (; n < widePool.length; n++) widePool[n].style.display = 'none';
+  }
+  rzLayer.addEventListener('click', function (e) {
+    var el = e.target.closest('.rz-wide');
+    if (!el) return;
+    var key = el.getAttribute('data-key'), want = el.getAttribute('data-wide') === '1', before = JSON.stringify(state.style.mdtWide);
+    state.style.mdtWide[key] = want;
+    changed(); renderPreview();
+    toast(want ? '이 표를 두 칸에 걸쳐 넓게 넣습니다. 머리글이 같은 표는 다음에도 그대로입니다.' : '이 표를 칸 안에 나눠 담습니다. 머리글이 같은 표는 다음에도 그대로입니다.',
+      { label: '되돌리기', fn: function () { state.style.mdtWide = JSON.parse(before); changed(true); } });
+  });
   function mdtFracs(t, key) {
     var cs = mdtCells(t), fr = state.style.mdtCols[key];
     if (fr && fr.length === cs.length) return fr.slice();
@@ -2447,7 +2552,7 @@ body.locked > *:not(.lock) { display: none !important; }
   /* ------------------------------------------------------------------
      시트(표) → 부서별 내용
      ------------------------------------------------------------------ */
-  var SKIP_SHEET = /^(작성\s*방법|작성\s*요령|작성\s*예시|안내|도움말|사용법|예시|목록|코드|설정|readme|guide|help)/i;
+  var SKIP_SHEET = /^(합본|작성\s*방법|작성\s*요령|작성\s*예시|안내|도움말|사용법|예시|목록|코드|설정|readme|guide|help)/i;
   function cellStr(v) { return String(v == null ? '' : v).split(NBSP).join(' ').replace(/\r\n?/g, '\n').trim(); }
   function isTimeLike(v) { return RE_TIME.test(v) || (/^0?\.\d+$/.test(v) && +v < 1); }
   function parseLooseDate(v) {
@@ -2976,7 +3081,8 @@ body.locked > *:not(.lock) { display: none !important; }
       row.forEach(function (cell, ci) {
         if (cell == null) return;
         var c = typeof cell === 'object' ? cell : { v: cell };
-        x += '<c r="' + colName(ci) + (ri + 1) + '"' + (c.s ? ' s="' + c.s + '"' : '') + ' t="inlineStr"><is><t xml:space="preserve">' + xesc(c.v) + '</t></is></c>';
+        if (c.f) x += '<c r="' + colName(ci) + (ri + 1) + '"' + (c.s ? ' s="' + c.s + '"' : '') + ' t="str"><f>' + xesc(c.f) + '</f><v>' + xesc(c.v == null ? '' : c.v) + '</v></c>';   // 수식 (v: 처음 값)
+        else x += '<c r="' + colName(ci) + (ri + 1) + '"' + (c.s ? ' s="' + c.s + '"' : '') + ' t="inlineStr"><is><t xml:space="preserve">' + xesc(c.v) + '</t></is></c>';
       });
       x += '</row>';
     });
@@ -3007,7 +3113,7 @@ body.locked > *:not(.lock) { display: none !important; }
       '</Types>' });
     files.push({ name: '_rels/.rels', data: XML_HEAD + '<Relationships xmlns="' + NS_PKG + '"><Relationship Id="rId1" Type="' + NS_REL + '/officeDocument" Target="xl/workbook.xml"/></Relationships>' });
     files.push({ name: 'xl/workbook.xml', data: XML_HEAD + '<workbook xmlns="' + NS_MAIN + '" xmlns:r="' + NS_REL + '"><bookViews><workbookView activeTab="' + Math.max(0, sheets.findIndex(function (s) { return s.active; })) + '"/></bookViews><sheets>' +
-      sheets.map(function (s, i) { return '<sheet name="' + xesc(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>'; }).join('') + '</sheets></workbook>' });
+      sheets.map(function (s, i) { return '<sheet name="' + xesc(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>'; }).join('') + '</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>' });
     files.push({ name: 'xl/_rels/workbook.xml.rels', data: XML_HEAD + '<Relationships xmlns="' + NS_PKG + '">' +
       sheets.map(function (s, i) { return '<Relationship Id="rId' + (i + 1) + '" Type="' + NS_REL + '/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>'; }).join('') +
       '<Relationship Id="rId' + (sheets.length + 1) + '" Type="' + NS_REL + '/styles" Target="styles.xml"/></Relationships>' });
@@ -3015,25 +3121,85 @@ body.locked > *:not(.lock) { display: none !important; }
     sheets.forEach(function (s, i) { files.push({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', data: sheetXml(s) }); });
     return zipStore(files, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   }
+  /* ------------------------------------------------------------------
+     합본 시트 (양식의 맨 마지막): 앞 시트들의 내용을 수식으로 모은다 → 이 시트만 복사해 붙여넣기
+     - 시트마다 A~끝 칸, 1~R줄을 INDEX(시트!$A:$H, 줄, 칸)으로 (줄 번호로 가져와서 시트 안에 줄을 넣거나 빼도 맞음)
+     - 시트 이름을 바꾸면 수식이 같이 바뀌고, 시트를 지우면 그 자리는 빈칸 (IFERROR)
+     - 새로 만든 시트는 맨 위 '새로 만든 시트 이름' 칸에 이름을 적으면 INDIRECT로 가져옴
+     - 이름 줄: 그 시트 A1의 "#이름" (A1 수식이 오류이거나 비면 처음 시트 이름, # 이 없으면 붙임)
+     ------------------------------------------------------------------ */
+  function hapbonSheet(srcs, R, C, spare) {
+    var lastCol = colName(C - 1);
+    var qs = function (nm) { return "'" + String(nm).replace(/'/g, "''") + "'"; };
+    var str = function (t) { return '"' + String(t).replace(/"/g, '""') + '"'; };
+    var F = function (f, v) { return { f: f, v: v == null ? '' : String(v) }; };
+    var cached = function (sh, r, c) {                 // 양식을 만들 때의 값 (열자마자 보이도록)
+      var row = sh.rows[r - 1] || [], cell = row[c - 1];
+      return cell == null ? '' : typeof cell === 'object' ? (cell.v == null ? '' : String(cell.v)) : String(cell);
+    };
+    var nameRow = function (a1, exists, fb, cachedV) {   // a1: 그 시트 A1 값, exists: 시트가 있으면 오류가 아닌 식, fb: 대신 쓸 "#이름" 식
+      return [F('IF(ISERROR(' + exists + '),"",IFERROR(IF(' + a1 + '="",' + fb + ',IF(LEFT(' + a1 + ',1)="#",' + a1 + ',"#"&' + a1 + ')),' + fb + '))', cachedV)];
+    };
+    var rows = [], warn = [];
+    rows.push([{ v: '#안내', s: 3 }]);
+    rows.push([{ v: '이 시트(합본)는 앞 시트들의 내용을 자동으로 모은 것입니다. 이 시트 전체를 골라(Ctrl+A) 복사(Ctrl+C)한 뒤 프로그램 화면에서 Ctrl+V 하세요. 이 시트에는 아무것도 쓰지 마세요.', s: 4 }]);
+    rows.push([{ v: '시트 이름을 바꾸거나 시트를 지워도 알아서 맞춰집니다. 시트마다 ' + R + '줄, A~' + lastCol + '칸까지 모읍니다(시트 안의 표 포함).', s: 4 }]);
+    var spareRow = [{ v: '새로 만든 시트 이름 →', s: 4 }];
+    for (var k = 0; k < spare; k++) spareRow.push({ v: '', s: 2 });
+    rows.push(spareRow);
+    var warnAt = rows.length;
+    rows.push([]);                                     // 확인 줄 (아래에서 채움)
+    rows.push([]);
+    srcs.forEach(function (sh) {
+      var rng = qs(sh.name) + '!$A:$' + lastCol, at = function (r, c) { return 'INDEX(' + rng + ',' + r + ',' + c + ')&""'; };
+      rows.push(nameRow(at(1, 1), 'INDEX(' + rng + ',2,1)', str('#' + sh.name), cached(sh, 1, 1) || '#' + sh.name));
+      for (var r = 2; r <= R; r++) {
+        var row = [];
+        for (var c = 1; c <= C; c++) row.push(F('IFERROR(' + at(r, c) + ',"")', cached(sh, r, c)));
+        rows.push(row);
+      }
+      rows.push([]);                                   // 시트 사이 한 줄
+      warn.push('IFERROR(IF(COUNTA(' + qs(sh.name) + '!$A$' + (R + 1) + ':$' + lastCol + '$3000)>0,' + str(sh.name + '(' + R + '줄 넘음) ') + ',""),"")');
+    });
+    for (k = 0; k < spare; k++) {
+      var ref = '$' + colName(k + 1) + '$' + (warnAt), ind = function (addr) { return 'INDIRECT("\'"&' + ref + '&"\'!' + addr + '")&""'; };
+      var nr = nameRow(ind('A1'), ind('A2'), '"#"&' + ref, '')[0];
+      nr.f = 'IF(' + ref + '="","",' + nr.f + ')';
+      rows.push([nr]);
+      for (var r2 = 2; r2 <= R; r2++) {
+        var row2 = [];
+        for (var c2 = 1; c2 <= C; c2++) row2.push(F('IF(' + ref + '="","",IFERROR(' + ind(colName(c2 - 1) + r2) + ',""))', ''));
+        rows.push(row2);
+      }
+      rows.push([]);
+      warn.push('IF(' + ref + '="","",IFERROR(IF(COUNTA(INDIRECT("\'"&' + ref + '&"\'!A' + (R + 1) + ':' + lastCol + '3000"))>0,' + ref + '&"(' + R + '줄 넘음) ",""),' + ref + '&"(없는 시트) "))');
+    }
+    var all = warn.join('&');
+    rows[warnAt] = [F('IF(' + all + '="","","⚠ 확인: "&' + all + ')', '')];
+    var widths = [44]; for (k = 1; k < C; k++) widths.push(18);
+    return { name: '합본', rows: rows, widths: widths, freeze: 0 };
+  }
   function makeExcelTemplate() {
     var depts = state.departments.filter(function (d) { return !d.hidden && d.name.trim(); });
     if (!depts.length) { toast('부서를 먼저 추가하세요.'); return; }
     var HEAD = ['내용', '날짜(괄호 안에 기입됨)', '비고(아스타로 표현)', '설명(마우스를 올리면 보임)', '링크(클릭하면 실행됨)'];
     var W = [56, 22, 26, 32, 30];
-    var NAME = function (v) { return [{ v: '#' + v, s: 3 }]; };     // 시트마다 A1에 "#시트 이름" (시트를 그대로 쌓으면 이름 줄이 됨)
+    var A1F = '"#"&MID(CELL("filename",A1),FIND("]",CELL("filename",A1))+1,99)';   // A1: "#" + 지금 시트 이름 (시트 이름을 바꾸면 같이 바뀜)
+    var NAME = function (v) { return [{ f: A1F, v: '#' + v, s: 3 }]; };     // 시트마다 A1에 "#시트 이름" (v: 수식을 계산하기 전 값)
     var H = function (arr) { return arr.map(function (v) { return { v: v, s: 1 }; }); };
     var B = function (arr) { return arr.map(function (v) { return { v: v, s: 2 }; }); };
     var G = function (v) { return [{ v: v, s: 4 }]; };
     var guide = [
       NAME('작성방법'),
       [{ v: '부서별 일일 예정사항 — 공동편집 양식', s: 3 }], [],
-      G('1. 자기 부서 시트에만 입력하세요. 맨 위 A1의 "#부서명"으로 부서를 찾으니 지우거나 바꾸지 마세요(시트 이름도 그대로).'),
+      G('1. 자기 부서 시트에만 입력하세요. 시트 이름 = 부서명입니다. A1에는 수식으로 "#시트 이름"이 저절로 들어가니(시트 이름을 바꾸면 같이 바뀜) 지우지 마세요.'),
       G('2. 2행 머리글 아래에 한 줄에 일정 하나씩 씁니다. 시간이 있으면 내용 앞에 09:00 또는 14:00~15:30처럼 씁니다(시간은 굵게 인쇄).'),
       G('3. 날짜(괄호 안에 기입됨) 칸에 쓴 것은 내용 뒤 괄호 안에 들어갑니다. 예: 예산안 제출 (11.14.)'),
       G('4. 세부 내용은 내용 칸 안에서 줄을 바꿔(Alt+Enter) 씁니다. "- "로 시작하면 하위 항목, "* "로 시작하면 작은 글씨입니다. 내용이 "* "로 시작하는 줄은 바로 위 일정에 붙습니다.'),
       G('5. 비고(아스타로 표현)는 일정 밑에 "*" 작은 글씨로 붙습니다. 설명은 화면에서 마우스를 올리면 보이는 팝업, 링크는 화면에서 누르면 열리는 주소입니다(설명·링크는 인쇄되지 않음).'),
       G('6. 표를 넣으려면 일정 아래 한 줄을 비우고, A열부터 표 제목(한 칸, 선택) → 표 머리글 → 표 내용 순서로 적습니다. 다음 빈 줄까지가 표입니다.'),
-      G('7. 다 쓰면 모든 시트를 A1부터 그대로, 한 시트에 위에서부터 차례로 쌓아(시트 사이 한 줄 띄움) 복사한 뒤 프로그램 화면에서 Ctrl+V 합니다.'),
+      G('7. 다 쓰면 맨 마지막 "합본" 시트만 전체 선택(Ctrl+A)·복사해 프로그램 화면에서 Ctrl+V 합니다. 합본은 모든 시트 내용(표 포함)을 자동으로 모읍니다.'),
+      G('8. 시트 이름을 바꾸거나 시트를 지워도 합본이 알아서 맞춥니다. 시트를 새로 만들면(다른 부서 시트를 복사하면 A1 수식도 따라옴) 합본 맨 위 "새로 만든 시트 이름" 칸에 그 시트 이름을 적으세요.'),
       [], [{ v: '예시', s: 3 }],
       H(HEAD),
       B(['09:00 주간 업무보고 회의 (본관 3층 대회의실)\n- 안건: 예산안 검토', '', '참석: 실장, 각 과장', '자료는 회의 전날 배포', 'http://intranet/board/123']),
@@ -3055,6 +3221,7 @@ body.locked > *:not(.lock) { display: none !important; }
       used[nm] = 1;
       sheets.push({ name: nm, rows: [NAME(nm), H(HEAD)], widths: W, freeze: 2, colStyle: 2, active: i === 0 });
     });
+    sheets.push(hapbonSheet(sheets.slice(1), 60, 8, 3));     // 맨 마지막: 합본 (이 시트만 복사해 붙여넣기)
     downloadBlob('일일예정_공동편집양식.xlsx', buildXlsx(sheets));
     toast('공동편집용 엑셀 양식을 저장했습니다: 일일예정_공동편집양식.xlsx (부서 ' + depts.length + '곳) — 두레이에 올려 함께 작성하세요.');
   }
