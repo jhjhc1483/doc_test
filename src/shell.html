@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>일일 예정사항</title>
+<!-- 합친 파일(일일예정사항.html)의 틀: 비밀번호 화면 한 번 + 위쪽 메뉴 + 두 화면(부서별·임원)을 따로 된 칸(iframe)에.
+     이 파일은 틀만 들어 있어 그대로 열면 화면이 없습니다. node tools/seal.mjs 가 src/의 두 화면을 묶어
+     암호화한 루트의 일일예정사항.html 을 만듭니다. -->
+<script id="embedded-daily" type="application/json">null</script>
+<script id="embedded-exec" type="application/json">null</script>
+<script id="embedded-only" type="application/json">null</script>
+<style id="page-rule">@page { size: A4 portrait; margin: 0; }</style>
+<style id="shell-style">
+/* 위쪽 메뉴 + 화면 칸 */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: #eceff3; color: #1d232b; overflow: hidden;
+  font-family: "맑은 고딕", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", "NanumGothic", "나눔고딕", sans-serif;
+  font-size: 13px;
+}
+.shell { display: flex; flex-direction: column; height: 100vh; }
+.shell-bar {
+  flex: none; display: flex; align-items: flex-end; gap: 2px;
+  height: 36px; padding: 0 10px; background: #26303c;
+}
+.shell-tab {
+  height: 30px; padding: 0 16px; border: 0; border-radius: 7px 7px 0 0;
+  background: transparent; color: #c3cad4; font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.shell-tab:hover { background: rgba(255,255,255,.08); color: #fff; }
+.shell-tab[aria-selected="true"] { background: #fff; color: #1d232b; }
+.shell-tab:focus-visible { outline: 2px solid #8fb3ff; outline-offset: -2px; }
+.shell-frames { flex: 1; position: relative; min-height: 0; }
+.shell-frames iframe {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; display: block;
+  background: #eceff3; visibility: hidden;
+}
+.shell-frames iframe.on { visibility: visible; }
+body.shell-only .shell-bar { display: none; }
+/* 브라우저 메뉴로 이 창 전체를 인쇄할 때: 지금 화면의 A4 한 장만 (보통은 화면 안 [인쇄 / PDF]·Ctrl+P가 그 화면만 인쇄) */
+@media print {
+  html, body { height: auto; overflow: visible; background: #fff; }
+  .shell { display: block; height: auto; }
+  .shell-bar { display: none !important; }
+  .shell-frames { position: static; }
+  .shell-frames iframe { display: none; }
+  .shell-frames iframe.on { display: block; position: static; visibility: visible; width: 210mm; height: 296.5mm; background: #fff; }
+  .shell-frames.landscape iframe.on { width: 297mm; height: 209.5mm; }
+}
+</style>
+<style id="lock-style">
+/* 비밀번호 잠금 화면 (맞는 비밀번호를 넣기 전에는 화면 코드가 실행되지 않음) */
+body.locked > *:not(.lock) { display: none !important; }
+.lock {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 200;
+  display: grid; place-items: center; padding: 16px; background: #eceff3;
+  font-family: "맑은 고딕", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+.lock[hidden] { display: none; }
+.lock.pw-dialog { background: rgba(20,26,34,.45); }
+.lock-box {
+  width: min(340px, 100%); background: #fff; border: 1px solid #dde1e7; border-radius: 10px;
+  padding: 22px 22px 18px; box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: #1d232b;
+}
+.lock-title { font-size: 16px; font-weight: 700; }
+.lock-desc { margin: 0; color: #5d6875; line-height: 1.55; }
+.lock-box label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5d6875; }
+.lock-box input { height: 34px; border: 1px solid #c6ccd5; border-radius: 6px; padding: 0 10px; font: inherit; font-size: 14px; color: #1d232b; }
+.lock-box input:focus { outline: 2px solid #2257c5; outline-offset: -1px; border-color: #2257c5; }
+.lock-msg { min-height: 18px; color: #c2362b; font-size: 12px; font-weight: 700; }
+.lock-btn { height: 34px; padding: 0 14px; border: 1px solid #2257c5; background: #2257c5; color: #fff; border-radius: 6px; font: inherit; font-weight: 700; cursor: pointer; }
+.lock-btn.sub { background: #fff; color: #1d232b; border-color: #c6ccd5; font-weight: 400; }
+.lock-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.lock-box.shake { animation: lockShake .35s; }
+@keyframes lockShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+@media print { body.locked { display: none; } .lock { display: none !important; } }
+</style>
+</head>
+<body class="locked">
+<div class="lock" id="lockScreen">
+  <form class="lock-box" id="lockForm" autocomplete="off">
+    <div class="lock-title" id="lockTitle"></div>
+    <p class="lock-desc">비밀번호를 넣어야 열립니다.</p>
+    <input type="password" id="lockPw" aria-label="비밀번호" placeholder="비밀번호" autocomplete="off">
+    <div class="lock-msg" id="lockMsg" role="alert"></div>
+    <button type="submit" class="lock-btn">열기</button>
+  </form>
+</div>
+<div class="lock pw-dialog" id="pwDialog" hidden>
+  <form class="lock-box" id="pwForm" autocomplete="off">
+    <div class="lock-title">비밀번호 바꾸기</div>
+    <p class="lock-desc">새 비밀번호로 다시 잠근 이 파일을 내려받습니다(부서별·임원 두 화면 함께). 받은 파일로 바꿔 쓰고 옛 파일은 지우세요(옛 파일은 옛 비밀번호로 계속 열립니다). 비밀번호를 잊으면 풀 방법이 없습니다.</p>
+    <label>지금 비밀번호<input type="password" id="pwOld" autocomplete="off"></label>
+    <label>새 비밀번호 (8자 이상, 영문과 숫자를 함께)<input type="password" id="pwNew" autocomplete="new-password"></label>
+    <label>새 비밀번호 확인<input type="password" id="pwNew2" autocomplete="new-password"></label>
+    <div class="lock-msg" id="pwMsg" role="alert"></div>
+    <div class="lock-actions"><button type="button" class="lock-btn sub" data-pw-close>취소</button><button type="submit" class="lock-btn">바꾸기</button></div>
+  </form>
+</div>
+<div class="lock pw-dialog" id="pwAsk" hidden>
+  <form class="lock-box" id="pwAskForm" autocomplete="off">
+    <div class="lock-title">다른 비밀번호로 잠긴 내용</div>
+    <p class="lock-desc" id="pwAskDesc"></p>
+    <input type="password" id="pwAskPw" aria-label="비밀번호" placeholder="비밀번호" autocomplete="off">
+    <div class="lock-msg" id="pwAskMsg" role="alert"></div>
+    <div class="lock-actions"><button type="button" class="lock-btn sub" data-ask-skip>건너뛰기</button><button type="submit" class="lock-btn">열기</button></div>
+  </form>
+</div>
+<div class="shell" id="shell">
+  <nav class="shell-bar" id="shellBar" role="tablist" aria-label="화면 고르기">
+    <button type="button" class="shell-tab" role="tab" data-app="daily" aria-selected="false" title="부서별 일일 예정사항">부서별 일일 예정사항</button>
+    <button type="button" class="shell-tab" role="tab" data-app="exec" aria-selected="false" title="임원 8명 일일 예정사항">임원 일일 예정사항</button>
+  </nav>
+  <div class="shell-frames" id="shellFrames"></div>
+</div>
+<script type="text/plain" id="app-code"></script>
+<script>
+/* 합친 파일: 비밀번호 잠금 + 암호화 + 위쪽 메뉴로 두 화면 고르기
+   - app-code 안에 두 화면(부서별·임원)의 화면·코드·꾸밈이 한 덩어리로 암호문(AES-256-GCM)으로 들어 있습니다.
+     비밀번호로 키를 만들어(PBKDF2-SHA256 60만 번) 풀리면 두 화면을 각자 따로 된 칸(iframe)에 띄웁니다.
+     칸이 따로라 두 화면의 이름(id)·꾸밈(CSS)·단축키·인쇄 설정이 섞이지 않습니다.
+   - 두 화면은 이 창의 열쇠(window.__docLock)를 같이 써서, 저장하는 것(자동저장, 보기·양식 파일 .html)도 같은 비밀번호로 잠급니다.
+   - 비밀번호를 바꾸면 새 비밀번호로 다시 잠근 이 파일을 내려받습니다. 비밀번호를 잊으면 풀 방법이 없습니다.
+   - 보기·양식 파일은 이 파일에 내용을 넣은 것입니다: embedded-daily / embedded-exec(잠긴 내용), embedded-only(보기 파일이면 그 화면만). */
+(function () {
+  'use strict';
+  var ITER = 600000, TAG = 'ENC1';
+  var APPS = ['daily', 'exec'];
+  var NAMES = { daily: '부서별 일일 예정사항', exec: '임원 일일 예정사항' };
+  var TAB_KEY = 'daily-schedule:shell-tab';
+  window.__PRISTINE_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;   // 손대기 전의 이 파일 (잠긴 상태 그대로)
+  function el(id) { return document.getElementById(id); }
+  try { localStorage.removeItem('doc-lock:' + document.title); } catch (err) { /* 예전 방식의 흔적 */ }
+
+  var subtle = window.crypto && window.crypto.subtle;
+  var te = new TextEncoder(), td = new TextDecoder();
+  function b64(u8) { var s = ''; for (var i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+  function unb64(s) { var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+  var RE_ENC = /^ENC1\.[A-Za-z0-9+\/]+=*\.\d+\.[A-Za-z0-9+\/]+=*\.[A-Za-z0-9+\/]+=*$/;
+  function isEnc(t) { return RE_ENC.test(String(t || '').trim()); }
+  function parse(t) { var p = String(t).trim().split('.'); return { salt: p[1], iter: +p[2], iv: unb64(p[3]), ct: unb64(p[4]) }; }
+  function derive(pw, salt, iter) {
+    return subtle.importKey('raw', te.encode(pw), 'PBKDF2', false, ['deriveKey']).then(function (base) {
+      return subtle.deriveKey({ name: 'PBKDF2', salt: unb64(salt), iterations: iter, hash: 'SHA-256' }, base,
+        { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    });
+  }
+  function encWith(k, text) {
+    var iv = window.crypto.getRandomValues(new Uint8Array(12));
+    return subtle.encrypt({ name: 'AES-GCM', iv: iv }, k.key, te.encode(text)).then(function (ct) {
+      return [TAG, k.salt, k.iter, b64(iv), b64(new Uint8Array(ct))].join('.');
+    });
+  }
+  function newKey(pw) {
+    var salt = b64(window.crypto.getRandomValues(new Uint8Array(16)));
+    return derive(pw, salt, ITER).then(function (key) { return { key: key, salt: salt, iter: ITER, pw: pw }; });
+  }
+  var cur = null;          // 지금 쓰는 키 { key, salt, iter, pw } — 메모리에만
+  var cache = {};
+  function keyOf(pw, env) {
+    if (cur && cur.pw === pw && cur.salt === env.salt && cur.iter === env.iter) return Promise.resolve(cur.key);
+    var id = env.salt + '|' + env.iter + '|' + pw;
+    return cache[id] || (cache[id] = derive(pw, env.salt, env.iter));
+  }
+  function decWith(key, env) { return subtle.decrypt({ name: 'AES-GCM', iv: env.iv }, key, env.ct).then(function (pt) { return td.decode(pt); }); }
+  function decryptPw(t, pw) { var env = parse(t); return keyOf(pw, env).then(function (key) { return decWith(key, env); }); }
+
+  /* 다른 비밀번호로 잠긴 것(예전 자동저장·보기 파일 등)을 열 때 그 비밀번호를 묻는다. 건너뛰면 null.
+     두 화면이 같이 물어도 하나씩 차례로 묻는다. */
+  var askQ = Promise.resolve();
+  function ask(t, what) {
+    var run = function () {
+      return new Promise(function (resolve) {
+        var box = el('pwAsk'), inp = el('pwAskPw'), msg = el('pwAskMsg');
+        el('pwAskDesc').textContent = what + '은(는) 다른 비밀번호로 잠겨 있습니다. 그 비밀번호를 넣어 주세요.';
+        inp.value = ''; msg.textContent = ''; box.hidden = false;
+        setTimeout(function () { inp.focus(); }, 0);
+        function done(v) { box.hidden = true; el('pwAskForm').onsubmit = null; box.onclick = null; resolve(v); focusApp(active); }
+        el('pwAskForm').onsubmit = function (e) {
+          e.preventDefault();
+          if (!inp.value) return;
+          msg.textContent = '여는 중…';
+          decryptPw(t, inp.value).then(done, function () { msg.textContent = '비밀번호가 맞지 않습니다.'; inp.select(); });
+        };
+        box.onclick = function (e) { if (e.target.hasAttribute('data-ask-skip')) done(null); };
+      });
+    };
+    var p = askQ.then(run);
+    askQ = p.catch(function () { /* 다음 질문 */ });
+    return p;
+  }
+
+  var rekeyFns = [];
+  window.__docLock = {
+    isEnc: isEnc,
+    /* 지금 비밀번호로 잠근 글 (Promise) */
+    encrypt: function (text) { return encWith(cur, String(text)); },
+    /* 잠긴 글이면 풀고(지금 비밀번호 → 안 되면 물어봄), 아니면 그대로. 건너뛰면 null (Promise) */
+    open: function (t, what) {
+      t = String(t || '');
+      if (!isEnc(t)) return Promise.resolve(t);
+      return decryptPw(t, cur.pw).catch(function () { return ask(t, what || '이 내용'); });
+    },
+    onRekey: function (fn) { rekeyFns.push(fn); }
+  };
+
+  /* 파일 안의 <script id=…> 사이 글 */
+  var CODE_OPEN = '<' + 'script type="text/plain" id="app-code">', CLOSE = '<' + '/script>';
+  function slotOpen(id) { return '<' + 'script id="' + id + '" type="application/json">'; }
+  var SLOT = { daily: slotOpen('embedded-daily'), exec: slotOpen('embedded-exec') }, ONLY_OPEN = slotOpen('embedded-only');
+  var ST_OPEN = slotOpen('embedded-state');      // 화면 하나짜리 문서(칸 안)의 내용 자리
+  function between(html, open) {
+    var s = html.indexOf(open), e = s < 0 ? -1 : html.indexOf(CLOSE, s + open.length);
+    return s < 0 || e < 0 ? null : { s: s + open.length, e: e, text: html.slice(s + open.length, e) };
+  }
+  function replaceIn(html, open, text) { var r = between(html, open); return r ? html.slice(0, r.s) + text + html.slice(r.e) : html; }
+  function slotText(html, open) { var r = between(html, open), t = r ? r.text.trim() : ''; return t && t !== 'null' ? t : ''; }
+
+  /* 보기·양식 파일: 이 파일(잠긴 원본)에 화면의 내용을 잠가서 넣음.
+     view = 그 화면만 열리는 읽기 파일(다른 화면 내용은 비움), tpl = 두 화면의 양식을 함께 넣은 매일 쓸 파일 */
+  var providers = {};
+  function makeFile(app, kind) {
+    var html = window.__PRISTINE_HTML;
+    var ids = kind === 'view' ? [app] : APPS.filter(function (a) { return !!providers[a]; });
+    var texts = ids.map(function (a) { try { return providers[a] ? providers[a](kind) : null; } catch (err) { return null; } });
+    return Promise.all(texts.map(function (t) { return t == null ? null : encWith(cur, t); })).then(function (sealed) {
+      ids.forEach(function (a, i) { if (sealed[i]) html = replaceIn(html, SLOT[a], sealed[i]); });
+      if (kind === 'view') APPS.forEach(function (a) { if (a !== app) html = replaceIn(html, SLOT[a], 'null'); });
+      return replaceIn(html, ONLY_OPEN, kind === 'view' ? JSON.stringify(app) : 'null');
+    });
+  }
+  /* 칸 안 화면이 시작할 때 부르는 것 (칸 안 문서의 첫 스크립트: window.__host = parent.__hostFor('daily')) */
+  window.__hostFor = function (app) {
+    return {
+      app: app,
+      path: location.pathname,            // 자동저장 이름에 씀 (칸 안에서는 주소가 about:srcdoc)
+      tplName: '일일예정사항_양식.html',
+      provide: function (fn) { providers[app] = fn; },        // fn(kind) → 보기·양식 파일에 넣을 내용(JSON 글)
+      makeFile: function (kind) { return makeFile(app, kind); }
+    };
+  };
+
+  /* 위쪽 메뉴 + 칸 */
+  var docs = null, frames = {}, active = '', only = '';
+  function frameDoc(app) {
+    var t = slotText(window.__PRISTINE_HTML, SLOT[app]);
+    return t ? replaceIn(docs[app], ST_OPEN, t) : docs[app];
+  }
+  function ensure(app) {
+    if (frames[app] || !docs || !docs[app]) return frames[app];
+    var f = document.createElement('iframe');
+    f.title = NAMES[app];
+    f.setAttribute('data-app', app);
+    el('shellFrames').appendChild(f);
+    f.srcdoc = frameDoc(app);
+    frames[app] = f;
+    return f;
+  }
+  function focusApp(app) {
+    var f = frames[app];
+    if (!f) return;
+    try { f.contentWindow.focus(); } catch (err) { /* 무시 */ }
+  }
+  function show(app) {
+    if (APPS.indexOf(app) < 0 || (only && app !== only)) return;
+    var f = ensure(app);
+    if (!f) return;
+    active = app;
+    APPS.forEach(function (a) {
+      if (frames[a]) frames[a].classList.toggle('on', a === app);
+      var tab = el('shellBar').querySelector('[data-app="' + a + '"]');
+      tab.setAttribute('aria-selected', a === app ? 'true' : 'false');
+      tab.tabIndex = a === app ? 0 : -1;
+    });
+    if (!only) { try { localStorage.setItem(TAB_KEY, app); } catch (err) { /* 무시 */ } }
+    focusApp(app);
+  }
+  el('shellBar').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-app]');
+    if (b) show(b.getAttribute('data-app'));
+  });
+  el('shellBar').addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    var i = APPS.indexOf(active), n = APPS[(i + (e.key === 'ArrowRight' ? 1 : APPS.length - 1)) % APPS.length];
+    e.preventDefault();
+    show(n);
+    el('shellBar').querySelector('[data-app="' + n + '"]').focus();
+  });
+  /* 지금 화면 인쇄: 그 화면의 [인쇄 / PDF] (그 칸만 A4로 인쇄) */
+  function printActive() {
+    var f = frames[active], b = null;
+    try { b = f && f.contentDocument.getElementById('btnPrint'); } catch (err) { b = null; }
+    if (b) b.click(); else window.print();
+  }
+  function isPrintKey(e) { return (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.code === 'KeyP' || e.key === 'p' || e.key === 'P'); }
+  document.addEventListener('keydown', function (e) {
+    if (document.body.classList.contains('locked')) return;
+    if (isPrintKey(e) && el('pwDialog').hidden && el('pwAsk').hidden) { e.preventDefault(); printActive(); }
+  });
+  /* 브라우저 메뉴로 이 창을 인쇄할 때: 지금 화면의 용지 방향을 따름 */
+  window.addEventListener('beforeprint', function () {
+    var f = frames[active], rule = '';
+    try { rule = f.contentDocument.getElementById('page-rule').textContent; } catch (err) { rule = ''; }
+    if (rule) el('page-rule').textContent = rule;
+    el('shellFrames').classList.toggle('landscape', /landscape/.test(rule));
+  });
+  /* 파일을 메뉴 위에 끌어다 놓아도 그 파일로 넘어가지 않게 */
+  function hasFiles(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0; }
+  window.addEventListener('dragover', function (e) { if (hasFiles(e)) e.preventDefault(); });
+  window.addEventListener('drop', function (e) { if (hasFiles(e)) e.preventDefault(); });
+
+  /* 열기 */
+  var payload = null;      // 풀린 두 화면 (비밀번호를 바꿀 때 다시 잠그려고)
+  var started = false;
+  function run(p) {
+    if (started) return;
+    started = true;
+    docs = p && p.apps || {};
+    document.body.classList.remove('locked');
+    el('lockScreen').hidden = true;
+    var o = '';
+    try { o = JSON.parse(slotText(window.__PRISTINE_HTML, ONLY_OPEN) || 'null') || ''; } catch (err) { o = ''; }
+    only = APPS.indexOf(o) >= 0 ? o : '';
+    document.body.classList.toggle('shell-only', !!only);
+    var first = only;
+    if (!first) { try { first = localStorage.getItem(TAB_KEY) || ''; } catch (err) { first = ''; } }
+    if (APPS.indexOf(first) < 0) first = APPS[0];
+    show(first);
+    if (only) return;
+    /* 다른 화면도 미리 띄워 둠 (메뉴를 누르면 바로 보이게) */
+    var f = frames[first];
+    var later = function () { setTimeout(function () { APPS.forEach(ensure); }, 50); };
+    if (f) f.addEventListener('load', later, { once: true }); else later();
+  }
+  function busy(on) { var b = el('lockForm').querySelector('button[type="submit"]'); b.disabled = on; b.textContent = on ? '여는 중…' : '열기'; }
+  function fail(text) {
+    el('lockMsg').textContent = text;
+    var box = el('lockForm');
+    box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+    el('lockPw').select();
+  }
+  el('lockTitle').textContent = document.title;
+  el('lockForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var inp = el('lockPw'), pw = inp.value;
+    if (!pw || started) return;
+    if (!subtle) { fail('이 브라우저에서는 열 수 없습니다. Edge나 Chrome으로 여세요.'); return; }
+    var raw = el('app-code').textContent.trim();
+    if (!raw) { fail('화면이 들어 있지 않은 틀 파일입니다. node tools/seal.mjs 로 만든 파일을 여세요.'); return; }
+    busy(true);
+    el('lockMsg').textContent = '';
+    if (!isEnc(raw)) {                 // 시험용 (암호화 안 됨)
+      newKey(pw).then(function (k) { cur = k; inp.value = ''; payload = raw; run(JSON.parse(raw)); }, function () { busy(false); fail('열지 못했습니다.'); });
+      return;
+    }
+    var env = parse(raw);
+    keyOf(pw, env).then(function (key) {
+      return decWith(key, env).then(function (txt) {
+        var p = JSON.parse(txt);
+        cur = { key: key, salt: env.salt, iter: env.iter, pw: pw };
+        payload = txt; inp.value = '';
+        run(p);
+      });
+    }).catch(function () { cache = {}; busy(false); fail('비밀번호가 맞지 않습니다.'); });
+  });
+  setTimeout(function () { try { el('lockPw').focus(); } catch (err) { /* 무시 */ } }, 0);
+
+  /* 비밀번호 바꾸기: 새 비밀번호로 다시 잠근 이 파일을 내려받음 */
+  function fileName() {
+    var n = '';
+    try { n = decodeURIComponent(location.pathname.split('/').pop() || ''); } catch (err) { n = ''; }
+    return /\.html?$/i.test(n) ? n : '일일예정사항.html';
+  }
+  function openChange() {
+    ['pwOld', 'pwNew', 'pwNew2'].forEach(function (id) { el(id).value = ''; });
+    el('pwMsg').textContent = '';
+    el('pwDialog').hidden = false;
+    el('pwOld').focus();
+  }
+  function rekeySlot(html, open, k2) {
+    var t = slotText(html, open);
+    if (!t) return Promise.resolve(html);
+    return (isEnc(t) ? decryptPw(t, cur.pw) : Promise.resolve(t)).then(function (p) { return encWith(k2, p); })
+      .then(function (env) { return replaceIn(html, open, env); });
+  }
+  el('pwForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var o = el('pwOld').value, nw = el('pwNew').value, msg = el('pwMsg');
+    if (!cur || o !== cur.pw) { msg.textContent = '지금 비밀번호가 맞지 않습니다.'; el('pwOld').select(); return; }
+    if (nw.length < 8 || !/[A-Za-z]/.test(nw) || !/[0-9]/.test(nw)) { msg.textContent = '새 비밀번호는 8자 이상, 영문과 숫자를 함께 넣어 주세요.'; el('pwNew').focus(); return; }
+    if (nw === o) { msg.textContent = '지금 비밀번호와 다르게 정해 주세요.'; el('pwNew').focus(); return; }
+    if (nw !== el('pwNew2').value) { msg.textContent = '새 비밀번호 두 칸이 서로 다릅니다.'; el('pwNew2').select(); return; }
+    msg.textContent = '다시 잠그는 중…';
+    var html = window.__PRISTINE_HTML, k2, plain = payload;
+    newKey(nw).then(function (k) {
+      k2 = k;
+      return encWith(k2, plain);
+    }).then(function (codeEnv) {
+      html = replaceIn(html, CODE_OPEN, '\n' + codeEnv + '\n');
+      return rekeySlot(html, SLOT.daily, k2);
+    }).then(function (h) { return rekeySlot(h, SLOT.exec, k2); }).then(function (h) {
+      html = h;
+      cur = k2; cache = {};
+      window.__PRISTINE_HTML = html;
+      rekeyFns.forEach(function (fn) { try { fn(); } catch (err) { /* 무시 */ } });
+      var name = fileName(), url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), a = document.createElement('a');
+      a.href = url; a.download = name; a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
+      closeChange();
+      alert('비밀번호를 바꿨습니다. 새 비밀번호로 다시 잠근 파일(' + name + ')을 내려받았습니다. 부서별·임원 두 화면이 함께 바뀝니다.\n\n' +
+        '· 지금 쓰는 파일을 이 파일로 바꾸고, 옛 파일은 지우세요. 옛 파일은 옛 비밀번호로 계속 열립니다.\n' +
+        '· 이 창에서 저장하는 것(자동저장·보기·양식 파일)은 지금부터 새 비밀번호로 잠깁니다.\n' +
+        '· 비밀번호를 잊으면 풀 방법이 없으니 잘 보관하세요.');
+    }).catch(function (err) { msg.textContent = '바꾸지 못했습니다: ' + (err && err.message ? err.message : err); });
+  });
+  function closeChange() { if (el('pwDialog').hidden) return; el('pwDialog').hidden = true; focusApp(active); }
+  el('pwDialog').addEventListener('click', function (e) {
+    if (e.target === this || e.target.hasAttribute('data-pw-close')) closeChange();
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeChange(); });
+  window.__lock = { change: openChange };
+})();
+</script>
+</body>
+</html>

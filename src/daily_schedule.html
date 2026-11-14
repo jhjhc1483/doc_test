@@ -804,6 +804,8 @@ body.locked > *:not(.lock) { display: none !important; }
 
   /* 암호화: 잠금 화면이 비밀번호로 만든 키로 저장하는 것을 잠그고 푼다 (비밀번호는 어디에도 저장하지 않음) */
   var LOCK = window.__docLock || null;
+  /* 합친 파일(일일예정사항.html)의 칸 안에서 열렸을 때: 그 파일의 경로·보기·양식 파일 만들기 */
+  var HOST = window.__host || null;
   function sealText(t) { return LOCK ? LOCK.encrypt(t) : Promise.resolve(t); }
   function openText(t, what) { return LOCK ? LOCK.open(t, what) : Promise.resolve(String(t || '')); }
 
@@ -863,7 +865,7 @@ body.locked > *:not(.lock) { display: none !important; }
   /* ------------------------------------------------------------------
      상태
      ------------------------------------------------------------------ */
-  var STORE_KEY = 'daily-schedule:v1:' + location.pathname;
+  var STORE_KEY = 'daily-schedule:v1:' + (HOST ? HOST.path : location.pathname);   // 칸 안에서는 주소가 about:srcdoc이라 합친 파일의 경로로
   var PREF_KEY = 'daily-schedule:prefs';
   var SAFETY_PX = 4;           // 인쇄 오차 대비 여유(px)
 
@@ -2492,28 +2494,39 @@ body.locked > *:not(.lock) { display: none !important; }
   }
   function download(name, text, mime) { downloadBlob(name, new Blob([text], { type: mime + ';charset=utf-8' })); }
 
-  function saveHTML(kind) {
+  /* 보기(view)·양식(tpl) 파일에 넣을 내용 (JSON 글) */
+  function fileStateJSON(kind) {
+    if (!state) return null;
     var snap = snapshot();
     if (kind === 'tpl') {
       snap.departments.forEach(function (d) { d.content = ''; d.receivedAt = 0; d.source = ''; });
       snap.doc.date = '';                 // 열 때 오늘 날짜로
     }
     if (kind === 'view') snap.appMode = 'view';
-    var json = JSON.stringify(snap).replace(/</g, '\\u003c')
+    return JSON.stringify(snap).replace(/</g, '\\u003c')
       .split(String.fromCharCode(0x2028)).join('\\u2028')
       .split(String.fromCharCode(0x2029)).join('\\u2029');
+  }
+  if (HOST) HOST.provide(fileStateJSON);   // 합친 파일: 다른 화면에서 양식 파일을 만들 때도 이 화면의 양식이 같이 들어감
+  /* 이 파일(잠긴 원본)에 내용을 잠가서 넣음. 합친 파일 안에서는 그 파일로(보기 = 이 화면만, 양식 = 두 화면 함께) */
+  function fileHTML(kind) {
+    if (HOST) return HOST.makeFile(kind);
     var open = '<' + 'script id="embedded-state" type="application/json">';
     var close = '<' + '/script>';
     var base = pristine(), s = base.indexOf(open);
     var e = s < 0 ? -1 : base.indexOf(close, s);
-    if (s < 0 || e < 0) { toast('HTML 파일을 만들지 못했습니다.'); return; }
-    var name = kind === 'view' ? baseName() + '.html' : '일일예정사항_양식.html';
-    sealText(json).then(function (sealed) {
-      download(name, base.slice(0, s + open.length) + sealed + base.slice(e), 'text/html');
+    if (s < 0 || e < 0) return Promise.resolve(null);
+    return sealText(fileStateJSON(kind)).then(function (sealed) { return base.slice(0, s + open.length) + sealed + base.slice(e); });
+  }
+  function saveHTML(kind) {
+    var name = kind === 'view' ? baseName() + '.html' : (HOST ? HOST.tplName : '일일예정사항_양식.html');
+    fileHTML(kind).then(function (html) {
+      if (!html) { toast('HTML 파일을 만들지 못했습니다.'); return; }
+      download(name, html, 'text/html');
       var lockNote = LOCK ? ' 같은 비밀번호로 잠겨 있습니다.' : '';
       if (kind === 'view') toast('배포용 보기 파일을 저장했습니다: ' + name + ' — 받은 사람이 열면 링크·설명 팝업이 동작합니다.' + lockNote);
-      else toast('양식 파일을 저장했습니다: ' + name + ' — 앞으로 이 파일을 열어 쓰세요.' + lockNote);
-    });
+      else toast('양식 파일을 저장했습니다: ' + name + (HOST ? ' — 부서별·임원 두 화면의 양식이 함께 들어 있습니다.' : ' —') + ' 앞으로 이 파일을 열어 쓰세요.' + lockNote);
+    }, function () { toast('HTML 파일을 만들지 못했습니다.'); });
   }
 
   /* CSV / 탭으로 나뉜 글 (엑셀에서 복사하면 탭으로 나뉨) */
@@ -3276,19 +3289,36 @@ body.locked > *:not(.lock) { display: none !important; }
   /* ------------------------------------------------------------------
      시작
      ------------------------------------------------------------------ */
+  /* 합치기 전 daily_schedule.html의 자동저장을 처음 한 번만 이어받음 (같은 폴더 → 없으면 다른 곳에 하나만 있을 때).
+     이어받은 뒤에는 이 파일 경로의 자동저장을 씀. 옛 자동저장은 지우지 않음(옛 파일도 그대로 열림) */
+  var MOVED_KEY = 'daily-schedule:v1:moved';
+  function oldAutoKey() {
+    if (!HOST || store.get(MOVED_KEY)) return '';
+    var pre = 'daily-schedule:v1:', name = 'daily_schedule.html', same = pre + HOST.path.replace(/[^\/]*$/, name), found = [];
+    if (store.get(same)) return same;
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf(pre) === 0 && k.slice(-name.length - 1) === '/' + name) found.push(k);
+      }
+    } catch (e) { found = []; }
+    return found.length === 1 ? found[0] : '';
+  }
   function boot() {                 // 잠긴 내용(이 파일에 든 내용, 이 컴퓨터의 자동저장)을 먼저 푼다
-    var t = ($('#embedded-state').textContent || '').trim(), rawAuto = store.get(STORE_KEY) || '';
+    var t = ($('#embedded-state').textContent || '').trim(), rawAuto = store.get(STORE_KEY) || '', moved = '';
+    if (!rawAuto && (moved = oldAutoKey())) { rawAuto = store.get(moved) || ''; store.set(MOVED_KEY, moved); }
     openText(t && t !== 'null' ? t : '', '이 파일에 든 내용').then(function (et) {
       var view = false;
       try { view = !!et && JSON.parse(et).appMode === 'view'; } catch (e) { view = false; }
       if (view || !rawAuto) return [et, ''];
-      return openText(rawAuto, '이 컴퓨터에 자동저장된 내용').then(function (at) {
-        if (at == null) { autoOff = true; return [et, '']; }
+      return openText(rawAuto, moved ? '합치기 전 부서별 화면(daily_schedule.html)에 자동저장된 내용' : '이 컴퓨터에 자동저장된 내용').then(function (at) {
+        if (at == null) { if (!moved) autoOff = true; return [et, '']; }     // 옛 파일 것은 건너뛰어도 자동저장은 계속
         return [et, at];
       });
     }).then(function (r) {
       start(r[0], r[1]);
       if (autoOff) toast('자동저장된 내용이 다른 비밀번호로 잠겨 있어 그대로 두었습니다. 이 창에서는 자동저장을 하지 않습니다(새로고침하면 지금 내용이 사라집니다).');
+      else if (moved && r[1]) autosave();                                    // 이어받은 내용을 이 파일의 자동저장으로
       else if (LOCK && rawAuto && !LOCK.isEnc(rawAuto)) autosave();      // 예전의 평문 자동저장 → 잠가서 다시
     });
   }

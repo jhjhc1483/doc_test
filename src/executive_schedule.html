@@ -770,6 +770,8 @@ body.locked > *:not(.lock) { display: none !important; }
 
   /* 암호화: 잠금 화면이 비밀번호로 만든 키로 저장하는 것을 잠그고 푼다 (비밀번호는 어디에도 저장하지 않음) */
   var LOCK = window.__docLock || null;
+  /* 합친 파일(일일예정사항.html)의 칸 안에서 열렸을 때: 그 파일로 보기·양식 파일 만들기 */
+  var HOST = window.__host || null;
   function sealText(t) { return LOCK ? LOCK.encrypt(t) : Promise.resolve(t); }
   function openText(t, what) { return LOCK ? LOCK.open(t, what) : Promise.resolve(String(t || '')); }
   /* cols: 줄마다 칸 폭 비율 / rows: 세 줄 높이 비율(null = 자동) / split: 가운데 줄 오른쪽 위 칸 높이 비율(null = 자동) */
@@ -2218,7 +2220,8 @@ body.locked > *:not(.lock) { display: none !important; }
   /* 배포용 보기 파일(view)·매일 쓸 양식 파일(tpl): 이 파일(잠긴 원본)에 내용을 잠가서 넣음 */
   function snapshot() { return { app: 'exec-daily-schedule', version: 1, savedAt: Date.now(), doc: clone(state.doc), style: clone(state.style), execs: clone(state.execs), tables: clone(state.tables) }; }
   function baseName() { return '임원일일예정_' + (state.doc.date || todayISO()); }
-  function saveHTML(kind) {
+  function fileStateJSON(kind) {        // 보기·양식 파일에 넣을 내용 (JSON 글)
+    if (!state) return null;
     var snap = snapshot();
     if (kind === 'tpl') {
       snap.execs.forEach(function (ex) { ex.sched = ''; ex.ref = ''; });
@@ -2226,19 +2229,27 @@ body.locked > *:not(.lock) { display: none !important; }
       snap.doc.date = '';                 // 열 때 오늘 날짜로
     }
     if (kind === 'view') snap.appMode = 'view';
-    var json = JSON.stringify(snap).replace(/</g, '\\u003c')
+    return JSON.stringify(snap).replace(/</g, '\\u003c')
       .split(String.fromCharCode(0x2028)).join('\\u2028')
       .split(String.fromCharCode(0x2029)).join('\\u2029');
+  }
+  if (HOST) HOST.provide(fileStateJSON);   // 합친 파일: 다른 화면에서 양식 파일을 만들 때도 이 화면의 양식이 같이 들어감
+  function fileHTML(kind) {             // 합친 파일 안에서는 그 파일로 (보기 = 이 화면만, 양식 = 두 화면 함께)
+    if (HOST) return HOST.makeFile(kind);
     var open = '<' + 'script id="embedded-state" type="application/json">', close = '<' + '/script>';
     var base = window.__PRISTINE_HTML || '', s0 = base.indexOf(open), e0 = s0 < 0 ? -1 : base.indexOf(close, s0);
-    if (s0 < 0 || e0 < 0) { toast('HTML 파일을 만들지 못했습니다.'); return; }
-    var name = kind === 'view' ? baseName() + '.html' : '임원일일예정_양식.html';
-    sealText(json).then(function (sealed) {
-      downloadBlob(name, new Blob([base.slice(0, s0 + open.length) + sealed + base.slice(e0)], { type: 'text/html;charset=utf-8' }));
+    if (s0 < 0 || e0 < 0) return Promise.resolve(null);
+    return sealText(fileStateJSON(kind)).then(function (sealed) { return base.slice(0, s0 + open.length) + sealed + base.slice(e0); });
+  }
+  function saveHTML(kind) {
+    var name = kind === 'view' ? baseName() + '.html' : (HOST ? HOST.tplName : '임원일일예정_양식.html');
+    fileHTML(kind).then(function (html) {
+      if (!html) { toast('HTML 파일을 만들지 못했습니다.'); return; }
+      downloadBlob(name, new Blob([html], { type: 'text/html;charset=utf-8' }));
       var lockNote = LOCK ? ' 같은 비밀번호로 잠겨 있습니다.' : '';
       toast(kind === 'view' ? '배포용 보기 파일을 저장했습니다: ' + name + ' — 받은 사람이 열면 읽기 화면으로 보입니다.' + lockNote
-        : '양식 파일을 저장했습니다: ' + name + ' — 앞으로 이 파일을 열어 쓰세요.' + lockNote);
-    });
+        : '양식 파일을 저장했습니다: ' + name + (HOST ? ' — 부서별·임원 두 화면의 양식이 함께 들어 있습니다.' : ' —') + ' 앞으로 이 파일을 열어 쓰세요.' + lockNote);
+    }, function () { toast('HTML 파일을 만들지 못했습니다.'); });
   }
   $('#saveMenu').addEventListener('click', function (e) {
     var b = e.target.closest('[data-act]');
