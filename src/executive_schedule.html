@@ -641,7 +641,7 @@ body.locked > *:not(.lock) { display: none !important; }
           <section class="panel">
             <h3>저장</h3>
             <ul>
-              <li>파일로 저장하는 기능은 없습니다. 작업 중인 내용은 이 브라우저에 자동으로 남아 새로고침해도 이어지고(브라우저 기록을 지우면 사라짐), 매일 한셀에서 복사해 붙여넣어 씁니다.</li>
+              <li>파일로 저장하는 기능은 없습니다. 작업 중인 내용은 <b>이 탭에만</b> 자동으로 남아 새로고침해도 이어지고, <b>탭·창을 닫으면 지워집니다</b>(이 컴퓨터에 남지 않음). 매일 한셀에서 복사해 붙여넣어 씁니다. 직위·성명·회사명·서식처럼 계속 쓸 것은 저장 ▾ → <b>매일 쓸 양식 파일</b>로 받아 두고 그 파일을 여세요.</li>
               <li>인쇄 창에서는 용지 <b>A4</b>, 배율 <b>기본값(100%)</b>, 여백 <b>기본값</b>으로 두세요.</li>
             </ul>
           </section>
@@ -742,10 +742,21 @@ body.locked > *:not(.lock) { display: none !important; }
     var d = new Date(+m[1], +m[2] - 1, +m[3]);
     return m[1] + '. ' + (+m[2]) + '. ' + (+m[3]) + '.(' + WEEK[d.getDay()] + ')';
   }
+  /* 자동저장은 이 탭에만(sessionStorage): 새로고침하면 이어지고, 탭·창을 닫으면 브라우저가 지움 (이 컴퓨터에 남지 않음).
+     닫은 탭을 되살리거나(Ctrl+Shift+T) 파일을 다시 열면 이어받지 않음 — 새로고침일 때만 이어받음 */
   var store = {
-    get: function (k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
-    set: function (k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+    get: function (k) { try { return window.sessionStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { window.sessionStorage.setItem(k, v); return true; } catch (e) { return false; } },
+    del: function (k) { try { window.sessionStorage.removeItem(k); } catch (e) { /* 무시 */ } }
   };
+  var local = {             // 이 브라우저(localStorage): 작은 화면 설정만. 예전 판이 남긴 자동저장은 처음 한 번 이 탭으로 옮기고 지움
+    get: function (k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+    del: function (k) { try { window.localStorage.removeItem(k); } catch (e) { /* 무시 */ } }
+  };
+  function isReload() {     // 이 창(합친 파일이면 위 창)을 새로고침해서 연 것인지
+    try { var w = window.top || window, e = w.performance.getEntriesByType('navigation')[0]; return !!e && e.type === 'reload'; } catch (err) { return false; }
+  }
 
   var toastTimer = 0;
   function toast(msg, actLabel, act, ms) {
@@ -2286,7 +2297,7 @@ body.locked > *:not(.lock) { display: none !important; }
     clearTimeout(saveTimer);
     saveTimer = setTimeout(autosave, 400);
   }
-  var autoSeq = 0, autoOff = false;      // autoOff: 이 컴퓨터의 자동저장이 다른 비밀번호로 잠겨 있어 건너뛴 경우(덮어쓰지 않음)
+  var autoSeq = 0, autoOff = false;      // autoOff: 이 탭의 자동저장이 다른 비밀번호로 잠겨 있어 건너뛴 경우(덮어쓰지 않음)
   function autosave() {
     if (appMode === 'view' || autoOff || !state) return;
     var my = ++autoSeq;
@@ -2363,7 +2374,7 @@ body.locked > *:not(.lock) { display: none !important; }
   $('#btnToEdit').addEventListener('click', function () {
     appMode = 'edit';
     applyMode();
-    toast('편집 화면입니다. 고친 내용은 이 브라우저에 자동으로 남습니다.');
+    toast('편집 화면입니다. 고친 내용은 이 탭을 닫기 전까지 남습니다(새로고침해도 이어짐).');
   });
   $('#btnNew').addEventListener('click', function () {
     if (!confirm('8명 모두의 일정·※ 참고 내용과 맨 밑 표 내용을 비웁니다.\n근무 표는 기본 ' + TABLES[3].n + '칸(줄 나누기 없음)으로 돌아갑니다.\n(직위·성명·회사명·칸 제목·표 이름·서식은 그대로 두고, 날짜는 오늘로 바뀝니다)')) return;
@@ -2377,7 +2388,7 @@ body.locked > *:not(.lock) { display: none !important; }
     });
   });
   document.addEventListener('keydown', function (e) {
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); if (appMode === 'edit') toast('따로 저장할 필요가 없습니다. 내용은 이 브라우저에 자동으로 남습니다.'); }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); if (appMode === 'edit') toast('내용은 이 탭에 자동으로 남습니다(새로고침해도 이어지고, 탭을 닫으면 지워짐). 계속 쓸 직위·성명·서식은 저장 ▾ → 매일 쓸 양식 파일로.'); }
   });
 
   /* 파일을 끌어다 놓아도 화면을 벗어나지 않게 (파일은 불러오지 않음) */
@@ -2993,17 +3004,22 @@ body.locked > *:not(.lock) { display: none !important; }
     }
   }
   window.addEventListener('beforeprint', function () { if (state && !lastFit) renderPreview(); });
-  (function boot() {               // 이 파일에 든 내용(보기·양식 파일)과 이 컴퓨터의 자동저장(잠김)을 먼저 푼다
-    var t = ($('#embedded-state').textContent || '').trim(), rawAuto = store.get(STORE_KEY) || '', et = '';
+  (function boot() {               // 이 파일에 든 내용(보기·양식 파일)과 이 탭의 자동저장(잠김)을 먼저 푼다
+    var t = ($('#embedded-state').textContent || '').trim(), keep = isReload(), et = '', moved = false;
+    var rawAuto = keep ? (store.get(STORE_KEY) || '') : '';
+    if (!keep) store.del(STORE_KEY);
+    var old = local.get(STORE_KEY);                   // 예전 판이 이 컴퓨터에 남긴 자동저장: 이번 한 번 이 탭으로 옮기고 지움
+    if (old) { if (!rawAuto) { rawAuto = old; moved = true; } local.del(STORE_KEY); }
     openText(t && t !== 'null' ? t : '', '이 파일에 든 내용').then(function (x) {
       et = x || '';
       var view = false;
       try { view = !!et && JSON.parse(et).appMode === 'view'; } catch (e) { view = false; }
-      return view ? '' : openText(rawAuto, '이 컴퓨터에 자동저장된 내용');
+      return view ? '' : openText(rawAuto, moved ? '이 컴퓨터에 자동저장된 내용(예전 판)' : '이 탭에 자동저장된 내용');
     }).then(function (at) {
-      if (at == null) { autoOff = true; at = ''; }
+      if (at == null) { if (!moved) autoOff = true; at = ''; }
       start(et, at);
       if (autoOff) toast('자동저장된 내용이 다른 비밀번호로 잠겨 있어 그대로 두었습니다. 이 창에서는 자동저장을 하지 않습니다(새로고침하면 지금 내용이 사라집니다).');
+      else if (moved && at) autosave();                                   // 옮겨 온 내용을 이 탭의 자동저장으로
       else if (LOCK && rawAuto && !LOCK.isEnc(rawAuto)) autosave();      // 예전의 평문 자동저장 → 잠가서 다시
     });
   })();

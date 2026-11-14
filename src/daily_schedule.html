@@ -698,7 +698,7 @@ body.locked > *:not(.lock) { display: none !important; }
           <section class="panel">
             <h3>저장 (재부팅해도 남기려면)</h3>
             <ul>
-              <li>파일로 저장하는 기능은 없습니다. 작업 중인 내용은 이 브라우저에 자동으로 남아 새로고침해도 이어지고(브라우저 기록을 지우면 사라짐), 매일 한셀에서 복사해 붙여넣어 씁니다.</li>
+              <li>파일로 저장하는 기능은 없습니다. 작업 중인 내용은 <b>이 탭에만</b> 자동으로 남아 새로고침해도 이어지고, <b>탭·창을 닫으면 지워집니다</b>(이 컴퓨터에 남지 않음). 매일 한셀에서 복사해 붙여넣어 씁니다. 직위·성명·회사명·서식처럼 계속 쓸 것은 저장 ▾ → <b>매일 쓸 양식 파일</b>로 받아 두고 그 파일을 여세요.</li>
               <li>매일 같은 부서·서식으로 시작하려면 저장 ▾ → <b>매일 쓸 양식 파일</b>을 바탕화면에 두고 그 파일을 여세요.</li>
               <li>완성본을 화면으로 돌려 보게 하려면 저장 ▾ → <b>배포용 보기 파일</b>을 보내세요. 링크와 설명 팝업이 동작합니다.</li>
             </ul>
@@ -830,10 +830,21 @@ body.locked > *:not(.lock) { display: none !important; }
   function fmtClock(t) { var d = new Date(t); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
   function fmtStamp(t) { var d = new Date(t); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + fmtClock(t); }
 
+  /* 자동저장은 이 탭에만(sessionStorage): 새로고침하면 이어지고, 탭·창을 닫으면 브라우저가 지움 (이 컴퓨터에 남지 않음).
+     닫은 탭을 되살리거나(Ctrl+Shift+T) 파일을 다시 열면 이어받지 않음 — 새로고침일 때만 이어받음 */
   var store = {
-    get: function (k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
-    set: function (k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+    get: function (k) { try { return window.sessionStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { window.sessionStorage.setItem(k, v); return true; } catch (e) { return false; } },
+    del: function (k) { try { window.sessionStorage.removeItem(k); } catch (e) { /* 무시 */ } }
   };
+  var local = {             // 이 브라우저(localStorage): 작은 화면 설정만. 예전 판이 남긴 자동저장은 처음 한 번 이 탭으로 옮기고 지움
+    get: function (k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+    del: function (k) { try { window.localStorage.removeItem(k); } catch (e) { /* 무시 */ } }
+  };
+  function isReload() {     // 이 창(합친 파일이면 위 창)을 새로고침해서 연 것인지
+    try { var w = window.top || window, e = w.performance.getEntriesByType('navigation')[0]; return !!e && e.type === 'reload'; } catch (err) { return false; }
+  }
 
   function copyText(text) {
     function fallback() {
@@ -2446,7 +2457,7 @@ body.locked > *:not(.lock) { display: none !important; }
     clearTimeout(autoTimer);
     autoTimer = setTimeout(autosave, 400);
   }
-  var autoSeq = 0, autoOff = false;      // autoOff: 이 컴퓨터의 자동저장이 다른 비밀번호로 잠겨 있어 건너뛴 경우(덮어쓰지 않음)
+  var autoSeq = 0, autoOff = false;      // autoOff: 이 탭의 자동저장이 다른 비밀번호로 잠겨 있어 건너뛴 경우(덮어쓰지 않음)
   function autosave() {
     if (appMode === 'view' || autoOff || !state) return;
     state.savedAt = Date.now();
@@ -3211,7 +3222,7 @@ body.locked > *:not(.lock) { display: none !important; }
     appMode = 'edit';
     applyMode();
     renderAll();
-    toast('편집 화면입니다. 고친 내용은 이 브라우저에 자동으로 남습니다.');
+    toast('편집 화면입니다. 고친 내용은 이 탭을 닫기 전까지 남습니다(새로고침해도 이어짐).');
   });
 
   /* 인쇄 */
@@ -3223,7 +3234,7 @@ body.locked > *:not(.lock) { display: none !important; }
   /* 단축키 */
   document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 's' || e.key === 'S')) {
-      if (appMode === 'edit') { e.preventDefault(); toast('따로 저장할 필요가 없습니다. 내용은 이 브라우저에 자동으로 남습니다.'); }
+      if (appMode === 'edit') { e.preventDefault(); toast('내용은 이 탭에 자동으로 남습니다(새로고침해도 이어지고, 탭을 닫으면 지워짐). 계속 쓸 직위·성명·서식은 저장 ▾ → 매일 쓸 양식 파일로.'); }
     } else if (e.key === 'Escape') {
       hideTip();
       $$('.modal').forEach(function (m) { m.hidden = true; });
@@ -3235,7 +3246,7 @@ body.locked > *:not(.lock) { display: none !important; }
   var zoomSel = $('#zoomSel');
   zoomSel.addEventListener('change', function () {
     zoomMode = zoomSel.value;
-    store.set(PREF_KEY, JSON.stringify({ zoom: zoomMode }));
+    local.set(PREF_KEY, JSON.stringify({ zoom: zoomMode }));
     updateZoom();
   });
   var resizeTimer = 0;
@@ -3271,13 +3282,13 @@ body.locked > *:not(.lock) { display: none !important; }
   /* ------------------------------------------------------------------
      시작
      ------------------------------------------------------------------ */
-  /* 합치기 전 daily_schedule.html의 자동저장을 처음 한 번만 이어받음 (같은 폴더 → 없으면 다른 곳에 하나만 있을 때).
-     이어받은 뒤에는 이 파일 경로의 자동저장을 씀. 옛 자동저장은 지우지 않음(옛 파일도 그대로 열림) */
-  var MOVED_KEY = 'daily-schedule:v1:moved';
+  /* 예전 판이 이 컴퓨터(localStorage)에 남긴 부서별 자동저장: 이 파일 것 → 없으면 합치기 전 daily_schedule.html 것
+     (같은 폴더 → 없으면 다른 곳에 하나만 있을 때)을 이번 한 번 이 탭으로 옮기고, 이 컴퓨터에 남은 부서별 자동저장은 모두 지움 */
+  var LOCAL_PRE = 'daily-schedule:v1:';
   function oldAutoKey() {
-    if (!HOST || store.get(MOVED_KEY)) return '';
-    var pre = 'daily-schedule:v1:', name = 'daily_schedule.html', same = pre + HOST.path.replace(/[^\/]*$/, name), found = [];
-    if (store.get(same)) return same;
+    if (!HOST) return '';
+    var pre = LOCAL_PRE, name = 'daily_schedule.html', same = pre + HOST.path.replace(/[^\/]*$/, name), found = [];
+    if (local.get(same)) return same;
     try {
       for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
@@ -3286,14 +3297,25 @@ body.locked > *:not(.lock) { display: none !important; }
     } catch (e) { found = []; }
     return found.length === 1 ? found[0] : '';
   }
-  function boot() {                 // 잠긴 내용(이 파일에 든 내용, 이 컴퓨터의 자동저장)을 먼저 푼다
-    var t = ($('#embedded-state').textContent || '').trim(), rawAuto = store.get(STORE_KEY) || '', moved = '';
-    if (!rawAuto && (moved = oldAutoKey())) { rawAuto = store.get(moved) || ''; store.set(MOVED_KEY, moved); }
+  function purgeLocal() {
+    var ks = [];
+    try {
+      for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf(LOCAL_PRE) === 0) ks.push(k); }
+    } catch (e) { ks = []; }
+    ks.forEach(local.del);
+  }
+  function boot() {                 // 잠긴 내용(이 파일에 든 내용, 이 탭의 자동저장)을 먼저 푼다
+    var t = ($('#embedded-state').textContent || '').trim(), keep = isReload(), moved = '';
+    var rawAuto = keep ? (store.get(STORE_KEY) || '') : '';
+    if (!keep) store.del(STORE_KEY);
+    if (!rawAuto && local.get(STORE_KEY)) { rawAuto = local.get(STORE_KEY); moved = STORE_KEY; }
+    if (!rawAuto && (moved = oldAutoKey())) rawAuto = local.get(moved) || '';
+    purgeLocal();
     openText(t && t !== 'null' ? t : '', '이 파일에 든 내용').then(function (et) {
       var view = false;
       try { view = !!et && JSON.parse(et).appMode === 'view'; } catch (e) { view = false; }
       if (view || !rawAuto) return [et, ''];
-      return openText(rawAuto, moved ? '합치기 전 부서별 화면(daily_schedule.html)에 자동저장된 내용' : '이 컴퓨터에 자동저장된 내용').then(function (at) {
+      return openText(rawAuto, !moved ? '이 탭에 자동저장된 내용' : moved === STORE_KEY ? '이 컴퓨터에 자동저장된 내용(예전 판)' : '합치기 전 부서별 화면(daily_schedule.html)에 자동저장된 내용').then(function (at) {
         if (at == null) { if (!moved) autoOff = true; return [et, '']; }     // 옛 파일 것은 건너뛰어도 자동저장은 계속
         return [et, at];
       });
@@ -3316,7 +3338,7 @@ body.locked > *:not(.lock) { display: none !important; }
       } catch (e) { auto = null; }
     }
     var pref = {};
-    try { pref = JSON.parse(store.get(PREF_KEY) || '{}') || {}; } catch (e) { pref = {}; }
+    try { pref = JSON.parse(local.get(PREF_KEY) || '{}') || {}; } catch (e) { pref = {}; }
     zoomMode = appMode === 'edit' ? (pref.zoom || 'page') : 'width';
     zoomSel.value = zoomMode;
     if (zoomSel.value !== zoomMode) { zoomMode = 'page'; zoomSel.value = 'page'; }
