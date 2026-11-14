@@ -32,6 +32,17 @@ body {
 .shell-tab:hover { background: rgba(255,255,255,.08); color: #fff; }
 .shell-tab[aria-selected="true"] { background: #fff; color: #1d232b; }
 .shell-tab:focus-visible { outline: 2px solid #8fb3ff; outline-offset: -2px; }
+.shell-tabs { display: flex; align-items: flex-end; gap: 2px; height: 100%; }
+.shell-tab.dragging { opacity: .45; }
+.shell-tab.drop-before { box-shadow: inset 3px 0 0 #8fb3ff; }
+.shell-tab.drop-after { box-shadow: inset -3px 0 0 #8fb3ff; }
+.shell-order {
+  margin-left: auto; align-self: center; height: 24px; padding: 0 10px;
+  border: 1px solid rgba(255,255,255,.22); border-radius: 6px; background: transparent;
+  color: #c3cad4; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.shell-order:hover { background: rgba(255,255,255,.08); color: #fff; }
+.shell-order:focus-visible { outline: 2px solid #8fb3ff; outline-offset: 1px; }
 .shell-frames { flex: 1; position: relative; min-height: 0; }
 .shell-frames iframe {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; display: block;
@@ -110,9 +121,12 @@ body.locked > *:not(.lock) { display: none !important; }
   </form>
 </div>
 <div class="shell" id="shell">
-  <nav class="shell-bar" id="shellBar" role="tablist" aria-label="화면 고르기">
-    <button type="button" class="shell-tab" role="tab" data-app="daily" aria-selected="false" title="부서별 일일 예정사항">부서별 일일 예정사항</button>
-    <button type="button" class="shell-tab" role="tab" data-app="exec" aria-selected="false" title="임원 8명 일일 예정사항">임원 일일 예정사항</button>
+  <nav class="shell-bar" id="shellBar" aria-label="화면 고르기">
+    <div class="shell-tabs" id="shellTabs" role="tablist">
+      <button type="button" class="shell-tab" role="tab" data-app="exec" aria-selected="false" draggable="true" title="임원 8명 일일 예정사항 · 끌어서 메뉴 순서를 바꿀 수 있습니다">임원 일일 예정사항</button>
+      <button type="button" class="shell-tab" role="tab" data-app="daily" aria-selected="false" draggable="true" title="부서별 일일 예정사항 · 끌어서 메뉴 순서를 바꿀 수 있습니다">부서별 일일 예정사항</button>
+    </div>
+    <button type="button" class="shell-order" id="shellOrder" title="메뉴 순서 바꾸기 — 맨 앞 메뉴의 화면이 열 때 먼저 나옵니다 (메뉴를 끌어서 옮겨도 됩니다)">↔ 순서 바꾸기</button>
   </nav>
   <div class="shell-frames" id="shellFrames"></div>
 </div>
@@ -130,7 +144,9 @@ body.locked > *:not(.lock) { display: none !important; }
   var ITER = 600000, TAG = 'ENC1';
   var APPS = ['daily', 'exec'];
   var NAMES = { daily: '부서별 일일 예정사항', exec: '임원 일일 예정사항' };
-  var TAB_KEY = 'daily-schedule:shell-tab';
+  var ORDER_KEY = 'daily-schedule:shell-order';        // 메뉴 순서 (맨 앞 화면이 열 때 먼저 나옴)
+  var DEFAULT_ORDER = ['exec', 'daily'];                // 처음에는 임원이 먼저
+  try { localStorage.removeItem('daily-schedule:shell-tab'); } catch (err) { /* 예전 방식(마지막으로 보던 화면)의 흔적 */ }
   window.__PRISTINE_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;   // 손대기 전의 이 파일 (잠긴 상태 그대로)
   function el(id) { return document.getElementById(id); }
   try { localStorage.removeItem('doc-lock:' + document.title); } catch (err) { /* 예전 방식의 흔적 */ }
@@ -271,24 +287,74 @@ body.locked > *:not(.lock) { display: none !important; }
     active = app;
     APPS.forEach(function (a) {
       if (frames[a]) frames[a].classList.toggle('on', a === app);
-      var tab = el('shellBar').querySelector('[data-app="' + a + '"]');
+      var tab = tabOf(a);
       tab.setAttribute('aria-selected', a === app ? 'true' : 'false');
       tab.tabIndex = a === app ? 0 : -1;
     });
-    if (!only) { try { localStorage.setItem(TAB_KEY, app); } catch (err) { /* 무시 */ } }
     focusApp(app);
   }
-  el('shellBar').addEventListener('click', function (e) {
+  function tabOf(app) { return el('shellTabs').querySelector('[data-app="' + app + '"]'); }
+  el('shellTabs').addEventListener('click', function (e) {
     var b = e.target.closest('[data-app]');
     if (b) show(b.getAttribute('data-app'));
   });
-  el('shellBar').addEventListener('keydown', function (e) {
+  el('shellTabs').addEventListener('keydown', function (e) {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    var i = APPS.indexOf(active), n = APPS[(i + (e.key === 'ArrowRight' ? 1 : APPS.length - 1)) % APPS.length];
+    var i = order.indexOf(active), n = order[(i + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length];
     e.preventDefault();
     show(n);
-    el('shellBar').querySelector('[data-app="' + n + '"]').focus();
+    tabOf(n).focus();
   });
+
+  /* 메뉴 순서: [↔ 순서 바꾸기] 또는 메뉴를 끌어다 놓기. 이 브라우저에 기억하고, 맨 앞 화면이 열 때 먼저 나옴 */
+  function loadOrder() {
+    var o = null;
+    try { o = JSON.parse(localStorage.getItem(ORDER_KEY) || 'null'); } catch (err) { o = null; }
+    o = (Array.isArray(o) ? o : []).filter(function (a, i, arr) { return APPS.indexOf(a) >= 0 && arr.indexOf(a) === i; });
+    DEFAULT_ORDER.forEach(function (a) { if (o.indexOf(a) < 0) o.push(a); });
+    return o;
+  }
+  var order = loadOrder();
+  function setOrder(o, save) {
+    order = o;
+    order.forEach(function (a) { el('shellTabs').appendChild(tabOf(a)); });
+    if (save) { try { localStorage.setItem(ORDER_KEY, JSON.stringify(order)); } catch (err) { /* 무시 */ } }
+  }
+  setOrder(order, false);
+  el('shellOrder').addEventListener('click', function () { setOrder(order.slice(1).concat(order.slice(0, 1)), true); });
+  var DRAG_TYPE = 'application/x-schedule-menu', dragApp = '';      // 글 형식이 아니라서 입력칸에 놓아도 글이 들어가지 않음
+  function clearDrop() {
+    Array.prototype.forEach.call(el('shellTabs').children, function (b) { b.classList.remove('dragging', 'drop-before', 'drop-after'); });
+  }
+  function dropSide(b, e) { var r = b.getBoundingClientRect(); return e.clientX > r.left + r.width / 2 ? 'after' : 'before'; }
+  el('shellTabs').addEventListener('dragstart', function (e) {
+    var b = e.target.closest('[data-app]');
+    if (!b) return;
+    dragApp = b.getAttribute('data-app');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData(DRAG_TYPE, dragApp);
+    b.classList.add('dragging');
+  });
+  el('shellTabs').addEventListener('dragover', function (e) {
+    if (!dragApp) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    var b = e.target.closest('[data-app]');
+    Array.prototype.forEach.call(el('shellTabs').children, function (x) { x.classList.remove('drop-before', 'drop-after'); });
+    if (b && b.getAttribute('data-app') !== dragApp) b.classList.add('drop-' + dropSide(b, e));
+  });
+  el('shellTabs').addEventListener('drop', function (e) {
+    if (!dragApp) return;
+    e.preventDefault();
+    var b = e.target.closest('[data-app]'), to = b && b.getAttribute('data-app');
+    if (to && to !== dragApp) {
+      var o = order.filter(function (a) { return a !== dragApp; });
+      o.splice(o.indexOf(to) + (dropSide(b, e) === 'after' ? 1 : 0), 0, dragApp);
+      setOrder(o, true);
+    }
+    dragApp = ''; clearDrop();
+  });
+  el('shellTabs').addEventListener('dragend', function () { dragApp = ''; clearDrop(); });
   /* 지금 화면 인쇄: 그 화면의 [인쇄 / PDF] (그 칸만 A4로 인쇄) */
   function printActive() {
     var f = frames[active], b = null;
@@ -325,9 +391,7 @@ body.locked > *:not(.lock) { display: none !important; }
     try { o = JSON.parse(slotText(window.__PRISTINE_HTML, ONLY_OPEN) || 'null') || ''; } catch (err) { o = ''; }
     only = APPS.indexOf(o) >= 0 ? o : '';
     document.body.classList.toggle('shell-only', !!only);
-    var first = only;
-    if (!first) { try { first = localStorage.getItem(TAB_KEY) || ''; } catch (err) { first = ''; } }
-    if (APPS.indexOf(first) < 0) first = APPS[0];
+    var first = only || order[0];            // 보기 파일은 그 화면, 아니면 메뉴 맨 앞 화면
     show(first);
     if (only) return;
     /* 다른 화면도 미리 띄워 둠 (메뉴를 누르면 바로 보이게) */

@@ -553,8 +553,8 @@ body.locked > *:not(.lock) { display: none !important; }
             <h2>기타</h2>
             <label class="chk" style="margin-bottom:8px"><input type="checkbox" data-bind="style.showTables"> 맨 밑 표 4개 넣기 (인접회사활동 · 휴가 · 출장/방문 · 근무)</label>
             <div class="grid2" style="margin-bottom:10px;align-items:center">
-              <label class="chk"><input type="checkbox" data-bind="style.showSecret"> 비공개 딱지 (오른쪽 위 빨간 상자)</label>
-              <input type="text" data-bind="style.secretText" placeholder="비공개" aria-label="비공개 딱지 문구">
+              <label class="chk"><input type="checkbox" data-bind="style.showSecret"> 비공개 여부 (오른쪽 위 빨간 상자)</label>
+              <input type="text" data-bind="style.secretText" placeholder="비공개" aria-label="비공개 상자 문구">
             </div>
             <label class="fld" style="margin-bottom:10px"><span>하위 줄(* · -)을 윗줄에 붙이기</span>
               <select data-bind="style.subGap"><option value="normal">보통</option><option value="close">가깝게</option><option value="closest">아주 가깝게</option></select></label>
@@ -634,7 +634,7 @@ body.locked > *:not(.lock) { display: none !important; }
     <section class="preview-pane">
       <div class="preview-bar">
         <div class="status" id="status" role="status" aria-live="polite"></div>
-        <label class="secret-chk edit-only" title="체크하면 A4 오른쪽 위에 빨간 '비공개' 상자가 붙고, 빼면 없어집니다 (문구는 서식 탭)"><input type="checkbox" id="secretChk"> 비공개 딱지</label>
+        <label class="secret-chk edit-only" title="체크하면 A4 오른쪽 위에 빨간 '비공개' 상자가 붙고, 빼면 없어집니다 (문구는 서식 탭)"><input type="checkbox" id="secretChk"> 비공개 여부</label>
         <button type="button" class="btn small hl-btn" id="btnMark" aria-pressed="false" title="형광펜 (Ctrl+Shift+H) — 누른 뒤 미리보기 글자를 끌어 고르면 칠해지고, 칠한 곳을 다시 고르면 지워집니다. 글자를 먼저 고르고 눌러도 됩니다."><span class="hl-sw"></span>형광펜</button>
         <select id="zoomSel" aria-label="미리보기 배율">
           <option value="page">전체 보기</option>
@@ -2176,7 +2176,7 @@ body.locked > *:not(.lock) { display: none !important; }
     el.addEventListener('input', onBind);
     el.addEventListener('change', onBind);
   });
-  $('#secretChk').addEventListener('change', function (e) {     // 미리보기 위 '비공개 딱지' (서식 탭과 같은 설정)
+  $('#secretChk').addEventListener('change', function (e) {     // 미리보기 위 '비공개 여부' (서식 탭과 같은 설정)
     state.style.showSecret = e.target.checked;
     syncInputs();
     changed();
