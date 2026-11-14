@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>임원 일일 예정사항</title>
+<script id="embedded-state" type="application/json">null</script>
 <style id="page-rule">@page { size: A4 portrait; margin: 0; }</style>
 <style>
 /* =========================================================
@@ -77,6 +78,9 @@ kbd { font-family: inherit; font-size: 11px; color: var(--sub); border: 1px soli
 
 /* 작업 영역 */
 .workspace { flex: 1; display: flex; min-height: 0; }
+/* 배포용 보기 파일: 고치는 칸·단추를 숨긴 읽기 화면 */
+body.mode-view .editor, body.mode-view .edit-only, body.mode-view .rz-layer, body.mode-view #btnMark { display: none !important; }
+body:not(.mode-view) .view-only { display: none !important; }
 .editor {
   width: 470px; flex: none; display: flex; flex-direction: column; min-height: 0;
   background: var(--soft); border-right: 1px solid var(--line);
@@ -161,6 +165,8 @@ body.hl-mode .sheet .ex, body.hl-mode .sheet .xt { cursor: text; }
 body.hl-mode .sheet .ex:hover, body.hl-mode .sheet .xt:hover { box-shadow: none; }
 body.hl-mode .sheet ::selection { background: rgba(255, 214, 0, .6); }
 .chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.preview-bar .secret-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #c2362b; white-space: nowrap; cursor: pointer; user-select: none; }
+.preview-bar .secret-chk input { margin: 0; accent-color: #d40000; }
 .xt-slot { width: 100%; margin-top: 4px; min-height: 34px; flex-direction: row; gap: 6px; }
 .xt-slot .s-meta { white-space: normal; }
 #xtPanel { scroll-margin-top: 8px; }
@@ -450,9 +456,9 @@ body.locked > *:not(.lock) { display: none !important; }
 <!-- ▼ 앱 화면 (배포 파일에서는 여기부터 '앱 화면 끝'까지가 암호화되어 app-code 안에 들어감) -->
 <div class="app">
   <header class="topbar">
-    <div class="brand">임원 일일 예정사항 <small>8명 · A4 한 장 자동 맞춤</small></div>
-    <button class="btn" id="btnNew" title="직위·성명·서식은 그대로 두고 일정·참고 내용만 비웁니다">새 문서</button>
-    <div class="menu-wrap">
+    <div class="brand" id="brand">임원 일일 예정사항 <small>8명 · A4 한 장 자동 맞춤</small></div>
+    <button class="btn edit-only" id="btnNew" title="직위·성명·서식은 그대로 두고 일정·참고 내용만 비웁니다">새 문서</button>
+    <div class="menu-wrap edit-only">
       <div class="btn-split">
         <button class="btn strong" id="btnImport" title="한셀(엑셀)에서 복사한 시트 내용을 붙여넣습니다 (입력칸 밖에서 Ctrl+V 해도 됩니다)">붙여넣기</button>
         <button class="btn caret" data-menu="importMenu" aria-haspopup="true" aria-expanded="false" title="더 보기">▾</button>
@@ -463,7 +469,17 @@ body.locked > *:not(.lock) { display: none !important; }
         <button type="button" data-act="template"><span>공동편집용 엑셀 양식 만들기<span class="desc">임원별 시트 + 맨 밑 표 시트가 들어 있는 .xlsx</span></span></button>
       </div>
     </div>
-    <button class="btn" id="btnPwTop" title="열 때 묻는 비밀번호를 바꿉니다">비밀번호 바꾸기</button>
+    <div class="menu-wrap edit-only">
+      <button class="btn" data-menu="saveMenu" aria-haspopup="true" aria-expanded="false" title="보기 파일·양식 파일 저장, 비밀번호 바꾸기">저장 ▾</button>
+      <div class="menu" id="saveMenu" hidden>
+        <button type="button" data-act="html-view"><span>배포용 보기 파일(.html)<span class="desc">받은 사람이 열면 보는 읽기 화면 · 같은 비밀번호로 잠김</span></span></button>
+        <button type="button" data-act="html-tpl"><span>매일 쓸 양식 파일(.html) 저장<span class="desc">직위·성명·회사명·서식만 담은 빈 양식</span></span></button>
+        <hr>
+        <button type="button" data-act="password"><span>비밀번호 바꾸기<span class="desc">새 비밀번호로 다시 잠근 파일을 내려받음</span></span></button>
+      </div>
+    </div>
+
+    <button class="btn view-only" id="btnToEdit" title="이 문서를 고치는 화면으로 바꿉니다">편집 화면 열기</button>
     <div class="spacer"></div>
     <button class="btn primary" id="btnPrint" title="Ctrl+P · 인쇄 창에서 'PDF로 저장'도 됩니다">인쇄 / PDF</button>
   </header>
@@ -537,8 +553,8 @@ body.locked > *:not(.lock) { display: none !important; }
             <h2>기타</h2>
             <label class="chk" style="margin-bottom:8px"><input type="checkbox" data-bind="style.showTables"> 맨 밑 표 4개 넣기 (인접회사활동 · 휴가 · 출장/방문 · 근무)</label>
             <div class="grid2" style="margin-bottom:10px;align-items:center">
-              <label class="chk"><input type="checkbox" data-bind="style.showSecret"> 오른쪽 위 빨간 상자</label>
-              <input type="text" data-bind="style.secretText" placeholder="비공개" aria-label="오른쪽 위 상자 문구">
+              <label class="chk"><input type="checkbox" data-bind="style.showSecret"> 비공개 딱지 (오른쪽 위 빨간 상자)</label>
+              <input type="text" data-bind="style.secretText" placeholder="비공개" aria-label="비공개 딱지 문구">
             </div>
             <label class="fld" style="margin-bottom:10px"><span>하위 줄(* · -)을 윗줄에 붙이기</span>
               <select data-bind="style.subGap"><option value="normal">보통</option><option value="close">가깝게</option><option value="closest">아주 가깝게</option></select></label>
@@ -546,7 +562,7 @@ body.locked > *:not(.lock) { display: none !important; }
           </section>
           <section class="panel">
             <h2>비밀번호</h2>
-            <p class="hint" style="margin-top:0">이 파일은 열 때마다 비밀번호를 묻습니다. 바꾸면 이 컴퓨터에서는 바로 새 비밀번호로 열리고, 다른 컴퓨터용으로 새 비밀번호가 들어간 파일도 함께 내려받습니다. (위쪽 막대의 [비밀번호 바꾸기]와 같습니다)</p>
+            <p class="hint" style="margin-top:0">이 파일은 열 때마다 비밀번호를 묻고, 화면·내용은 비밀번호로 암호화되어 있습니다. 바꾸면 새 비밀번호로 다시 잠근 파일을 내려받으니 그 파일로 바꿔 쓰세요(8자 이상, 영문+숫자). 위쪽 [저장 ▾]의 [비밀번호 바꾸기]와 같습니다.</p>
             <div class="btn-row"><button type="button" class="btn small" id="btnPw">비밀번호 바꾸기</button></div>
           </section>
         </div>
@@ -618,6 +634,7 @@ body.locked > *:not(.lock) { display: none !important; }
     <section class="preview-pane">
       <div class="preview-bar">
         <div class="status" id="status" role="status" aria-live="polite"></div>
+        <label class="secret-chk edit-only" title="체크하면 A4 오른쪽 위에 빨간 '비공개' 상자가 붙고, 빼면 없어집니다 (문구는 서식 탭)"><input type="checkbox" id="secretChk"> 비공개 딱지</label>
         <button type="button" class="btn small hl-btn" id="btnMark" aria-pressed="false" title="형광펜 (Ctrl+Shift+H) — 누른 뒤 미리보기 글자를 끌어 고르면 칠해지고, 칠한 곳을 다시 고르면 지워집니다. 글자를 먼저 고르고 눌러도 됩니다."><span class="hl-sw"></span>형광펜</button>
         <select id="zoomSel" aria-label="미리보기 배율">
           <option value="page">전체 보기</option>
@@ -749,6 +766,7 @@ body.locked > *:not(.lock) { display: none !important; }
   ];
 
   var STORE_KEY = 'exec-daily-schedule.v1';
+  var appMode = 'edit';                  // edit | view (배포용 보기 파일)
 
   /* 암호화: 잠금 화면이 비밀번호로 만든 키로 저장하는 것을 잠그고 푼다 (비밀번호는 어디에도 저장하지 않음) */
   var LOCK = window.__docLock || null;
@@ -1313,6 +1331,7 @@ body.locked > *:not(.lock) { display: none !important; }
     var sec = $('#docSecret');
     sec.textContent = st.secretText.trim() || '비공개';
     sec.hidden = !st.showSecret;
+    $('#secretChk').checked = !!st.showSecret;
     var foot = $('#docFoot');
     foot.textContent = doc.footer;
     foot.hidden = !doc.footer.trim();
@@ -1936,7 +1955,7 @@ body.locked > *:not(.lock) { display: none !important; }
 
   /* 미리보기에서 칸을 누르면 그 임원 입력칸으로 */
   grid.addEventListener('click', function (e) {
-    if (hlMode) return;
+    if (hlMode || appMode !== 'edit') return;
     var gs = window.getSelection();
     if (gs && !gs.isCollapsed && grid.contains(gs.anchorNode)) return;     // 글자를 끌어 고른 경우
     var xt = e.target.closest('.xt');
@@ -2116,7 +2135,7 @@ body.locked > *:not(.lock) { display: none !important; }
   });
   grid.addEventListener('mouseup', function () { if (hlMode) setTimeout(paintSelection, 0); });
   document.addEventListener('keydown', function (e) {
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && (e.key === 'h' || e.key === 'H')) {
+    if (appMode === 'edit' && (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && (e.key === 'h' || e.key === 'H')) {
       e.preventDefault();
       var a = document.activeElement;
       if (a && a.tagName === 'TEXTAREA' && (execList.contains(a) || xtPanel.contains(a))) markTextarea(a);
@@ -2155,6 +2174,12 @@ body.locked > *:not(.lock) { display: none !important; }
     el.addEventListener('input', onBind);
     el.addEventListener('change', onBind);
   });
+  $('#secretChk').addEventListener('change', function (e) {     // 미리보기 위 '비공개 딱지' (서식 탭과 같은 설정)
+    state.style.showSecret = e.target.checked;
+    syncInputs();
+    changed();
+    renderPreview();
+  });
   $('#fontSel').innerHTML = FONTS.map(function (f) { return '<option value="' + f.id + '">' + esc(f.label) + '</option>'; }).join('');
 
   function showTab(name) {
@@ -2174,7 +2199,7 @@ body.locked > *:not(.lock) { display: none !important; }
   }
   var autoSeq = 0, autoOff = false;      // autoOff: 이 컴퓨터의 자동저장이 다른 비밀번호로 잠겨 있어 건너뛴 경우(덮어쓰지 않음)
   function autosave() {
-    if (autoOff || !state) return;
+    if (appMode === 'view' || autoOff || !state) return;
     var my = ++autoSeq;
     sealText(JSON.stringify({ state: state, at: Date.now() })).then(function (t) { if (my === autoSeq) store.set(STORE_KEY, t); });
   }
@@ -2190,7 +2215,56 @@ body.locked > *:not(.lock) { display: none !important; }
 
   $('#btnPrint').addEventListener('click', function () { renderPreview(); window.print(); });
   $('#btnPw').addEventListener('click', function () { if (window.__lock) window.__lock.change(); });
-  $('#btnPwTop').addEventListener('click', function () { if (window.__lock) window.__lock.change(); });
+  /* 배포용 보기 파일(view)·매일 쓸 양식 파일(tpl): 이 파일(잠긴 원본)에 내용을 잠가서 넣음 */
+  function snapshot() { return { app: 'exec-daily-schedule', version: 1, savedAt: Date.now(), doc: clone(state.doc), style: clone(state.style), execs: clone(state.execs), tables: clone(state.tables) }; }
+  function baseName() { return '임원일일예정_' + (state.doc.date || todayISO()); }
+  function saveHTML(kind) {
+    var snap = snapshot();
+    if (kind === 'tpl') {
+      snap.execs.forEach(function (ex) { ex.sched = ''; ex.ref = ''; });
+      snap.tables.forEach(function (t) { t.cells.forEach(function (c) { c.text = ''; }); });
+      snap.doc.date = '';                 // 열 때 오늘 날짜로
+    }
+    if (kind === 'view') snap.appMode = 'view';
+    var json = JSON.stringify(snap).replace(/</g, '\\u003c')
+      .split(String.fromCharCode(0x2028)).join('\\u2028')
+      .split(String.fromCharCode(0x2029)).join('\\u2029');
+    var open = '<' + 'script id="embedded-state" type="application/json">', close = '<' + '/script>';
+    var base = window.__PRISTINE_HTML || '', s0 = base.indexOf(open), e0 = s0 < 0 ? -1 : base.indexOf(close, s0);
+    if (s0 < 0 || e0 < 0) { toast('HTML 파일을 만들지 못했습니다.'); return; }
+    var name = kind === 'view' ? baseName() + '.html' : '임원일일예정_양식.html';
+    sealText(json).then(function (sealed) {
+      downloadBlob(name, new Blob([base.slice(0, s0 + open.length) + sealed + base.slice(e0)], { type: 'text/html;charset=utf-8' }));
+      var lockNote = LOCK ? ' 같은 비밀번호로 잠겨 있습니다.' : '';
+      toast(kind === 'view' ? '배포용 보기 파일을 저장했습니다: ' + name + ' — 받은 사람이 열면 읽기 화면으로 보입니다.' + lockNote
+        : '양식 파일을 저장했습니다: ' + name + ' — 앞으로 이 파일을 열어 쓰세요.' + lockNote);
+    });
+  }
+  $('#saveMenu').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act]');
+    if (!b) return;
+    closeMenus();
+    var act = b.getAttribute('data-act');
+    if (act === 'html-view') saveHTML('view');
+    else if (act === 'html-tpl') saveHTML('tpl');
+    else if (act === 'password') { if (window.__lock) window.__lock.change(); }
+  });
+  function applyMode() {
+    document.body.classList.toggle('mode-view', appMode === 'view');
+    $('#brand').innerHTML = appMode === 'view'
+      ? esc(state.doc.title || '임원 일일 예정사항') + ' <small>' + esc(fmtDate(state.doc.date)) + '</small>'
+      : '임원 일일 예정사항 <small>8명 · A4 한 장 자동 맞춤</small>';
+    if (appMode === 'view' && hlMode) setHlMode(false);
+    var z = $('#zoomSel');
+    z.value = appMode === 'view' ? 'width' : 'page';
+    zoomMode = z.value;
+    renderPreview();
+  }
+  $('#btnToEdit').addEventListener('click', function () {
+    appMode = 'edit';
+    applyMode();
+    toast('편집 화면입니다. 고친 내용은 이 브라우저에 자동으로 남습니다.');
+  });
   $('#btnNew').addEventListener('click', function () {
     if (!confirm('8명 모두의 일정·※ 참고 내용과 맨 밑 표 내용을 비웁니다.\n(직위·성명·회사명·표 이름·서식은 그대로 두고, 날짜는 오늘로 바뀝니다)')) return;
     var prev = clone(state);
@@ -2203,7 +2277,7 @@ body.locked > *:not(.lock) { display: none !important; }
     });
   });
   document.addEventListener('keydown', function (e) {
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); toast('따로 저장할 필요가 없습니다. 내용은 이 브라우저에 자동으로 남습니다.'); }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); if (appMode === 'edit') toast('따로 저장할 필요가 없습니다. 내용은 이 브라우저에 자동으로 남습니다.'); }
   });
 
   /* 파일을 끌어다 놓아도 화면을 벗어나지 않게 (파일은 불러오지 않음) */
@@ -2587,6 +2661,7 @@ body.locked > *:not(.lock) { display: none !important; }
   }
   /* 입력칸 밖에서 Ctrl+V: 엑셀에서 복사한 표를 가져오기 */
   document.addEventListener('paste', function (e) {
+    if (appMode !== 'edit') return;
     var t = e.target;
     if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (!$('#importModal').hidden || !$('#bulkModal').hidden) return;
@@ -2744,10 +2819,15 @@ body.locked > *:not(.lock) { display: none !important; }
      시작
      ------------------------------------------------------------------ */
   var state, saved = null;
-  function start(autoText) {
+  function start(embeddedText, autoText) {
+    var embedded = null;
+    try { embedded = embeddedText ? JSON.parse(embeddedText) : null; } catch (e) { embedded = null; }
     try { saved = JSON.parse(autoText || 'null'); } catch (e) { saved = null; }
-    if (saved && saved.state) state = normalizeState(saved.state);
+    appMode = embedded && embedded.appMode === 'view' ? 'view' : 'edit';
+    if (appMode === 'edit' && saved && saved.state && (!embedded || (saved.at || 0) >= (embedded.savedAt || 0))) state = normalizeState(saved.state);
+    else if (embedded) { state = normalizeState(embedded); saved = null; }
     else state = normalizeState(sampleState());
+    if (appMode === 'view') applyMode();
 
     syncInputs();
     renderEditor();
@@ -2761,11 +2841,16 @@ body.locked > *:not(.lock) { display: none !important; }
     }
   }
   window.addEventListener('beforeprint', function () { if (state && !lastFit) renderPreview(); });
-  (function boot() {               // 이 컴퓨터의 자동저장(잠김)을 먼저 푼다
-    var rawAuto = store.get(STORE_KEY) || '';
-    openText(rawAuto, '이 컴퓨터에 자동저장된 내용').then(function (at) {
+  (function boot() {               // 이 파일에 든 내용(보기·양식 파일)과 이 컴퓨터의 자동저장(잠김)을 먼저 푼다
+    var t = ($('#embedded-state').textContent || '').trim(), rawAuto = store.get(STORE_KEY) || '', et = '';
+    openText(t && t !== 'null' ? t : '', '이 파일에 든 내용').then(function (x) {
+      et = x || '';
+      var view = false;
+      try { view = !!et && JSON.parse(et).appMode === 'view'; } catch (e) { view = false; }
+      return view ? '' : openText(rawAuto, '이 컴퓨터에 자동저장된 내용');
+    }).then(function (at) {
       if (at == null) { autoOff = true; at = ''; }
-      start(at);
+      start(et, at);
       if (autoOff) toast('자동저장된 내용이 다른 비밀번호로 잠겨 있어 그대로 두었습니다. 이 창에서는 자동저장을 하지 않습니다(새로고침하면 지금 내용이 사라집니다).');
       else if (LOCK && rawAuto && !LOCK.isEnc(rawAuto)) autosave();      // 예전의 평문 자동저장 → 잠가서 다시
     });

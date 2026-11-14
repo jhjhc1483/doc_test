@@ -158,6 +158,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .seg input:checked + span { background: var(--accent); color: #fff; font-weight: 700; }
 .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
 .chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.preview-bar .secret-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #c2362b; white-space: nowrap; cursor: pointer; user-select: none; }
+.preview-bar .secret-chk input { margin: 0; accent-color: #d40000; }
 .hint { font-size: 12px; color: var(--sub); margin: 6px 0 0; line-height: 1.55; }
 .range-row { display: grid; grid-template-columns: 92px 1fr 64px; align-items: center; gap: 10px; padding: 4px 0; }
 .range-row output { font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
@@ -261,7 +263,12 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   border-top: 2px dashed #e53935; color: #e53935; font: 700 12px var(--ui-font); padding: 4px 8px; background: rgba(255,235,235,.9);
 }
 .sheet-inner { position: absolute; top: 0; right: 0; bottom: 0; left: 0; padding: var(--margin); display: flex; flex-direction: column; }
-.doc-head { flex: none; margin-bottom: 3mm; }
+.doc-head { flex: none; margin-bottom: 3mm; position: relative; }
+.secret {
+  position: absolute; top: 0; right: 0; border: 1.5px solid #d40000; color: #d40000; background: #fff;
+  font-weight: 800; font-size: 9.5pt; line-height: 1.25; padding: .5mm 2.2mm; letter-spacing: .15em; white-space: nowrap;
+}
+.secret[hidden] { display: none; }
 .head-row { display: flex; align-items: center; gap: 4mm; }
 .head-main { flex: 1; min-width: 0; text-align: center; }
 .doc-title { font-size: var(--title-fs); font-weight: 800; letter-spacing: .04em; line-height: 1.3; }
@@ -469,10 +476,10 @@ body.locked > *:not(.lock) { display: none !important; }
     <div class="menu-wrap edit-only">
       <button class="btn" data-menu="saveMenu" aria-haspopup="true" aria-expanded="false" title="보기 파일·양식 파일 저장, 비밀번호 바꾸기">저장 ▾</button>
       <div class="menu" id="saveMenu" hidden>
-        <button type="button" data-act="html-view"><span>배포용 보기 파일(.html)<span class="desc">받은 사람이 열면 링크·설명 팝업이 되는 읽기 화면</span></span></button>
+        <button type="button" data-act="html-view"><span>배포용 보기 파일(.html)<span class="desc">받은 사람이 열면 보는 읽기 화면 · 같은 비밀번호로 잠김</span></span></button>
         <button type="button" data-act="html-tpl"><span>매일 쓸 양식 파일(.html) 저장<span class="desc">부서 목록·서식만 담은 빈 양식</span></span></button>
         <hr>
-        <button type="button" data-act="password"><span>비밀번호 바꾸기<span class="desc">이 컴퓨터는 바로 적용 · 다른 컴퓨터용 파일도 내려받음</span></span></button>
+        <button type="button" data-act="password"><span>비밀번호 바꾸기<span class="desc">새 비밀번호로 다시 잠근 파일을 내려받음</span></span></button>
       </div>
     </div>
 
@@ -612,6 +619,10 @@ body.locked > *:not(.lock) { display: none !important; }
               <input type="text" class="grow" data-bind="style.emptyText" aria-label="빈 부서 문구">
             </div>
             <div class="set-row">
+              <label class="chk"><input type="checkbox" data-bind="style.showSecret"> 비공개 딱지</label>
+              <input type="text" class="grow" data-bind="style.secretText" placeholder="비공개" aria-label="비공개 딱지 문구">
+            </div>
+            <div class="set-row">
               <label class="chk"><input type="checkbox" data-bind="style.showApproval"> 결재란</label>
               <input type="text" class="grow" data-bind="style.approvalLabels" placeholder="담당, 과장, 국장" aria-label="결재란 칸 이름(쉼표로 구분)">
             </div>
@@ -714,6 +725,7 @@ body.locked > *:not(.lock) { display: none !important; }
     <section class="preview-pane">
       <div class="preview-bar">
         <div class="status" id="status" role="status" aria-live="polite"></div>
+        <label class="secret-chk edit-only" title="체크하면 A4 오른쪽 위에 빨간 '비공개' 상자가 붙고, 빼면 없어집니다 (문구는 서식 탭)"><input type="checkbox" id="secretChk"> 비공개 딱지</label>
         <button type="button" class="btn small hl-btn edit-only" id="btnMark" aria-pressed="false" title="형광펜 (Ctrl+Shift+H) — 누른 뒤 미리보기 글자를 끌어 고르면 칠해지고, 칠한 곳을 다시 고르면 지워집니다. 글자를 먼저 고르고 눌러도 됩니다."><span class="hl-sw"></span>형광펜</button>
         <select id="zoomSel" aria-label="미리보기 배율">
           <option value="page">전체 보기</option>
@@ -729,6 +741,7 @@ body.locked > *:not(.lock) { display: none !important; }
           <div class="sheet" id="sheet">
             <div class="sheet-inner">
               <div class="doc-head">
+                <div class="secret" id="docSecret" hidden>비공개</div>
                 <div class="head-row">
                   <div class="head-main"><div class="doc-title" id="docTitle"></div></div>
                   <div id="approvalBox"></div>
@@ -894,6 +907,8 @@ body.locked > *:not(.lock) { display: none !important; }
     emptyMode: 'text',
     emptyText: '특이사항 없음',
     showApproval: false,
+    showSecret: false,          // 오른쪽 위 빨간 '비공개' 딱지
+    secretText: '비공개',
     approvalLabels: '담당, 과장, 국장',
     subGap: 'close',            // normal | close | closest  (하위 줄을 윗줄에 붙이는 정도)
     mdtCols: {}                 // 내용 안 표의 칸 폭 (머리글이 같은 표끼리 같음)
@@ -928,6 +943,8 @@ body.locked > *:not(.lock) { display: none !important; }
     });
     out.style.mdtCols = mc;
     if (['auto', 'all', 'none'].indexOf(out.style.tableWide) < 0) out.style.tableWide = 'auto';
+    out.style.showSecret = out.style.showSecret === true || out.style.showSecret === 'true';
+    out.style.secretText = String(out.style.secretText == null ? '비공개' : out.style.secretText);
     var mw = {}, srcW = out.style.mdtWide && typeof out.style.mdtWide === 'object' ? out.style.mdtWide : {};
     Object.keys(srcW).forEach(function (key) { if (srcW[key] === true || srcW[key] === false) mw[key] = srcW[key]; });
     out.style.mdtWide = mw;
@@ -1616,6 +1633,11 @@ body.locked > *:not(.lock) { display: none !important; }
     $('#docSub').textContent = doc.subtitle;
     $('#docDate').textContent = fmtDate(doc.date);
     $('#approvalBox').innerHTML = st.showApproval ? approvalHTML(st.approvalLabels) : '';
+    var sec = $('#docSecret'), ap = $('#approvalBox');
+    sec.textContent = st.secretText.trim() || '비공개';
+    sec.hidden = !st.showSecret;
+    sec.style.right = ap.offsetWidth ? (ap.offsetWidth + 3 * 96 / 25.4).toFixed(1) + 'px' : '0';   // 결재란이 있으면 그 왼쪽
+    $('#secretChk').checked = !!st.showSecret;
     var foot = $('#docFoot');
     foot.textContent = doc.footer;
     foot.hidden = !doc.footer.trim();
@@ -2394,6 +2416,11 @@ body.locked > *:not(.lock) { display: none !important; }
   }
   $('.editor').addEventListener('input', onBind);
   $('.editor').addEventListener('change', onBind);
+  $('#secretChk').addEventListener('change', function (e) {     // 미리보기 위 '비공개 딱지' (서식 탭과 같은 설정)
+    state.style.showSecret = e.target.checked;
+    syncInputs();
+    changed(true);
+  });
 
   function setupFonts() {
     var sel = $('#fontSel');
