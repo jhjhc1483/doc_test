@@ -53,7 +53,8 @@ body.shell-only .shell-bar { display: none; }
 /* 인쇄: 두 화면을 합쳐 1쪽 일일 예정사항(임원) → 2쪽 부서별 일일 예정사항. 화면마다 A4 한 장, 용지 방향은 그 화면 설정대로
    (인쇄 직전에 printPrep()이 찍을 칸에 .pr, 가로면 .land, 마지막 칸에 .last를 붙이고 @page 규칙을 씀) */
 @media print {
-  html, body { height: auto; overflow: visible; background: #fff; }
+  html, body { height: auto; overflow: visible; background: #fff; scrollbar-width: none; }
+  ::-webkit-scrollbar { display: none; }
   .shell { display: block; height: auto; }
   .shell-bar { display: none !important; }
   .shell-frames { position: static; }

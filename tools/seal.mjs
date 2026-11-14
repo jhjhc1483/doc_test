@@ -64,7 +64,10 @@ function appDoc(id, f) {
     '  });',
     '})();',
   ].join('\n');
-  return '<!DOCTYPE html>\n<html lang="ko">\n<head>' + head + '</head>\n<body>' + markup +
+  // 인쇄할 때 칸(iframe) 안 문서는 스크롤하지 않음: A4 시트가 칸보다 조금(0.5mm) 커도 스크롤바가 같이 찍히지 않게
+  const framePrint = '<style id="frame-print">@media print { html, body { overflow: hidden !important; scrollbar-width: none; } ' +
+    '::-webkit-scrollbar { display: none; width: 0; height: 0; } }</style>\n';
+  return '<!DOCTYPE html>\n<html lang="ko">\n<head>' + head + framePrint + '</head>\n<body>' + markup +
     '<script>\n' + bridge + '\n</script>\n<script>' + code + '</script>\n</body>\n</html>\n';
 }
 
