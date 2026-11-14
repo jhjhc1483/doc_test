@@ -472,7 +472,7 @@ Public Function MarkLines(ByVal s As String) As String
             If Not IsWs(Mid$(ln, b, 1)) Then Exit Do
             b = b - 1
         Loop
-        If b > a Then ls(i) = Left$(ln, a) & "==" & Mid$(ln, a + 1, b - a) & "==" & Mid$(ln, b + 1)
+        If b > a Then ls(i) = Left$(ln, a) & "[[" & Mid$(ln, a + 1, b - a) & "]]" & Mid$(ln, b + 1)
     Next
     MarkLines = Join(ls, vbLf)
 End Function
@@ -488,8 +488,8 @@ Public Sub HighlightSel()
         Set c = sel.Cells(i)
         If Not IsEmpty(c.Value) And c.Column > 1 Then
             s = CStr(c.Value)
-            If InStr(s, "==") > 0 Then
-                s = Replace(s, "==", "")
+            If InStr(s, "[[") > 0 And InStr(s, "]]") > 0 Then
+                s = Replace(Replace(s, "[[", ""), "]]", "")
             Else
                 s = MarkLines(s)
             End If
@@ -615,12 +615,6 @@ Public Sub SetDocPassword()
     Else
         Info "문서 암호를 정하고 저장했습니다. 다음에 열 때부터 암호를 묻습니다." & vbLf & "암호를 잊으면 열 수 없으니 따로 적어 두세요."
     End If
-End Sub
-
-Public Sub Auto_Open()
-    On Error Resume Next
-    Application.OnKey "^+h", "HighlightSel"
-    Application.OnKey "^+H", "HighlightSel"
 End Sub
 
 Public Function ModOk6() As Long

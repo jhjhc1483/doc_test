@@ -4,7 +4,7 @@ Option Explicit
 ' HcCore - shared helpers for the Hancell (VBA) schedule workbooks
 '   * text helpers (no RegExp, so it runs without VBScript)
 '   * time parsing (port of splitTime in the HTML version)
-'   * rich text builder (**bold** __under__ !!red!! ==mark== ~~strike~~)
+'   * rich text builder (**bold** __under__ !!red!! [[mark]] ~~strike~~)
 '   * layout engine: place rectangles in points, then turn them into a cell grid
 '   * text measuring with a hidden scratch sheet (Rows.AutoFit)
 ' ===========================================================================
@@ -681,10 +681,10 @@ Public Sub RBAdd(ByVal t As String, Optional ByVal bold As Boolean = False, Opti
     End If
 End Sub
 
-' inline marks: **bold** __under__ !!red!! ==mark== (~~strike~~ when allowStrike)
+' inline marks: **bold** __under__ !!red!! [[mark]] (~~strike~~ when allowStrike)
 Public Sub RBInline(ByVal s As String, Optional ByVal bold As Boolean = False, Optional ByVal size As Double = 0, _
         Optional ByVal color As Long = -1, Optional ByVal allowStrike As Boolean = False)
-    Dim i As Long, n As Long, buf As String, k As Long, mk As String
+    Dim i As Long, n As Long, buf As String, k As Long, mk As String, cl As String
     Dim f() As Boolean
     ReDim f(1 To 5)
     n = Len(s)
@@ -698,19 +698,21 @@ Public Sub RBInline(ByVal s As String, Optional ByVal bold As Boolean = False, O
             k = 2
         ElseIf mk = "!!" Then
             k = 3
-        ElseIf mk = "==" Then
+        ElseIf mk = "[[" Or mk = "]]" Then
             k = 4
         ElseIf mk = "~~" And allowStrike Then
             k = 5
         End If
         If k > 0 Then
-            If f(k) Then
+            cl = mk                       ' closing mark ([[ is closed by ]])
+            If k = 4 Then cl = "]]"
+            If f(k) And mk = cl Then
                 RBFlush buf, f, bold, size, color
                 buf = ""
                 f(k) = False
                 i = i + 2
                 GoTo nextCh
-            ElseIf InStr(i + 3, s, mk) > 0 Then
+            ElseIf Not f(k) And mk <> "]]" And InStr(i + 3, s, cl) > 0 Then
                 RBFlush buf, f, bold, size, color
                 buf = ""
                 f(k) = True

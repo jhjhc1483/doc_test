@@ -505,14 +505,20 @@ Private Function MdLinks(ByVal s As String, ByRef linkUrl As String) As String
         e2 = InStr(e + 2, s, ")")
         If e2 = 0 Then Exit Do
         txt = Mid$(s, q + 1, e - q - 1)
-        uu = TrimX(Replace(Replace(Mid$(s, e + 2, e2 - e - 2), "<", ""), ">", ""))
-        If SafeHref(uu) <> "" And InStr(txt, "]") = 0 Then
-            out = out & Mid$(s, i, q - i) & txt
-            If linkUrl = "" Then linkUrl = SafeHref(uu)
+        If InStr(txt, "[") > 0 Or InStr(txt, "]") > 0 Then
+            ' this [ is not the link's own (e.g. [[mark]] before a link): keep it and look again after it
+            out = out & Mid$(s, i, q - i + 1)
+            i = q + 1
         Else
-            out = out & Mid$(s, i, e2 - i + 1)
+            uu = TrimX(Replace(Replace(Mid$(s, e + 2, e2 - e - 2), "<", ""), ">", ""))
+            If SafeHref(uu) <> "" Then
+                out = out & Mid$(s, i, q - i) & txt
+                If linkUrl = "" Then linkUrl = SafeHref(uu)
+            Else
+                out = out & Mid$(s, i, e2 - i + 1)
+            End If
+            i = e2 + 1
         End If
-        i = e2 + 1
     Loop
     MdLinks = out & Mid$(s, i)
 End Function

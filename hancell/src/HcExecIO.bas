@@ -748,7 +748,7 @@ Private Sub TemplateWidths(ByVal ws As Object)
     ws.Columns(4).ColumnWidth = 34
 End Sub
 
-' ==text== on the selected cells (again: remove)
+' [[text]] on the selected cells (again: remove)
 Public Sub HighlightSel()
     Dim c As Object, s As String, n As Long, sel As Object, i As Long
     On Error Resume Next
@@ -760,8 +760,8 @@ Public Sub HighlightSel()
         Set c = sel.Cells(i)
         If Not IsEmpty(c.Value) And c.Column > 1 Then
             s = CStr(c.Value)
-            If InStr(s, "==") > 0 Then
-                s = Replace(s, "==", "")
+            If InStr(s, "[[") > 0 And InStr(s, "]]") > 0 Then
+                s = Replace(Replace(s, "[[", ""), "]]", "")
             Else
                 s = MarkLines(s)
             End If
@@ -788,7 +788,7 @@ Public Function MarkLines(ByVal s As String) As String
             If Not IsWs(Mid$(ln, b, 1)) Then Exit Do
             b = b - 1
         Loop
-        If b > a Then ls(i) = Left$(ln, a) & "==" & Mid$(ln, a + 1, b - a) & "==" & Mid$(ln, b + 1)
+        If b > a Then ls(i) = Left$(ln, a) & "[[" & Mid$(ln, a + 1, b - a) & "]]" & Mid$(ln, b + 1)
     Next
     MarkLines = Join(ls, vbLf)
 End Function

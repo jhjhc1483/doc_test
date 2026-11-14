@@ -4,7 +4,7 @@
 Option Explicit
 
 Public Sub RBInline(ByVal s As String, Optional ByVal bold As Boolean = False, Optional ByVal size As Double = 0, Optional ByVal color As Long = -1, Optional ByVal allowStrike As Boolean = False)
-    Dim i As Long, n As Long, buf As String, k As Long, mk As String
+    Dim i As Long, n As Long, buf As String, k As Long, mk As String, cl As String
     Dim f() As Boolean
     ReDim f(1 To 5)
     n = Len(s)
@@ -18,19 +18,21 @@ Public Sub RBInline(ByVal s As String, Optional ByVal bold As Boolean = False, O
             k = 2
         ElseIf mk = "!!" Then
             k = 3
-        ElseIf mk = "==" Then
+        ElseIf mk = "[[" Or mk = "]]" Then
             k = 4
         ElseIf mk = "~~" And allowStrike Then
             k = 5
         End If
         If k > 0 Then
-            If f(k) Then
+            cl = mk
+            If k = 4 Then cl = "]]"
+            If f(k) And mk = cl Then
                 RBFlush buf, f, bold, size, color
                 buf = ""
                 f(k) = False
                 i = i + 2
                 GoTo nextCh
-            ElseIf InStr(i + 3, s, mk) > 0 Then
+            ElseIf Not f(k) And mk <> "]]" And InStr(i + 3, s, cl) > 0 Then
                 RBFlush buf, f, bold, size, color
                 buf = ""
                 f(k) = True

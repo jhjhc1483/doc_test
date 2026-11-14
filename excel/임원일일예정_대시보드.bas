@@ -806,7 +806,7 @@ Private Sub BuildSettingsSheet(ByVal ws As Object)
         "³»¿ë Ä­ ¾È¿¡¼­ ÁÙ ¹Ù²Þ(Alt+Enter) ÈÄ * ... ¡æ ÀÛÀº ±Û¾¾ ºÎ°¡ ¼³¸í,  - ... ¡æ ÇÏÀ§ Ç×¸ñ", _
         "³»¿ëÀÌ * ·Î ½ÃÀÛÇÏ´Â ÁÙ ¡æ ¹Ù·Î À§ ÀÏÁ¤ÀÇ ÀÛÀº ±Û¾¾ ºÎ°¡ ¼³¸í", _
         "ºñ°í Ä­ ¡æ ±× ÀÏÁ¤ ¹Ø ÀÛÀº ±Û¾¾ ºÎ°¡ ¼³¸í(*)  /  ¡Ø Âü°í Ä­ ¡æ ±× ÀÓ¿ø Ä­ ¸Ç ¹Ø ¡Ø (¾î´À ÁÙ¿¡ ½áµµ µÊ)", _
-        "±ÛÀÚ ²Ù¹Ò: **±½°Ô**  !!»¡°£ °­Á¶!!  __¹ØÁÙ__  ==Çü±¤Ææ==", _
+        "±ÛÀÚ ²Ù¹Ò: **±½°Ô**  !!»¡°£ °­Á¶!!  __¹ØÁÙ__  [[Çü±¤Ææ]]", _
         "³¯Â¥ ¿­À» ³ÖÀ¸¸é À§ '³¯Â¥'¿Í °°Àº ÁÙ¸¸ ¾¹´Ï´Ù. ½ÃÆ®¸¦ Áö¿ì°Å³ª ÀÌ¸§À» ¹Ù²Ù¸é ¼º¸íÀ¸·Î Ã£¾Æ ´Ù½Ã ¸¸µì´Ï´Ù.", _
         "µÎ·¹ÀÌ °øµ¿ÆíÁý: [°øµ¿ÆíÁý ¾ç½Ä ¸¸µé±â]·Î ¸¸µç ÆÄÀÏÀ» ¿Ã·Á ÇÔ²² ¾²°í, ³»·Á¹Þ¾Æ [¿¢¼¿ ºÒ·¯¿À±â].", _
         "ÀÎ¼â´Â [ÀÎ¼â ¹Ì¸®º¸±â] ¶Ç´Â [PDF·Î ÀúÀå]. Ç×»ó A4 ÇÑ Àå¿¡ ¸ÂÃç ÂïÈü´Ï´Ù. ´ÜÃàÅ° Ctrl+Shift+R = »õ·Î °íÄ§")
@@ -1830,12 +1830,12 @@ Private Function FmtDate(ByVal iso As String) As String
 End Function
 
 '---------------------------------------------------------------------
-' ±ÛÀÚ ²Ù¹Ò: **±½°Ô** __¹ØÁÙ__ !!»¡°£ °­Á¶!! ==Çü±¤Ææ==
+' ±ÛÀÚ ²Ù¹Ò: **±½°Ô** __¹ØÁÙ__ !!»¡°£ °­Á¶!! [[Çü±¤Ææ]]
 '   plain = Ç¥½Ã ±ÛÀÚ, runs = "½ÃÀÛ,±æÀÌ,²Ù¹Ò;" (²Ù¹Ò: 1 ±½°Ô 2 ¹ØÁÙ 4 »¡°­ 8 Çü±¤Ææ)
 '---------------------------------------------------------------------
 Private Sub InlineFmt(ByVal s As String, ByRef plain As String, ByRef runs As String, ByVal offset As Long)
     Dim n As Long, i As Long, j As Long, k As Long, op As Long, cl As Long, cur As Long, st As Long, a As Long
-    Dim at() As Long, mk As String, bit As Long
+    Dim at() As Long, mk As String, mc As String, bit As Long
     runs = ""
     plain = s
     n = Len(s)
@@ -1846,14 +1846,16 @@ Private Sub InlineFmt(ByVal s As String, ByRef plain As String, ByRef runs As St
             Case 1: mk = "**": bit = 1
             Case 2: mk = "__": bit = 2
             Case 3: mk = "!!": bit = 4
-            Case 4: mk = "==": bit = 8
+            Case 4: mk = "[[": bit = 8
         End Select
+        mc = mk                                  ' ´Ý´Â Ç¥½Ã ([[ ´Â ]] ·Î ´ÝÀ½)
+        If k = 4 Then mc = "]]"
         i = 1
         Do
             If i > Len(s) Then Exit Do
             op = InStr(i, s, mk)
             If op = 0 Then Exit Do
-            cl = InStr(op + 3, s, mk)
+            cl = InStr(op + 3, s, mc)
             If cl = 0 Then Exit Do
             For j = op + 2 To cl - 1
                 at(j) = at(j) Or bit

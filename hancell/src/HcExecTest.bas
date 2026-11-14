@@ -51,6 +51,12 @@ Public Function TestAll() As String
     r = r & "back=" & exName(1) & "; "
     gStep = "highlight"
     r = r & "mark=" & MarkLines("09:00 회의 @대회의실" & vbLf & "* 참석: 실장" & vbLf & "※ 메모") & "; "
+    RBReset
+    RBInline "가 [[나다]] 라 **마** ]]바 [[사"
+    r = r & "rb=" & RBText() & " m=" & rbMark & " runs=" & RBRuns() & "; "
+    RBReset
+    RBInline "옛 ==표시== 그대로"
+    r = r & "rbOld=" & RBText() & " m=" & rbMark & "; "
     gStep = "newdoc"
     NewDoc
     LoadExecs

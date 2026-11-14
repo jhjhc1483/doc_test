@@ -985,8 +985,8 @@ Public Sub HighlightSel()
     For Each c In Selection.Cells
         If Not IsEmpty(c.Value) And c.Column > 1 And c.Row > 2 Then
             s = CStr(c.Value)
-            If InStr(s, "==") > 0 Then
-                s = Replace(s, "==", "")
+            If InStr(s, "[[") > 0 And InStr(s, "]]") > 0 Then
+                s = Replace(Replace(s, "[[", ""), "]]", "")
             Else
                 s = DMarkLines(s)
             End If
@@ -999,7 +999,7 @@ Public Sub HighlightSel()
     If n = 0 Then Info "칠할 칸(부서 시트의 내용·비고 칸)을 먼저 고르세요. 칠한 칸을 다시 고르고 누르면 지워집니다."
 End Sub
 
-' wraps the text part of each line in ==...== (markers, time and @place stay outside)
+' wraps the text part of each line in [[...]] (markers, time and @place stay outside)
 Public Function DMarkLines(ByVal s As String) As String
     Dim ls As Variant, i As Long, ln As String, a As Long, b As Long, t As String, kind As String, mk As String, rank As Double, txt As String, raw As String, p As Long, tl As Long
     ls = SplitLines(s)
@@ -1026,7 +1026,7 @@ Public Function DMarkLines(ByVal s As String) As String
                 If p - 1 > a Then b = p - 1
             End If
         End If
-        If b > a Then ls(i) = Left$(ln, a) & "==" & Mid$(ln, a + 1, b - a) & "==" & Mid$(ln, b + 1)
+        If b > a Then ls(i) = Left$(ln, a) & "[[" & Mid$(ln, a + 1, b - a) & "]]" & Mid$(ln, b + 1)
     Next
     DMarkLines = Join(ls, vbLf)
 End Function
