@@ -473,6 +473,7 @@ body.locked > *:not(.lock) { display: none !important; }
       <div class="menu" id="saveMenu" hidden>
         <button type="button" data-act="html-view"><span>배포용 보기 파일(.html)<span class="desc">받은 사람이 열면 보는 읽기 화면 · 같은 비밀번호로 잠김</span></span></button>
         <button type="button" data-act="html-tpl"><span>매일 쓸 양식 파일(.html) 저장<span class="desc">부서 목록·서식만 담은 빈 양식</span></span></button>
+        <button type="button" data-act="xlsx-export"><span>엑셀로 내보내기(.xlsx)<span class="desc">지금 내용이 든 공동편집 양식 · 합본을 다시 붙여넣으면 그대로 돌아옴</span></span></button>
         <hr>
         <button type="button" data-act="password"><span>비밀번호 바꾸기<span class="desc">새 비밀번호로 다시 잠근 파일을 내려받음</span></span></button>
       </div>
@@ -699,6 +700,7 @@ body.locked > *:not(.lock) { display: none !important; }
             <h3>저장 (재부팅해도 남기려면)</h3>
             <ul>
               <li>파일로 저장하는 기능은 없습니다. 작업 중인 내용은 <b>이 탭에만</b> 자동으로 남아 새로고침해도 이어지고, <b>탭·창을 닫으면 지워집니다</b>(이 컴퓨터에 남지 않음). 매일 한셀에서 복사해 붙여넣어 씁니다. 직위·성명·회사명·서식처럼 계속 쓸 것은 저장 ▾ → <b>매일 쓸 양식 파일</b>로 받아 두고 그 파일을 여세요.</li>
+              <li>저장 ▾ → <b>엑셀로 내보내기(.xlsx)</b>: 지금 내용이 든 공동편집 양식을 받습니다. 한셀에서 보거나 고친 뒤 맨 마지막 <b>합본</b> 시트를 복사해 붙여넣으면 그 내용이 그대로 돌아옵니다. 엑셀 파일에는 암호가 걸리지 않습니다.</li>
               <li>매일 같은 부서·서식으로 시작하려면 저장 ▾ → <b>매일 쓸 양식 파일</b>을 바탕화면에 두고 그 파일을 여세요.</li>
               <li>완성본을 화면으로 돌려 보게 하려면 저장 ▾ → <b>배포용 보기 파일</b>을 보내세요. 링크와 설명 팝업이 동작합니다.</li>
             </ul>
@@ -1324,16 +1326,20 @@ body.locked > *:not(.lock) { display: none !important; }
     var url = link ? link.split(/\s+/)[0] : '';
     if (link && !safeHref(url)) { extras.push({ label: '링크', value: link }); url = ''; }
     /* 비고·"*" 줄은 들여쓰기 1칸: 내용 칸의 "- 하위" 줄(2칸) 밑이 아니라 그 일정 바로 밑에 붙도록 */
-    if (/^\*\s*\S/.test(first)) {                     // * 로 시작 → 바로 위 일정의 작은 하위 항목
+    if (/^\*(?!\*)\s*\S/.test(first)) {               // * 로 시작 → 바로 위 일정의 작은 하위 항목 (**굵게**는 아님)
       out.push(' * ' + [time, first.replace(/^\*\s*/, '')].filter(Boolean).join(' ') + (url ? ' ' + url : ''));
     } else if ((m = RE_DETAIL.exec(first))) {
       out.push('  >> ' + m[1]);
+    } else if (/^(#{2,6}\s+\S|>(?!>)\s?\S|-{3,}\s*$)/.test(first) && !time && !url && !place) {
+      out.push(first);                                // ## 소제목, > 비고, --- 구분선은 그대로 (일정 기호를 붙이지 않음)
     } else {
       first = first.replace(RE_LEAD_BULLET, '');
       out.push('- ' + [time, first].filter(Boolean).join(' ') + (url ? ' ' + url : '') + (place ? ' @' + place : ''));
     }
     detail.split('\n').forEach(function (l) { if (l.trim()) out.push('  >> ' + l.trim()); });   // 설명은 일정 바로 아래(팝업이 일정에 붙도록)
-    body.forEach(function (l) { if (l.trim()) out.push('  ' + l.trim()); });
+    var lead = function (l) { return l.length - l.replace(/^[ \t　]+/, '').length; };
+    var minInd = body.reduce(function (a, l) { return l.trim() ? Math.min(a, lead(l)) : a; }, 99);
+    body.forEach(function (l) { if (l.trim()) out.push('  ' + l.slice(Math.min(minInd, lead(l))).replace(/\s+$/, '')); });   // 칸 안에서 더 들여 쓴 줄은 그만큼 더 (하위의 하위)
     extras.forEach(function (e) {
       var v = e.value.replace(/\s*\n\s*/g, ', ');
       var plain = !e.label || /^(비고|참고|기타|note|notes|remarks?)$/i.test(e.label) || v.indexOf(e.label) === 0;
@@ -3121,7 +3127,57 @@ body.locked > *:not(.lock) { display: none !important; }
     var widths = [44]; for (k = 1; k < C; k++) widths.push(18);
     return { name: '합본', rows: rows, widths: widths, freeze: 0 };
   }
-  function makeExcelTemplate() {
+  /* 엑셀로 내보내기: 부서 내용(글) → 엑셀 줄 [내용, 날짜(괄호), 비고, 설명, 링크] + 표들.
+     붙여넣으면 recordToLines·tableBlockAt이 같은 글로 되돌림:
+     "- 일정 주소 @괄호" → 내용·링크·날짜(괄호) 칸, 바로 밑 ">> 설명" → 설명 칸, 끝의 " * 작은 글씨" → 비고 칸(둘째부터는 "* " 줄),
+     그 밖의 하위 줄은 내용 칸 안에 줄을 바꿔서, 표는 맨 뒤에 한 줄 띄고 (제목) + 머리글 + 내용 */
+  var RE_PLACE_END = /\s@\s*([^@\n]*\S)\s*$/;
+  function contentRows(content) {
+    var lines = String(content || '').replace(/\r\n?/g, '\n').split('\n'), recs = [], tables = [], cur = null, i;
+    var reUrlEnd = new RegExp('\\s(' + URL_SRC + ')$', 'i');
+    function newRec(t) {
+      var r = { main: t, place: '', link: '', detail: [], body: [], stars: [] }, m = /^-\s+(.*)$/.exec(t);
+      if (m && !/^-{3,}\s*$/.test(t)) {
+        var x = m[1], pm = RE_PLACE_END.exec(x), um;
+        if (pm) { r.place = pm[1].trim(); x = x.slice(0, pm.index); }
+        if ((um = reUrlEnd.exec(x)) && safeHref(um[1])) { r.link = um[1]; x = x.slice(0, um.index); }
+        r.main = x;
+      }
+      return r;
+    }
+    for (i = 0; i < lines.length; i++) {
+      var raw = lines[i], t = raw.trim();
+      if (!t) continue;
+      var titled = /^#{1,6}\s+\S/.test(t) && i + 1 < lines.length && /^\s*\|/.test(lines[i + 1]);
+      if (titled || t.charAt(0) === '|') {             // 표: (### 제목) + | 줄들
+        var tb = { title: titled ? t.replace(/^#{1,6}\s+/, '') : '', grid: [] };
+        if (titled) i++;
+        for (; i < lines.length && /^\s*\|/.test(lines[i]); i++) {
+          var cs = splitRow(lines[i]);
+          if (!cs.every(function (c) { return /^:?-{2,}:?$/.test(c); })) tb.grid.push(cs);
+        }
+        i--;
+        if (tb.grid.length) tables.push(tb);
+        cur = null;
+        continue;
+      }
+      var ind = raw.length - raw.replace(/^[ \t　]+/, '').length;
+      if (!ind || !cur) { cur = newRec(t); recs.push(cur); continue; }
+      var dm = RE_DETAIL.exec(t);
+      if (dm && !cur.body.length && !cur.stars.length) { cur.detail.push(dm[1]); continue; }
+      if (ind === 1 && /^\*\s/.test(t)) { cur.stars.push(t.replace(/^\*\s*/, '')); continue; }
+      if (cur.stars.length) { cur.stars.forEach(function (x) { cur.body.push('* ' + x); }); cur.stars = []; }
+      cur.body.push(raw.replace(/\s+$/, '').slice(Math.min(ind, 2)));      // 하위 줄(앞 2칸)보다 더 들여 쓴 만큼은 남김
+    }
+    var rows = [];
+    recs.forEach(function (r) {
+      rows.push([[r.main].concat(r.body).join('\n'), r.place, r.stars.shift() || '', r.detail.join('\n'), r.link]);
+      r.stars.forEach(function (x) { rows.push(['* ' + x, '', '', '', '']); });
+    });
+    return { rows: rows, tables: tables };
+  }
+  /* 공동편집용 엑셀 양식: 작성방법 + 부서마다 시트 하나. fill이면 지금 내용을 채워서(엑셀로 내보내기) */
+  function makeExcelTemplate(fill) {
     var depts = state.departments.filter(function (d) { return !d.hidden && d.name.trim(); });
     if (!depts.length) { toast('부서를 먼저 추가하세요.'); return; }
     var HEAD = ['내용', '날짜(괄호 안에 기입됨)', '비고(아스타로 표현)', '설명(마우스를 올리면 보임)', '링크(클릭하면 실행됨)'];
@@ -3154,6 +3210,12 @@ body.locked > *:not(.lock) { display: none !important; }
       B(['청렴 교육', '11. 12.(목)', '대회의실', '전 직원']),
       B(['개인정보보호 교육', '11. 13.(금)', '온라인', '전 직원'])
     ];
+    if (fill) {
+      var now = new Date();
+      guide.splice(1, 1, [{ v: '부서별 일일 예정사항 — 내보낸 내용', s: 3 }],
+        G('문서 날짜 ' + fmtDate(state.doc.date) + ' · 내보낸 시각 ' + isoOf(now) + ' ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes()) +
+          ' · 맨 마지막 "합본" 시트를 복사해 화면에 붙여넣으면 이 내용이 그대로 돌아옵니다(아래 작성방법대로 고쳐 써도 됩니다).'));
+    }
     var sheets = [{ name: '작성방법', rows: guide, widths: W }];
     var used = { '작성방법': 1 };
     depts.forEach(function (d, i) {
@@ -3161,11 +3223,29 @@ body.locked > *:not(.lock) { display: none !important; }
       var base = nm, k = 2;
       while (used[nm]) nm = (base.slice(0, 28) + '(' + (k++) + ')');
       used[nm] = 1;
-      sheets.push({ name: nm, rows: [NAME(nm), H(HEAD)], widths: W, freeze: 2, colStyle: 2, active: i === 0 });
+      var rows = [NAME(nm), H(HEAD)];
+      if (fill) {
+        var cr = contentRows(d.content);
+        rows = rows.concat(cr.rows.map(B));
+        cr.tables.forEach(function (tb) {                // 표는 일정 아래 한 줄 띄고 (제목) + 머리글 + 내용
+          rows.push([]);
+          if (tb.title) rows.push(G(tb.title));
+          rows.push(H(tb.grid[0]));
+          tb.grid.slice(1).forEach(function (r) { rows.push(B(r)); });
+        });
+      }
+      sheets.push({ name: nm, rows: rows, widths: W, freeze: 2, colStyle: 2, active: i === 0 });
     });
-    sheets.push(hapbonSheet(sheets.slice(1), 60, 8, 3));     // 맨 마지막: 합본 (이 시트만 복사해 붙여넣기)
-    downloadBlob('일일예정_공동편집양식.xlsx', buildXlsx(sheets));
-    toast('공동편집용 엑셀 양식을 저장했습니다: 일일예정_공동편집양식.xlsx (부서 ' + depts.length + '곳) — 두레이에 올려 함께 작성하세요.');
+    var R = 60, C = 8;                                   // 합본이 시트마다 모으는 줄·칸 수 (내용이 많으면 늘림)
+    sheets.slice(1).forEach(function (sh) {
+      R = Math.max(R, sh.rows.length + 10);
+      sh.rows.forEach(function (r) { C = Math.max(C, r.length); });
+    });
+    sheets.push(hapbonSheet(sheets.slice(1), R, Math.min(C, 26), 3));     // 맨 마지막: 합본 (이 시트만 복사해 붙여넣기)
+    var fname = fill ? '부서별일일예정_' + (state.doc.date || todayISO()) + '.xlsx' : '일일예정_공동편집양식.xlsx';
+    downloadBlob(fname, buildXlsx(sheets));
+    toast(fill ? '지금 내용을 엑셀로 내보냈습니다: ' + fname + ' (부서 ' + depts.length + '곳) — 합본 시트를 복사해 붙여넣으면 그대로 돌아옵니다. (엑셀 파일은 암호가 걸리지 않습니다)'
+      : '공동편집용 엑셀 양식을 저장했습니다: 일일예정_공동편집양식.xlsx (부서 ' + depts.length + '곳) — 두레이에 올려 함께 작성하세요.');
   }
 
   /* 펼침 메뉴 */
@@ -3193,6 +3273,7 @@ body.locked > *:not(.lock) { display: none !important; }
     var act = b.getAttribute('data-act');
     if (act === 'html-view') saveHTML('view');
     else if (act === 'html-tpl') saveHTML('tpl');
+    else if (act === 'xlsx-export') makeExcelTemplate(true);
     else if (act === 'password') { if (window.__lock) window.__lock.change(); }
   });
 
