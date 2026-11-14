@@ -80,9 +80,6 @@ body:not(.mode-view) .view-only { display: none !important; }
 .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
 .menu .desc { display: block; font-size: 11px; color: var(--sub); }
 kbd { font-family: inherit; font-size: 11px; color: var(--sub); border: 1px solid var(--line2); border-radius: 4px; padding: 0 4px; }
-.save-state { font-size: 12px; color: var(--sub); white-space: nowrap; }
-.save-state.dirty { color: var(--warn); font-weight: 700; }
-.save-state.clean { color: var(--ok); }
 
 /* 작업 영역 */
 .workspace { flex: 1; display: flex; min-height: 0; }
@@ -467,19 +464,11 @@ body.locked > *:not(.lock) { display: none !important; }
         <button type="button" data-act="paste"><span>한셀(엑셀)에서 복사한 내용 붙여넣기<span class="desc">여러 시트를 합친 것도 됩니다 · 이 화면에서 바로 Ctrl+V 해도 됨</span></span><kbd>Ctrl+V</kbd></button>
         <hr>
         <button type="button" data-act="template"><span>공동편집용 엑셀 양식 만들기<span class="desc">부서별 시트가 들어 있는 .xlsx</span></span></button>
-        <hr>
-        <button type="button" data-act="json"><span>저장해 둔 작업(.json) 열기</span></button>
       </div>
     </div>
     <div class="menu-wrap edit-only">
-      <div class="btn-split">
-        <button class="btn" id="btnSave" title="작업 파일(.json)로 저장 (Ctrl+S)">저장</button>
-        <button class="btn caret" data-menu="saveMenu" aria-haspopup="true" aria-expanded="false" title="저장 방식 더 보기">▾</button>
-      </div>
+      <button class="btn" data-menu="saveMenu" aria-haspopup="true" aria-expanded="false" title="보기 파일·양식 파일 저장, 비밀번호 바꾸기">저장 ▾</button>
       <div class="menu" id="saveMenu" hidden>
-        <button type="button" data-act="save"><span>작업 파일(.json) 저장<span class="desc">나중에 그대로 이어서 작업</span></span><kbd>Ctrl+S</kbd></button>
-        <button type="button" data-act="saveas"><span>다른 이름으로 저장…</span></button>
-        <hr>
         <button type="button" data-act="html-view"><span>배포용 보기 파일(.html)<span class="desc">받은 사람이 열면 링크·설명 팝업이 되는 읽기 화면</span></span></button>
         <button type="button" data-act="html-tpl"><span>매일 쓸 양식 파일(.html) 저장<span class="desc">부서 목록·서식만 담은 빈 양식</span></span></button>
         <hr>
@@ -490,10 +479,8 @@ body.locked > *:not(.lock) { display: none !important; }
     <button class="btn view-only" id="btnToEdit" title="이 문서를 고치는 화면으로 바꿉니다">편집 화면 열기</button>
 
     <div class="spacer"></div>
-    <span class="save-state edit-only" id="saveState"></span>
     <button class="btn primary" id="btnPrint" title="Ctrl+P · 인쇄 창에서 'PDF로 저장'도 됩니다">인쇄 / PDF</button>
   </header>
-  <input type="file" id="fileInput" accept=".json,application/json" hidden>
 
   <main class="workspace">
     <aside class="editor">
@@ -709,7 +696,7 @@ body.locked > *:not(.lock) { display: none !important; }
           <section class="panel">
             <h3>저장 (재부팅해도 남기려면)</h3>
             <ul>
-              <li>브라우저 자동저장은 새로고침에만 대비합니다. 재부팅하면 사라지니 <b>[저장]</b>으로 파일을 남기세요.</li>
+              <li>파일로 저장하는 기능은 없습니다. 작업 중인 내용은 이 브라우저에 자동으로 남아 새로고침해도 이어지고(브라우저 기록을 지우면 사라짐), 매일 한셀에서 복사해 붙여넣어 씁니다.</li>
               <li>매일 같은 부서·서식으로 시작하려면 저장 ▾ → <b>매일 쓸 양식 파일</b>을 바탕화면에 두고 그 파일을 여세요.</li>
               <li>완성본을 화면으로 돌려 보게 하려면 저장 ▾ → <b>배포용 보기 파일</b>을 보내세요. 링크와 설명 팝업이 동작합니다.</li>
             </ul>
@@ -791,7 +778,6 @@ body.locked > *:not(.lock) { display: none !important; }
 
 <div class="tip-pop" id="tipPop" role="tooltip" hidden></div>
 <div class="rz-tip" id="rzTip" hidden></div>
-<div class="drop" id="dropOverlay" hidden>작업 파일(.json)을 놓으면 엽니다</div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button type="button" id="toastAct" hidden></button></div>
 
 <!-- ▲ 앱 화면 끝 -->
@@ -979,10 +965,6 @@ body.locked > *:not(.lock) { display: none !important; }
 
   var state = null;
   var appMode = 'edit';        // edit | view | dept
-  var dirty = false;           // 파일로 저장하지 않은 변경이 있는지
-  var lastFileSave = 0;
-  var fileHandle = null;       // 파일 시스템 접근 API (지원 브라우저만)
-  var fileHandleDate = '';
   var undoSnap = null;
 
   /* ------------------------------------------------------------------
@@ -2450,8 +2432,6 @@ body.locked > *:not(.lock) { display: none !important; }
   var autoTimer = 0;
   function changed(structural) {
     if (appMode === 'view') return;
-    dirty = true;
-    updateSaveState();
     updateRecv();
     if (structural) renderPreview(); else scheduleRender();
     clearTimeout(autoTimer);
@@ -2462,26 +2442,15 @@ body.locked > *:not(.lock) { display: none !important; }
     if (appMode === 'view' || autoOff || !state) return;
     state.savedAt = Date.now();
     var my = ++autoSeq;
-    sealText(JSON.stringify({ state: state, dirty: dirty, lastFileSave: lastFileSave, mode: appMode })).then(function (t) {
+    sealText(JSON.stringify({ state: state, mode: appMode })).then(function (t) {
       if (my === autoSeq) store.set(STORE_KEY, t);
     });
   }
   if (LOCK) LOCK.onRekey(function () { autosave(); });   // 비밀번호를 바꾸면 자동저장도 새 비밀번호로
-  function updateSaveState() {
-    var el = $('#saveState');
-    if (dirty) { el.className = 'save-state edit-only dirty'; el.textContent = '● 파일로 저장 안 됨'; el.title = '브라우저 자동저장은 재부팅하면 사라집니다. [저장]으로 파일을 남기세요.'; }
-    else if (lastFileSave) { el.className = 'save-state edit-only clean'; el.textContent = '✓ 파일 저장됨 ' + fmtClock(lastFileSave); el.title = ''; }
-    else { el.className = 'save-state edit-only'; el.textContent = ''; el.title = ''; }
-  }
-  window.addEventListener('beforeunload', function (e) {
-    if (!dirty || appMode === 'view' || !state) return;
-    autosave();
-    e.preventDefault();
-    e.returnValue = '';
-  });
+  window.addEventListener('beforeunload', function () { if (appMode !== 'view' && state) autosave(); });
 
   /* ------------------------------------------------------------------
-     저장 / 내보내기
+     내보내기 (배포용 보기 파일·양식 파일)
      ------------------------------------------------------------------ */
   function snapshot() { var s = clone(state); s.savedAt = Date.now(); return s; }
   function baseName() { return '일일예정사항_' + (state.doc.date || todayISO()); }
@@ -2495,38 +2464,6 @@ body.locked > *:not(.lock) { display: none !important; }
     setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
   }
   function download(name, text, mime) { downloadBlob(name, new Blob([text], { type: mime + ';charset=utf-8' })); }
-
-  function markSaved(msg) {
-    dirty = false;
-    lastFileSave = Date.now();
-    updateSaveState();
-    autosave();
-    toast(msg);
-  }
-
-  function saveJSON(saveAs) {
-    var dataP = sealText(JSON.stringify(snapshot(), null, 2));
-    var name = baseName() + '.json';
-    if (window.showSaveFilePicker && window.isSecureContext !== false) {
-      var useHandle = fileHandle && !saveAs && fileHandleDate === state.doc.date;
-      var p = useHandle ? Promise.resolve(fileHandle) : window.showSaveFilePicker({
-        suggestedName: name,
-        types: [{ description: '일일 예정사항 작업 파일', accept: { 'application/json': ['.json'] } }]
-      });
-      p.then(function (h) {
-        fileHandle = h; fileHandleDate = state.doc.date;
-        return dataP.then(function (data) { return h.createWritable().then(function (w) { return w.write(data).then(function () { return w.close(); }); }); }).then(function () { return h; });
-      }).then(function (h) {
-        markSaved('저장했습니다: ' + h.name + ' (다음부터 Ctrl+S로 같은 파일에 덮어씁니다)');
-      }).catch(function (err) {
-        if (err && err.name === 'AbortError') return;
-        fileHandle = null;
-        dataP.then(function (data) { download(name, data, 'application/json'); markSaved('다운로드 폴더에 저장했습니다: ' + name); });
-      });
-      return;
-    }
-    dataP.then(function (data) { download(name, data, 'application/json'); markSaved('다운로드 폴더에 저장했습니다: ' + name); });
-  }
 
   function saveHTML(kind) {
     var snap = snapshot();
@@ -2547,7 +2484,7 @@ body.locked > *:not(.lock) { display: none !important; }
     sealText(json).then(function (sealed) {
       download(name, base.slice(0, s + open.length) + sealed + base.slice(e), 'text/html');
       var lockNote = LOCK ? ' 같은 비밀번호로 잠겨 있습니다.' : '';
-      if (kind === 'view') markSaved('배포용 보기 파일을 저장했습니다: ' + name + ' — 받은 사람이 열면 링크·설명 팝업이 동작합니다.' + lockNote);
+      if (kind === 'view') toast('배포용 보기 파일을 저장했습니다: ' + name + ' — 받은 사람이 열면 링크·설명 팝업이 동작합니다.' + lockNote);
       else toast('양식 파일을 저장했습니다: ' + name + ' — 앞으로 이 파일을 열어 쓰세요.' + lockNote);
     });
   }
@@ -2710,25 +2647,6 @@ body.locked > *:not(.lock) { display: none !important; }
   /* ------------------------------------------------------------------
      불러오기
      ------------------------------------------------------------------ */
-  function decodeBytes(buf) {
-    var b = new Uint8Array(buf);
-    if (b.length >= 2 && b[0] === 0xFF && b[1] === 0xFE) return new TextDecoder('utf-16le').decode(b);
-    if (b.length >= 2 && b[0] === 0xFE && b[1] === 0xFF) return new TextDecoder('utf-16be').decode(b);
-    try { return new TextDecoder('utf-8', { fatal: true }).decode(b); }
-    catch (e) {
-      try { return new TextDecoder('euc-kr').decode(b); }      // 예전 메모장·엑셀 CSV(ANSI)
-      catch (e2) { return new TextDecoder('utf-8').decode(b); }
-    }
-  }
-  function readBuf(file) {
-    return new Promise(function (resolve, reject) {
-      var r = new FileReader();
-      r.onload = function () { resolve(r.result); };
-      r.onerror = function () { reject(r.error); };
-      r.readAsArrayBuffer(file);
-    });
-  }
-  function readFile(file) { return readBuf(file).then(decodeBytes); }
   function cleanContent(t) {
     return String(t || '').split(BOM).join('').replace(/\r\n?/g, '\n').replace(/^\s*\n/, '').replace(/\s+$/, '');
   }
@@ -2925,29 +2843,6 @@ body.locked > *:not(.lock) { display: none !important; }
   }
   function hasAnyContent() { return state.departments.some(function (d) { return d.content.trim(); }); }
 
-  function loadJSONFile(f) {
-    return readFile(f).then(function (txt) { return openText(String(txt).trim(), '"' + f.name + '"'); }).then(function (txt) {
-      if (txt == null) return;                       // 비밀번호를 묻는 창에서 건너뜀
-      var obj = JSON.parse(txt);
-      if (!obj || !Array.isArray(obj.departments)) throw new Error('일일 예정사항 작업 파일이 아닙니다.');
-      if (dirty && hasAnyContent() && !confirm('지금 화면의 내용을 "' + f.name + '" 파일 내용으로 바꿀까요?\n(파일로 저장하지 않은 내용은 사라집니다)')) return;
-      undoSnap = clone(state);
-      state = normalizeState(obj);
-      fileHandle = null;
-      renderAll();
-      changed(true);
-      toast('"' + f.name + '"을(를) 열었습니다.', { label: '되돌리기', fn: undo });
-    }).catch(function (err) { toast('열지 못했습니다: ' + (err && err.message ? err.message : err)); });
-  }
-
-  function handleFiles(fileList) {
-    var files = Array.prototype.slice.call(fileList || []);
-    if (!files.length) return;
-    var json = files.filter(function (f) { return /\.json$/i.test(f.name); });
-    if (json.length) { loadJSONFile(json[json.length - 1]); return; }
-    toast('엑셀 파일은 불러오지 않습니다(문서 보안). 한셀에서 시트 내용을 복사해 [붙여넣기]로 넣어 주세요.');
-  }
-
   /* 붙여넣기: 한셀(엑셀)에서 복사한 범위. 여러 시트를 이어 붙였으면 시트(부서)마다 나눈다
      - A열 한 칸에 '# 부서명'(또는 [부서명])이 있는 줄에서 새 시트. 부서명만 있어도, 아는 부서이고 바로 아래가 머리글이면 새 시트
      - 이름 줄 없이 붙였으면 머리글 줄이 다시 나올 때마다 나눔 (넣을 부서는 확인 창에서 고름)
@@ -3010,9 +2905,6 @@ body.locked > *:not(.lock) { display: none !important; }
     importPastedText(text);
   });
 
-  var fileInput = $('#fileInput');
-  function pickFiles() { fileInput.value = ''; fileInput.click(); }
-  fileInput.addEventListener('change', function () { handleFiles(fileInput.files); });
   $('#btnImport').addEventListener('click', function () { openBulk(); });
   $('#btnImport2').addEventListener('click', function () { openBulk(); });
   $('#btnTemplate').addEventListener('click', function () { makeExcelTemplate(); });
@@ -3021,21 +2913,17 @@ body.locked > *:not(.lock) { display: none !important; }
     if (!b) return;
     closeMenus();
     var act = b.getAttribute('data-act');
-    if (act === 'json') pickFiles();
-    else if (act === 'paste') openBulk();
+    if (act === 'paste') openBulk();
     else if (act === 'template') makeExcelTemplate();
   });
 
-  /* 끌어다 놓기 */
-  var dropEl = $('#dropOverlay'), dragDepth = 0;
-  function hasFiles(e) { return appMode === 'edit' && e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0; }
-  window.addEventListener('dragenter', function (e) { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; dropEl.hidden = false; });
-  window.addEventListener('dragover', function (e) { if (!hasFiles(e)) return; e.preventDefault(); });
-  window.addEventListener('dragleave', function (e) { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) dropEl.hidden = true; });
+  /* 파일을 끌어다 놓아도 화면을 벗어나지 않게 (파일은 불러오지 않음) */
+  function hasFiles(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0; }
+  window.addEventListener('dragover', function (e) { if (hasFiles(e)) e.preventDefault(); });
   window.addEventListener('drop', function (e) {
     if (!hasFiles(e)) return;
-    e.preventDefault(); dragDepth = 0; dropEl.hidden = true;
-    handleFiles(e.dataTransfer.files);
+    e.preventDefault();
+    toast('파일은 불러오지 않습니다. 한셀에서 시트 내용을 복사해 [붙여넣기]로 넣어 주세요.');
   });
 
   /* 붙여넣기 창 */
@@ -3267,26 +3155,22 @@ body.locked > *:not(.lock) { display: none !important; }
   });
   document.addEventListener('click', function (e) { if (!e.target.closest('.menu-wrap')) closeMenus(); });
 
-  $('#btnSave').addEventListener('click', function () { saveJSON(false); });
   $('#saveMenu').addEventListener('click', function (e) {
     var b = e.target.closest('[data-act]');
     if (!b) return;
     closeMenus();
     var act = b.getAttribute('data-act');
-    if (act === 'save') saveJSON(false);
-    else if (act === 'saveas') saveJSON(true);
-    else if (act === 'html-view') saveHTML('view');
+    if (act === 'html-view') saveHTML('view');
     else if (act === 'html-tpl') saveHTML('tpl');
     else if (act === 'password') { if (window.__lock) window.__lock.change(); }
   });
 
   /* 새 문서 / 예시 */
   $('#btnNew').addEventListener('click', function () {
-    if (hasAnyContent() && !confirm('모든 부서의 내용을 비우고 오늘 날짜로 새로 시작할까요?\n부서 목록과 서식은 그대로 둡니다.' + (dirty ? '\n\n※ 파일로 저장하지 않은 내용이 있습니다.' : ''))) return;
+    if (hasAnyContent() && !confirm('모든 부서의 내용을 비우고 오늘 날짜로 새로 시작할까요?\n부서 목록과 서식은 그대로 둡니다.')) return;
     undoSnap = clone(state);
     state.departments.forEach(function (d) { d.content = ''; d.receivedAt = 0; d.source = ''; });
     state.doc.date = todayISO();
-    fileHandle = null;
     renderAll();
     changed(true);
     toast('새 문서를 시작했습니다.', { label: '되돌리기', fn: undo });
@@ -3307,7 +3191,7 @@ body.locked > *:not(.lock) { display: none !important; }
     appMode = 'edit';
     applyMode();
     renderAll();
-    toast('편집 화면입니다. 고친 뒤에는 [저장]으로 파일을 남기세요.');
+    toast('편집 화면입니다. 고친 내용은 이 브라우저에 자동으로 남습니다.');
   });
 
   /* 인쇄 */
@@ -3317,7 +3201,7 @@ body.locked > *:not(.lock) { display: none !important; }
   /* 단축키 */
   document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 's' || e.key === 'S')) {
-      if (appMode === 'edit') { e.preventDefault(); saveJSON(e.shiftKey); }
+      if (appMode === 'edit') { e.preventDefault(); toast('따로 저장할 필요가 없습니다. 내용은 이 브라우저에 자동으로 남습니다.'); }
     } else if (e.key === 'Escape') {
       hideTip();
       $$('.modal').forEach(function (m) { m.hidden = true; });
@@ -3377,7 +3261,7 @@ body.locked > *:not(.lock) { display: none !important; }
       });
     }).then(function (r) {
       start(r[0], r[1]);
-      if (autoOff) toast('자동저장된 내용이 다른 비밀번호로 잠겨 있어 그대로 두었습니다. 이 창에서는 자동저장을 하지 않으니 [저장]으로 파일을 남기세요.');
+      if (autoOff) toast('자동저장된 내용이 다른 비밀번호로 잠겨 있어 그대로 두었습니다. 이 창에서는 자동저장을 하지 않습니다(새로고침하면 지금 내용이 사라집니다).');
       else if (LOCK && rawAuto && !LOCK.isEnc(rawAuto)) autosave();      // 예전의 평문 자동저장 → 잠가서 다시
     });
   }
@@ -3400,8 +3284,6 @@ body.locked > *:not(.lock) { display: none !important; }
 
     if (auto && auto.state && (auto.mode || 'edit') === appMode && (!embedded || (auto.state.savedAt || 0) >= (embedded.savedAt || 0))) {
       state = normalizeState(auto.state);
-      dirty = !!auto.dirty;
-      lastFileSave = +auto.lastFileSave || 0;
       if (appMode === 'edit') msg = '마지막으로 작업하던 내용을 이어서 엽니다 (' + fmtStamp(state.savedAt) + ').';
     } else if (embedded) {
       state = normalizeState(embedded);
@@ -3414,7 +3296,6 @@ body.locked > *:not(.lock) { display: none !important; }
     setupFonts();
     applyMode();
     renderAll();
-    updateSaveState();
     if (msg) toast(msg);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(renderPreview);
   }
@@ -3438,7 +3319,7 @@ body.locked > *:not(.lock) { display: none !important; }
 /* 비밀번호 잠금 + 암호화
    - 배포 파일에서는 화면(HTML)과 화면 코드가 app-code 안에 암호문(AES-256-GCM)으로 들어 있습니다.
      비밀번호로 키를 만들어(PBKDF2-SHA256 60만 번) 풀리면 화면을 넣고 코드를 실행합니다. 틀리면 풀리지 않습니다.
-   - 저장하는 것(자동저장, 작업 파일 .json, 보기·양식 파일 .html)도 같은 비밀번호로 잠급니다 (window.__docLock).
+   - 저장하는 것(자동저장, 보기·양식 파일 .html)도 같은 비밀번호로 잠급니다 (window.__docLock).
    - 비밀번호를 바꾸면 새 비밀번호로 다시 잠근 이 파일을 내려받습니다. 비밀번호를 잊으면 풀 방법이 없습니다.
    - app-code가 암호문이 아니면(src/ 개발용 원본) 그대로 실행하고, 저장하는 것만 넣은 비밀번호로 잠급니다. */
 (function () {
@@ -3482,7 +3363,7 @@ body.locked > *:not(.lock) { display: none !important; }
   function decWith(key, env) { return subtle.decrypt({ name: 'AES-GCM', iv: env.iv }, key, env.ct).then(function (pt) { return td.decode(pt); }); }
   function decryptPw(t, pw) { var env = parse(t); return keyOf(pw, env).then(function (key) { return decWith(key, env); }); }
 
-  /* 다른 비밀번호로 잠긴 것(예전 작업 파일 등)을 열 때 그 비밀번호를 묻는다. 건너뛰면 null */
+  /* 다른 비밀번호로 잠긴 것(예전 자동저장·보기 파일 등)을 열 때 그 비밀번호를 묻는다. 건너뛰면 null */
   var askQ = Promise.resolve();
   function ask(t, what) {
     var run = function () {
@@ -3622,7 +3503,7 @@ body.locked > *:not(.lock) { display: none !important; }
       el('pwDialog').hidden = true;
       alert('비밀번호를 바꿨습니다. 새 비밀번호로 다시 잠근 파일(' + name + ')을 내려받았습니다.\n\n' +
         '· 지금 쓰는 파일을 이 파일로 바꾸고, 옛 파일은 지우세요. 옛 파일은 옛 비밀번호로 계속 열립니다.\n' +
-        '· 이 창에서 저장하는 것(자동저장·작업 파일·보기 파일)은 지금부터 새 비밀번호로 잠깁니다.\n' +
+        '· 이 창에서 저장하는 것(자동저장·보기·양식 파일)은 지금부터 새 비밀번호로 잠깁니다.\n' +
         '· 비밀번호를 잊으면 풀 방법이 없으니 잘 보관하세요.');
     }).catch(function (err) { msg.textContent = '바꾸지 못했습니다: ' + (err && err.message ? err.message : err); });
   });

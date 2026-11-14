@@ -74,9 +74,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
 .menu .desc { display: block; font-size: 11px; color: var(--sub); }
 kbd { font-family: inherit; font-size: 11px; color: var(--sub); border: 1px solid var(--line2); border-radius: 4px; padding: 0 4px; }
-.save-state { font-size: 12px; color: var(--sub); white-space: nowrap; }
-.save-state.dirty { color: var(--warn); font-weight: 700; }
-.save-state.clean { color: var(--ok); }
 
 /* 작업 영역 */
 .workspace { flex: 1; display: flex; min-height: 0; }
@@ -464,17 +461,12 @@ body.locked > *:not(.lock) { display: none !important; }
         <button type="button" data-act="paste"><span>한셀(엑셀)에서 복사한 내용 붙여넣기<span class="desc">여러 시트를 합친 것도 됩니다 · 입력칸 밖에서 바로 Ctrl+V 해도 됨</span></span><kbd>Ctrl+V</kbd></button>
         <hr>
         <button type="button" data-act="template"><span>공동편집용 엑셀 양식 만들기<span class="desc">임원별 시트 + 맨 밑 표 시트가 들어 있는 .xlsx</span></span></button>
-        <hr>
-        <button type="button" data-act="json"><span>저장해 둔 작업(.json) 열기</span></button>
       </div>
     </div>
-    <button class="btn" id="btnSave" title="작업 파일(.json)로 저장 (Ctrl+S)">저장</button>
     <button class="btn" id="btnPwTop" title="열 때 묻는 비밀번호를 바꿉니다">비밀번호 바꾸기</button>
     <div class="spacer"></div>
-    <span class="save-state" id="saveState"></span>
     <button class="btn primary" id="btnPrint" title="Ctrl+P · 인쇄 창에서 'PDF로 저장'도 됩니다">인쇄 / PDF</button>
   </header>
-  <input type="file" id="fileInput" accept=".json,application/json" hidden>
 
   <main class="workspace">
     <aside class="editor">
@@ -615,7 +607,7 @@ body.locked > *:not(.lock) { display: none !important; }
           <section class="panel">
             <h3>저장</h3>
             <ul>
-              <li>화면 내용은 브라우저에 자동으로 남지만(새로고침 대비), 오래 두려면 <b>저장</b>(<kbd>Ctrl</kbd>+<kbd>S</kbd>)으로 작업 파일(.json)을 만드세요. <b>열기</b> 또는 화면에 끌어다 놓아서 다시 엽니다.</li>
+              <li>파일로 저장하는 기능은 없습니다. 작업 중인 내용은 이 브라우저에 자동으로 남아 새로고침해도 이어지고(브라우저 기록을 지우면 사라짐), 매일 한셀에서 복사해 붙여넣어 씁니다.</li>
               <li>인쇄 창에서는 용지 <b>A4</b>, 배율 <b>기본값(100%)</b>, 여백 <b>기본값</b>으로 두세요.</li>
             </ul>
           </section>
@@ -687,7 +679,6 @@ body.locked > *:not(.lock) { display: none !important; }
 </div>
 
 <div class="rz-tip" id="rzTip" hidden></div>
-<div class="drop" id="dropOverlay" hidden>작업 파일(.json)을 놓으면 엽니다</div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button type="button" id="toastAct" hidden></button></div>
 
 <!-- ▲ 앱 화면 끝 -->
@@ -2174,12 +2165,10 @@ body.locked > *:not(.lock) { display: none !important; }
   $$('.tab').forEach(function (t) { t.addEventListener('click', function () { showTab(t.getAttribute('data-tab')); }); });
 
   /* ------------------------------------------------------------------
-     저장·열기
+     자동저장(새로고침 대비)
      ------------------------------------------------------------------ */
-  var dirty = false, saveTimer = 0;
+  var saveTimer = 0;
   function changed() {
-    dirty = true;
-    updateSaveState();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(autosave, 400);
   }
@@ -2187,59 +2176,18 @@ body.locked > *:not(.lock) { display: none !important; }
   function autosave() {
     if (autoOff || !state) return;
     var my = ++autoSeq;
-    sealText(JSON.stringify({ state: state, dirty: dirty, at: Date.now() })).then(function (t) { if (my === autoSeq) store.set(STORE_KEY, t); });
+    sealText(JSON.stringify({ state: state, at: Date.now() })).then(function (t) { if (my === autoSeq) store.set(STORE_KEY, t); });
   }
   if (LOCK) LOCK.onRekey(function () { autosave(); });   // 비밀번호를 바꾸면 자동저장도 새 비밀번호로
-  function updateSaveState() {
-    var el = $('#saveState');
-    el.className = 'save-state ' + (dirty ? 'dirty' : 'clean');
-    el.textContent = dirty ? '● 파일로 저장 안 됨' : '✓ 저장됨';
-  }
-  window.addEventListener('beforeunload', function (e) {
-    if (!state) return;
-    autosave();
-    if (dirty) { e.preventDefault(); e.returnValue = ''; }
-  });
+  window.addEventListener('beforeunload', function () { if (state) autosave(); });
 
-  function baseName() { return '임원일일예정_' + (state.doc.date || todayISO()); }
   function downloadBlob(name, blob) {
     var url = URL.createObjectURL(blob), a = document.createElement('a');
     a.href = url; a.download = name; a.style.display = 'none';
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
   }
-  function saveJSON() {
-    var data = JSON.stringify({ app: 'exec-daily-schedule', version: 1, savedAt: Date.now(), doc: state.doc, style: state.style, execs: state.execs }, null, 2);
-    var name = baseName() + '.json';
-    sealText(data).then(function (sealed) {
-      downloadBlob(name, new Blob([sealed], { type: 'application/json;charset=utf-8' }));
-      dirty = false; updateSaveState(); autosave();
-      toast('작업 파일을 저장했습니다: ' + name + (LOCK ? ' (같은 비밀번호로 잠김)' : ''));
-    });
-  }
-  function openFile(file) {
-    if (!file) return;
-    if (!/\.json$/i.test(file.name)) { toast('작업 파일(.json)만 열 수 있습니다.'); return; }
-    var r = new FileReader();
-    r.onload = function () {
-      openText(String(r.result).replace(/^﻿/, '').trim(), '"' + file.name + '"').then(function (txt) { if (txt != null) loaded(txt); });
-    };
-    function loaded(txt) {
-      var data;
-      try { data = JSON.parse(txt); } catch (e) { toast('파일을 읽지 못했습니다: 올바른 작업 파일이 아닙니다.'); return; }
-      if (!data || !Array.isArray(data.execs)) { toast('임원 일일 예정사항 작업 파일이 아닙니다.'); return; }
-      if (dirty && !confirm('지금 화면의 저장하지 않은 내용은 사라집니다. 파일을 열까요?')) return;
-      state = normalizeState(data);
-      dirty = false;
-      syncInputs(); renderEditor(); renderPreview(); updateSaveState(); autosave();
-      toast('열었습니다: ' + file.name);
-    }
-    r.onerror = function () { toast('파일을 읽지 못했습니다.'); };
-    r.readAsText(file, 'utf-8');
-  }
 
-  $('#btnSave').addEventListener('click', saveJSON);
-  $('#fileInput').addEventListener('change', function (e) { openFiles(e.target.files); e.target.value = ''; });
   $('#btnPrint').addEventListener('click', function () { renderPreview(); window.print(); });
   $('#btnPw').addEventListener('click', function () { if (window.__lock) window.__lock.change(); });
   $('#btnPwTop').addEventListener('click', function () { if (window.__lock) window.__lock.change(); });
@@ -2255,19 +2203,16 @@ body.locked > *:not(.lock) { display: none !important; }
     });
   });
   document.addEventListener('keydown', function (e) {
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); saveJSON(); }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); toast('따로 저장할 필요가 없습니다. 내용은 이 브라우저에 자동으로 남습니다.'); }
   });
 
-  /* 작업 파일 끌어다 놓기 */
-  var dropEl = $('#dropOverlay'), dragDepth = 0;
+  /* 파일을 끌어다 놓아도 화면을 벗어나지 않게 (파일은 불러오지 않음) */
   function hasFiles(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0; }
-  document.addEventListener('dragenter', function (e) { if (!hasFiles(e)) return; dragDepth++; dropEl.hidden = false; });
-  document.addEventListener('dragleave', function (e) { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) dropEl.hidden = true; });
   document.addEventListener('dragover', function (e) { if (hasFiles(e)) e.preventDefault(); });
   document.addEventListener('drop', function (e) {
     if (!hasFiles(e)) return;
-    e.preventDefault(); dragDepth = 0; dropEl.hidden = true;
-    openFiles(e.dataTransfer.files);
+    e.preventDefault();
+    toast('파일은 불러오지 않습니다. 한셀에서 시트 내용을 복사해 [붙여넣기]로 넣어 주세요.');
   });
 
   /* ------------------------------------------------------------------
@@ -2530,13 +2475,6 @@ body.locked > *:not(.lock) { display: none !important; }
     }, 12000);
   });
 
-  function openFiles(list) {
-    var files = Array.prototype.slice.call(list || []);
-    if (!files.length) return;
-    var json = files.filter(function (f) { return /\.json$/i.test(f.name); });
-    if (json.length) { openFile(json[0]); return; }
-    toast('엑셀 파일은 불러오지 않습니다(문서 보안). 한셀에서 시트 내용을 복사해 [붙여넣기]로 넣어 주세요.');
-  }
   /* 여러 시트를 이어 붙인 표를 시트마다 나눈다.
      - A열 한 칸에 '# 이름'(또는 [이름])이 있는 줄에서 새 시트. 이름만 있어도, 아는 임원·'맨 밑 표'이고 바로 아래가 머리글이면 새 시트
      - 이름 줄 없이 붙였으면 머리글 줄이 다시 나올 때마다 나눔 (넣을 임원은 확인 창에서 고름) */
@@ -2798,8 +2736,7 @@ body.locked > *:not(.lock) { display: none !important; }
     if (!b) return;
     closeMenus();
     var act = b.getAttribute('data-act');
-    if (act === 'json') $('#fileInput').click();
-    else if (act === 'paste') { $('#bulkModal').hidden = false; $('#bulkText').focus(); }
+    if (act === 'paste') { $('#bulkModal').hidden = false; $('#bulkText').focus(); }
     else if (act === 'template') makeExcelTemplate();
   });
 
@@ -2809,13 +2746,12 @@ body.locked > *:not(.lock) { display: none !important; }
   var state, saved = null;
   function start(autoText) {
     try { saved = JSON.parse(autoText || 'null'); } catch (e) { saved = null; }
-    if (saved && saved.state) { state = normalizeState(saved.state); dirty = !!saved.dirty; }
-    else { state = normalizeState(sampleState()); dirty = false; }
+    if (saved && saved.state) state = normalizeState(saved.state);
+    else state = normalizeState(sampleState());
 
     syncInputs();
     renderEditor();
     renderPreview();
-    updateSaveState();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(renderPreview);
 
     if (saved && state.doc.date < todayISO()) {
@@ -2830,7 +2766,7 @@ body.locked > *:not(.lock) { display: none !important; }
     openText(rawAuto, '이 컴퓨터에 자동저장된 내용').then(function (at) {
       if (at == null) { autoOff = true; at = ''; }
       start(at);
-      if (autoOff) toast('자동저장된 내용이 다른 비밀번호로 잠겨 있어 그대로 두었습니다. 이 창에서는 자동저장을 하지 않으니 [저장]으로 파일을 남기세요.');
+      if (autoOff) toast('자동저장된 내용이 다른 비밀번호로 잠겨 있어 그대로 두었습니다. 이 창에서는 자동저장을 하지 않습니다(새로고침하면 지금 내용이 사라집니다).');
       else if (LOCK && rawAuto && !LOCK.isEnc(rawAuto)) autosave();      // 예전의 평문 자동저장 → 잠가서 다시
     });
   })();
@@ -2843,7 +2779,7 @@ body.locked > *:not(.lock) { display: none !important; }
 /* 비밀번호 잠금 + 암호화
    - 배포 파일에서는 화면(HTML)과 화면 코드가 app-code 안에 암호문(AES-256-GCM)으로 들어 있습니다.
      비밀번호로 키를 만들어(PBKDF2-SHA256 60만 번) 풀리면 화면을 넣고 코드를 실행합니다. 틀리면 풀리지 않습니다.
-   - 저장하는 것(자동저장, 작업 파일 .json, 보기·양식 파일 .html)도 같은 비밀번호로 잠급니다 (window.__docLock).
+   - 저장하는 것(자동저장)도 같은 비밀번호로 잠급니다 (window.__docLock).
    - 비밀번호를 바꾸면 새 비밀번호로 다시 잠근 이 파일을 내려받습니다. 비밀번호를 잊으면 풀 방법이 없습니다.
    - app-code가 암호문이 아니면(src/ 개발용 원본) 그대로 실행하고, 저장하는 것만 넣은 비밀번호로 잠급니다. */
 (function () {
@@ -2887,7 +2823,7 @@ body.locked > *:not(.lock) { display: none !important; }
   function decWith(key, env) { return subtle.decrypt({ name: 'AES-GCM', iv: env.iv }, key, env.ct).then(function (pt) { return td.decode(pt); }); }
   function decryptPw(t, pw) { var env = parse(t); return keyOf(pw, env).then(function (key) { return decWith(key, env); }); }
 
-  /* 다른 비밀번호로 잠긴 것(예전 작업 파일 등)을 열 때 그 비밀번호를 묻는다. 건너뛰면 null */
+  /* 다른 비밀번호로 잠긴 것(예전 자동저장 등)을 열 때 그 비밀번호를 묻는다. 건너뛰면 null */
   var askQ = Promise.resolve();
   function ask(t, what) {
     var run = function () {
@@ -3027,7 +2963,7 @@ body.locked > *:not(.lock) { display: none !important; }
       el('pwDialog').hidden = true;
       alert('비밀번호를 바꿨습니다. 새 비밀번호로 다시 잠근 파일(' + name + ')을 내려받았습니다.\n\n' +
         '· 지금 쓰는 파일을 이 파일로 바꾸고, 옛 파일은 지우세요. 옛 파일은 옛 비밀번호로 계속 열립니다.\n' +
-        '· 이 창에서 저장하는 것(자동저장·작업 파일·보기 파일)은 지금부터 새 비밀번호로 잠깁니다.\n' +
+        '· 이 창에서 저장하는 것(자동저장)은 지금부터 새 비밀번호로 잠깁니다.\n' +
         '· 비밀번호를 잊으면 풀 방법이 없으니 잘 보관하세요.');
     }).catch(function (err) { msg.textContent = '바꾸지 못했습니다: ' + (err && err.message ? err.message : err); });
   });
