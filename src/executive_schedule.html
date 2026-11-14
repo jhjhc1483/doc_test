@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>임원 일일 예정사항</title>
+<title>일일 예정사항</title>
 <script id="embedded-state" type="application/json">null</script>
 <style id="page-rule">@page { size: A4 portrait; margin: 0; }</style>
 <style>
@@ -456,7 +456,7 @@ body.locked > *:not(.lock) { display: none !important; }
 <!-- ▼ 앱 화면 (배포 파일에서는 여기부터 '앱 화면 끝'까지가 암호화되어 app-code 안에 들어감) -->
 <div class="app">
   <header class="topbar">
-    <div class="brand" id="brand">임원 일일 예정사항 <small>8명 · A4 한 장 자동 맞춤</small></div>
+    <div class="brand" id="brand">일일 예정사항 <small>임원 8명 · A4 한 장 자동 맞춤</small></div>
     <button class="btn edit-only" id="btnNew" title="직위·성명·서식은 그대로 두고 일정·참고 내용만 비웁니다">새 문서</button>
     <div class="menu-wrap edit-only">
       <div class="btn-split">
@@ -801,7 +801,7 @@ body.locked > *:not(.lock) { display: none !important; }
   }
   var NUM_RANGE = { margin: [5, 25], maxFont: [6, 20], minFont: [5, 16] };
 
-  function defaultDoc() { return { title: '임원 일일 예정사항', date: todayISO(), subtitle: '', footer: '' }; }
+  function defaultDoc() { return { title: '일일 예정사항', date: todayISO(), subtitle: '', footer: '' }; }
 
   function sampleState() {
     var E = function (pos, name, sched, ref) { return { pos: pos, name: name, sched: sched.join('\n'), ref: ref.join('\n') }; };
@@ -884,6 +884,7 @@ body.locked > *:not(.lock) { display: none !important; }
     var out = { doc: defaultDoc(), style: clone(DEFAULT_STYLE), execs: [], tables: [] };
     var d = s.doc || {};
     ['title', 'date', 'subtitle', 'footer'].forEach(function (k) { if (d[k] != null) out.doc[k] = String(d[k]); });
+    if (out.doc.title === '임원 일일 예정사항') out.doc.title = '일일 예정사항';     // 예전 기본 제목 → 지금 기본 제목
     if (!/^\d{4}-\d{2}-\d{2}$/.test(out.doc.date)) out.doc.date = todayISO();
     var st = s.style || {};
     Object.keys(DEFAULT_STYLE).forEach(function (k) { if (st[k] != null) out.style[k] = st[k]; });
@@ -2263,8 +2264,8 @@ body.locked > *:not(.lock) { display: none !important; }
   function applyMode() {
     document.body.classList.toggle('mode-view', appMode === 'view');
     $('#brand').innerHTML = appMode === 'view'
-      ? esc(state.doc.title || '임원 일일 예정사항') + ' <small>' + esc(fmtDate(state.doc.date)) + '</small>'
-      : '임원 일일 예정사항 <small>8명 · A4 한 장 자동 맞춤</small>';
+      ? esc(state.doc.title || '일일 예정사항') + ' <small>' + esc(fmtDate(state.doc.date)) + '</small>'
+      : '일일 예정사항 <small>임원 8명 · A4 한 장 자동 맞춤</small>';
     if (appMode === 'view' && hlMode) setHlMode(false);
     var z = $('#zoomSel');
     z.value = appMode === 'view' ? 'width' : 'page';
@@ -2764,7 +2765,7 @@ body.locked > *:not(.lock) { display: none !important; }
     var G = function (v) { return [{ v: v, s: 4 }]; };
     var guide = [
       NAME('작성방법'),
-      [{ v: '임원 일일 예정사항 — 공동편집 양식', s: 3 }], [],
+      [{ v: '일일 예정사항 — 공동편집 양식', s: 3 }], [],
       G('1. 임원마다 시트가 하나씩 있습니다(시트 이름 = 직위 성명). A1에는 수식으로 "#시트 이름"이 저절로 들어가니(시트 이름을 바꾸면 같이 바뀜) 지우지 마세요.'),
       G('2. 한 줄에 일정 하나: 시간 / 내용을 각자 칸에 씁니다. 시간은 09:00 또는 14:00~15:30처럼 씁니다(종일·오전도 됩니다).'),
       G('3. 비고 칸에 쓴 것은 그 일정 밑에 작은 글씨 부가 설명(*)으로 붙습니다.'),

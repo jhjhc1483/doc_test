@@ -454,7 +454,7 @@ body.locked > *:not(.lock) { display: none !important; }
 <!-- ▼ 앱 화면 (배포 파일에서는 여기부터 '앱 화면 끝'까지가 암호화되어 app-code 안에 들어감) -->
 <div class="app">
   <header class="topbar">
-    <div class="brand" id="brand">일일 예정사항 <small>A4 한 장 자동 맞춤</small></div>
+    <div class="brand" id="brand">부서별 일일 예정사항 <small>A4 한 장 자동 맞춤</small></div>
 
     <button class="btn edit-only" id="btnNew" title="부서 목록·서식은 그대로 두고 내용만 비웁니다">새 문서</button>
     <div class="menu-wrap edit-only">
@@ -3254,8 +3254,8 @@ body.locked > *:not(.lock) { display: none !important; }
   function applyMode() {
     document.body.classList.toggle('mode-view', appMode === 'view');
     var brand = $('#brand');
-    if (appMode === 'view') brand.innerHTML = esc(state.doc.title || '일일 예정사항') + ' <small>' + esc(fmtDate(state.doc.date)) + '</small>';
-    else brand.innerHTML = '일일 예정사항 <small>A4 한 장 자동 맞춤</small>';
+    if (appMode === 'view') brand.innerHTML = esc(state.doc.title || '부서별 일일 예정사항') + ' <small>' + esc(fmtDate(state.doc.date)) + '</small>';
+    else brand.innerHTML = '부서별 일일 예정사항 <small>A4 한 장 자동 맞춤</small>';
     showTab('input');
   }
 
