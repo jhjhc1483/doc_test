@@ -508,7 +508,7 @@ body.locked > *:not(.lock) { display: none !important; }
             <h2>배치</h2>
             <div class="lay map" id="map"></div>
             <button type="button" class="slot xt-slot" id="mapTables" title="누르면 맨 밑 표 입력칸으로"></button>
-            <p class="hint">칸을 누르면 그 임원 입력칸으로 갑니다. 칸을 <b>끌어다 다른 칸에 놓으면</b> 두 임원의 자리가 바뀝니다.</p>
+            <p class="hint">칸을 누르면 그 입력칸으로 갑니다. 칸을 <b>끌어다 다른 칸에 놓으면</b> 두 칸의 자리가 바뀝니다.</p>
           </section>
 
           <div id="execList"></div>
@@ -780,7 +780,7 @@ body.locked > *:not(.lock) { display: none !important; }
 
   /* 맨 밑 표 4개: 표마다 한 줄, 칸 수는 고정 */
   var TABLES = [
-    { label: '인접회사활동', n: 5, heads: true, headPh: '회사명' },
+    { label: '인접회사활동', n: 5, heads: true },
     { label: '휴가', n: 1 },
     { label: '출장/방문', n: 1 },
     { label: '근무', n: 2, heads: true, headPh: '칸 제목(선택)' }
@@ -1734,7 +1734,7 @@ body.locked > *:not(.lock) { display: none !important; }
           '<span class="xt-n">' + (d.n > 1 ? '한 줄 ' + d.n + '칸' : '한 줄') + '</span></div>' +
           t.cells.map(function (c, j) {
             return '<div class="xt-cell" data-c="' + j + '">' +
-              (d.heads ? '<input type="text" class="xt-head" data-x="head" value="' + esc(c.head) + '" placeholder="' + esc(d.headPh) + '" aria-label="' + esc(d.label) + ' ' + (j + 1) + '번째 칸 제목">' : '') +
+              (d.heads ? '<input type="text" class="xt-head" data-x="head" value="' + esc(c.head) + '"' + (d.headPh ? ' placeholder="' + esc(d.headPh) + '"' : '') + ' aria-label="' + esc(d.label) + ' ' + (j + 1) + '번째 칸 제목">' : '') +
               '<textarea data-x="text" rows="1" spellcheck="false" aria-label="' + esc(d.label) + ' ' + (j + 1) + '번째 칸 내용">' + esc(c.text) + '</textarea></div>';
           }).join('') + '</div>';
       }).join('') +
