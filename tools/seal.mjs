@@ -23,7 +23,10 @@ const ST_EMPTY = '<script id="embedded-state" type="application/json">null</scri
 // 메모장으로 열었을 때 보이면 안 되는 글 (예시 부서·임원 이름, 코드, 꾸밈)
 const MUST_HIDE = ['기획조정과', '총무과', '김민수', '이정훈', 'function sampleState', 'function renderPreview', '주간 업무보고', '.doc-title', '.topbar'];
 
-const pw = process.argv[2] || '1234';
+const DEFAULT_PW = '1234';
+const pw = process.argv[2] || DEFAULT_PW;
+// 처음 비밀번호(1234)로 잠근 파일이면 잠금 화면에 "처음 비밀번호는 1234입니다"를 보여 줌 (틀의 pw-default 자리)
+const PWDEF = '<script id="pw-default" type="application/json">';
 const { subtle } = globalThis.crypto;
 const b64 = (u8) => Buffer.from(u8).toString('base64');
 
@@ -78,7 +81,9 @@ const apps = {};
 for (const [id, f] of Object.entries(APPS)) apps[id] = appDoc(id, f);
 const text = JSON.stringify({ v: 2, apps });
 const env = await seal(text);
-const out = shell.slice(0, cs + CODE_OPEN.length) + '\n' + env + '\n' + shell.slice(ce);
+let out = shell.slice(0, cs + CODE_OPEN.length) + '\n' + env + '\n' + shell.slice(ce);
+if (!out.includes(PWDEF + 'false' + CLOSE)) throw new Error(SHELL + ': pw-default 자리를 찾지 못했습니다.');
+out = out.replace(PWDEF + 'false' + CLOSE, PWDEF + (pw === DEFAULT_PW) + CLOSE);
 const leak = MUST_HIDE.filter((w) => out.includes(w));
 if (leak.length) throw new Error(OUT + ': 평문으로 남은 글 — ' + leak.join(', '));
 writeFileSync(join(ROOT, OUT), out);

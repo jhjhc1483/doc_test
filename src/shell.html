@@ -10,6 +10,7 @@
 <script id="embedded-daily" type="application/json">null</script>
 <script id="embedded-exec" type="application/json">null</script>
 <script id="embedded-only" type="application/json">null</script>
+<script id="pw-default" type="application/json">false</script>
 <style id="page-rule">@page { size: A4 portrait; margin: 0; }</style>
 <style id="shell-style">
 /* 위쪽 메뉴 + 화면 칸 */
@@ -87,6 +88,8 @@ body.locked > *:not(.lock) { display: none !important; }
 .lock-box input { height: 34px; border: 1px solid #c6ccd5; border-radius: 6px; padding: 0 10px; font: inherit; font-size: 14px; color: #1d232b; }
 .lock-box input:focus { outline: 2px solid #2257c5; outline-offset: -1px; border-color: #2257c5; }
 .lock-msg { min-height: 18px; color: #c2362b; font-size: 12px; font-weight: 700; }
+.lock-hint { margin: 0; padding: 7px 10px; border-radius: 6px; background: #e9f0fd; color: #1d3f86; line-height: 1.55; }
+.lock-hint[hidden] { display: none; }
 .lock-btn { height: 34px; padding: 0 14px; border: 1px solid #2257c5; background: #2257c5; color: #fff; border-radius: 6px; font: inherit; font-weight: 700; cursor: pointer; }
 .lock-btn.sub { background: #fff; color: #1d232b; border-color: #c6ccd5; font-weight: 400; }
 .lock-actions { display: flex; justify-content: flex-end; gap: 8px; }
@@ -100,6 +103,7 @@ body.locked > *:not(.lock) { display: none !important; }
   <form class="lock-box" id="lockForm" autocomplete="off">
     <div class="lock-title" id="lockTitle"></div>
     <p class="lock-desc">비밀번호를 넣어야 열립니다.</p>
+    <p class="lock-hint" id="lockHint" hidden>처음 비밀번호는 <b>1234</b>입니다. 연 뒤 위쪽 <b>저장 ▾ → 비밀번호 바꾸기</b>로 바꿔 주세요.</p>
     <input type="password" id="lockPw" aria-label="비밀번호" placeholder="비밀번호" autocomplete="off">
     <div class="lock-msg" id="lockMsg" role="alert"></div>
     <button type="submit" class="lock-btn">열기</button>
@@ -143,7 +147,8 @@ body.locked > *:not(.lock) { display: none !important; }
      칸이 따로라 두 화면의 이름(id)·꾸밈(CSS)·단축키·인쇄 설정이 섞이지 않습니다.
    - 두 화면은 이 창의 열쇠(window.__docLock)를 같이 써서, 저장하는 것(자동저장, 보기·양식 파일 .html)도 같은 비밀번호로 잠급니다.
    - 비밀번호를 바꾸면 새 비밀번호로 다시 잠근 이 파일을 내려받습니다. 비밀번호를 잊으면 풀 방법이 없습니다.
-   - 보기·양식 파일은 이 파일에 내용을 넣은 것입니다: embedded-daily / embedded-exec(잠긴 내용), embedded-only(보기 파일이면 그 화면만). */
+   - 보기·양식 파일은 이 파일에 내용을 넣은 것입니다: embedded-daily / embedded-exec(잠긴 내용), embedded-only(보기 파일이면 그 화면만).
+   - pw-default: 처음 비밀번호(1234)로 잠긴 파일이면 true (seal.mjs가 정함) → 잠금 화면에 처음 비밀번호를 알려 줌. 비밀번호를 바꾼 파일은 false. */
 (function () {
   'use strict';
   var ITER = 600000, TAG = 'ENC1';
@@ -232,7 +237,7 @@ body.locked > *:not(.lock) { display: none !important; }
   /* 파일 안의 <script id=…> 사이 글 */
   var CODE_OPEN = '<' + 'script type="text/plain" id="app-code">', CLOSE = '<' + '/script>';
   function slotOpen(id) { return '<' + 'script id="' + id + '" type="application/json">'; }
-  var SLOT = { daily: slotOpen('embedded-daily'), exec: slotOpen('embedded-exec') }, ONLY_OPEN = slotOpen('embedded-only');
+  var SLOT = { daily: slotOpen('embedded-daily'), exec: slotOpen('embedded-exec') }, ONLY_OPEN = slotOpen('embedded-only'), PWDEF_OPEN = slotOpen('pw-default');
   var ST_OPEN = slotOpen('embedded-state');      // 화면 하나짜리 문서(칸 안)의 내용 자리
   function between(html, open) {
     var s = html.indexOf(open), e = s < 0 ? -1 : html.indexOf(CLOSE, s + open.length);
@@ -436,6 +441,7 @@ body.locked > *:not(.lock) { display: none !important; }
     el('lockPw').select();
   }
   el('lockTitle').textContent = document.title;
+  el('lockHint').hidden = slotText(window.__PRISTINE_HTML, PWDEF_OPEN) !== 'true';     // 처음 비밀번호 그대로인 파일만 안내
   el('lockForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var inp = el('lockPw'), pw = inp.value;
@@ -495,7 +501,8 @@ body.locked > *:not(.lock) { display: none !important; }
       html = replaceIn(html, CODE_OPEN, '\n' + codeEnv + '\n');
       return rekeySlot(html, SLOT.daily, k2);
     }).then(function (h) { return rekeySlot(h, SLOT.exec, k2); }).then(function (h) {
-      html = h;
+      html = replaceIn(h, PWDEF_OPEN, 'false');      // 바꾼 파일은 처음 비밀번호 안내를 하지 않음
+      el('lockHint').hidden = true;
       cur = k2; cache = {};
       window.__PRISTINE_HTML = html;
       rekeyFns.forEach(function (fn) { try { fn(); } catch (err) { /* 무시 */ } });
