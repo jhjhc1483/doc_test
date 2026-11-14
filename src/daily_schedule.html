@@ -274,11 +274,6 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .doc-title { font-size: var(--title-fs); font-weight: 800; letter-spacing: .04em; line-height: 1.3; }
 .doc-meta { display: flex; justify-content: space-between; align-items: flex-end; gap: 4mm; margin-top: 2mm; font-size: var(--meta-fs); line-height: 1.3; }
 .doc-meta .doc-date { margin-left: auto; font-weight: 700; white-space: nowrap; }
-.approval { flex: none; border-collapse: collapse; font-size: 9pt; line-height: 1.2; }
-.approval th, .approval td { border: 1px solid #000; text-align: center; padding: 0; }
-.approval th { height: 6mm; width: 17mm; font-weight: 500; background: #f2f2f2; }
-.approval td { height: 14mm; }
-.approval .ap-h { width: 6mm; }
 .sheet.l-block .doc-head, .sheet.l-block2 .doc-head { border-bottom: 2px solid #000; padding-bottom: 2mm; }
 .doc-body { flex: 1 1 auto; min-height: 0; position: relative; }
 .doc-foot { flex: none; margin-top: 2.5mm; font-size: var(--meta-fs); line-height: 1.4; }
@@ -622,10 +617,6 @@ body.locked > *:not(.lock) { display: none !important; }
               <label class="chk"><input type="checkbox" data-bind="style.showSecret"> 비공개 여부</label>
               <input type="text" class="grow" data-bind="style.secretText" placeholder="비공개" aria-label="비공개 상자 문구">
             </div>
-            <div class="set-row">
-              <label class="chk"><input type="checkbox" data-bind="style.showApproval"> 결재란</label>
-              <input type="text" class="grow" data-bind="style.approvalLabels" placeholder="담당, 과장, 국장" aria-label="결재란 칸 이름(쉼표로 구분)">
-            </div>
           </section>
         </div>
 
@@ -744,7 +735,6 @@ body.locked > *:not(.lock) { display: none !important; }
                 <div class="secret" id="docSecret" hidden>비공개</div>
                 <div class="head-row">
                   <div class="head-main"><div class="doc-title" id="docTitle"></div></div>
-                  <div id="approvalBox"></div>
                 </div>
                 <div class="doc-meta"><span class="doc-sub" id="docSub"></span><span class="doc-date" id="docDate"></span></div>
               </div>
@@ -908,10 +898,8 @@ body.locked > *:not(.lock) { display: none !important; }
     colHead2: '주요 예정사항',
     emptyMode: 'text',
     emptyText: '특이사항 없음',
-    showApproval: false,
     showSecret: false,          // 오른쪽 위 빨간 '비공개' 상자
     secretText: '비공개',
-    approvalLabels: '담당, 과장, 국장',
     subGap: 'close',            // normal | close | closest  (하위 줄을 윗줄에 붙이는 정도)
     mdtCols: {}                 // 내용 안 표의 칸 폭 (머리글이 같은 표끼리 같음)
   };
@@ -927,6 +915,7 @@ body.locked > *:not(.lock) { display: none !important; }
     out.doc = Object.assign(defaultDoc(), s.doc || {});
     ['title', 'date', 'subtitle', 'footer'].forEach(function (k) { out.doc[k] = String(out.doc[k] == null ? '' : out.doc[k]); });
     out.style = Object.assign({}, DEFAULT_STYLE, s.style || {});
+    delete out.style.showApproval; delete out.style.approvalLabels;      // 예전 결재란 설정 (없앰)
     Object.keys(NUM_RANGE).forEach(function (k) {
       var v = parseFloat(out.style[k]);
       out.style[k] = isFinite(v) ? clamp(v, NUM_RANGE[k][0], NUM_RANGE[k][1]) : DEFAULT_STYLE[k];
@@ -1611,14 +1600,6 @@ body.locked > *:not(.lock) { display: none !important; }
     sheet.classList.toggle('over', !ok);
   }
 
-  function approvalHTML(labels) {
-    var ls = String(labels || '').split(/[,，、\/]/).map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 6);
-    if (!ls.length) return '';
-    return '<table class="approval"><tr><th class="ap-h" rowspan="2">결<br>재</th>' +
-      ls.map(function (l) { return '<th>' + esc(l) + '</th>'; }).join('') + '</tr><tr>' +
-      ls.map(function () { return '<td></td>'; }).join('') + '</tr></table>';
-  }
-
   function renderPreview() {
     clearTimeout(renderTimer);
     hideTip();
@@ -1634,11 +1615,9 @@ body.locked > *:not(.lock) { display: none !important; }
     title.hidden = !doc.title.trim();
     $('#docSub').textContent = doc.subtitle;
     $('#docDate').textContent = fmtDate(doc.date);
-    $('#approvalBox').innerHTML = st.showApproval ? approvalHTML(st.approvalLabels) : '';
-    var sec = $('#docSecret'), ap = $('#approvalBox');
+    var sec = $('#docSecret');
     sec.textContent = st.secretText.trim() || '비공개';
     sec.hidden = !st.showSecret;
-    sec.style.right = ap.offsetWidth ? (ap.offsetWidth + 3 * 96 / 25.4).toFixed(1) + 'px' : '0';   // 결재란이 있으면 그 왼쪽
     $('#secretChk').checked = !!st.showSecret;
     var foot = $('#docFoot');
     foot.textContent = doc.footer;

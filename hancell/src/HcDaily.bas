@@ -19,7 +19,6 @@ Public Const COL_QTEXT As Long = 3355443      ' #333333
 Public Const COL_EMPTY As Long = 7829367      ' #777777
 Public Const COL_TBORDER As Long = 10526880   ' #a0a0a0
 Public Const COL_THEAD As Long = 15987184     ' #f0f1f3
-Public Const COL_APPROVAL As Long = 15921906  ' #f2f2f2
 Public Const COL_MARKD As Long = 8447743      ' #ffe680
 Public Const COL_LINK As Long = 12076824      ' #1847b8
 Public Const COL_GRAY As Long = 9079434
@@ -58,7 +57,7 @@ Public gHalves As Boolean, gLandscape As Boolean, gMargin As Double, gFont As St
 Public gAuto As Boolean, gMinF As Double, gMaxF As Double, gManFont As Double, gManGap As Double
 Public gBullet As String, gTimeBold As Boolean, gFill As Boolean
 Public gColHead As Boolean, gColH1 As String, gColH2 As String
-Public gEmptyHide As Boolean, gEmptyText As String, gApproval As Boolean, gApLabels As String
+Public gEmptyHide As Boolean, gEmptyText As String
 Public gTitle As String, gDate As String, gSub As String, gFoot As String
 Public gW As Double, gH As Double
 
@@ -141,8 +140,6 @@ Public Sub LoadSettings()
     gColH2 = NStr("s_colh2")
     gEmptyHide = (NStr("s_emptymode") = "숨기기")
     gEmptyText = NStr("s_empty")
-    gApproval = NBool("s_approval", False)
-    gApLabels = NStr("s_aplabels")
     gTitle = NStr("d_title")
     gDate = DateValueIso(NVal("d_date"))
     If gDate = "" Then gDate = IsoOf(Date)
@@ -710,49 +707,15 @@ Private Function MetaFs() As Double
     MetaFs = R5(Clamp(gFS * 0.92, 8.5, 11))
 End Function
 
-Private Function ApprovalLabels() As Variant
-    Dim s As String, p As Variant, out As New Collection, ch As Variant
-    s = gApLabels
-    For Each ch In Array("，", "、", "/")
-        s = Replace(s, CStr(ch), ",")
-    Next
-    For Each p In Split(s, ",")
-        If TrimX(CStr(p)) <> "" And out.Count < 6 Then out.Add TrimX(CStr(p))
-    Next
-    ApprovalLabels = ColToArray(out)
-End Function
-
 Private Function LayHead(ByVal doRender As Boolean) As Double
-    Dim apW As Double, apH As Double, labs As Variant, n As Long, j As Long, idx As Long, tW As Double, tH As Double, y As Double
-    Dim mfs As Double, mH As Double, dTxt As String, rowH As Double
+    Dim idx As Long, tH As Double, y As Double
+    Dim mfs As Double, mH As Double, dTxt As String
     mfs = MetaFs()
-    If gApproval Then
-        labs = ApprovalLabels()
-        n = ArrLen(labs)
-    End If
-    If n > 0 Then
-        apW = (6 + 17 * n) * PT_MM
-        apH = 20 * PT_MM
-    End If
-    tW = gW - IIf(n > 0, apW + 4 * PT_MM, 0)
-    If gTitle <> "" Then tH = MeasureH(gTitle, "", tW, gFont, TitleFs(), True)
-    rowH = MaxD(tH, apH)
+    If gTitle <> "" Then tH = MeasureH(gTitle, "", gW, gFont, TitleFs(), True)
     If doRender Then
-        If gTitle <> "" Then ElText 0, (rowH - tH) / 2, tW, tH, gTitle, "", TitleFs(), True, XL_CENTER, XL_CENTER
-        If n > 0 Then
-            idx = ElText(gW - apW, 0, 6 * PT_MM, apH, "결" & vbLf & "재", "", 9, False, XL_CENTER, XL_CENTER)
-            ElFill idx, COL_APPROVAL
-            ElBorderAll idx, XL_CONT, XL_THIN, 0
-            For j = 0 To n - 1
-                idx = ElText(gW - apW + (6 + 17 * j) * PT_MM, 0, 17 * PT_MM, 6 * PT_MM, CStr(labs(j)), "", 9, False, XL_CENTER, XL_CENTER)
-                ElFill idx, COL_APPROVAL
-                ElBorderAll idx, XL_CONT, XL_THIN, 0
-                idx = ElBox(gW - apW + (6 + 17 * j) * PT_MM, 6 * PT_MM, 17 * PT_MM, 14 * PT_MM)
-                ElBorderAll idx, XL_CONT, XL_THIN, 0
-            Next
-        End If
+        If gTitle <> "" Then ElText 0, 0, gW, tH, gTitle, "", TitleFs(), True, XL_CENTER, XL_CENTER
     End If
-    y = rowH + 2 * PT_MM
+    y = tH + 2 * PT_MM
     dTxt = FmtDateK(gDate)
     mH = MaxD(MeasureH(IIf(gSub = "", "가", gSub), "", gW * 0.62, gFont, mfs), MeasureH(dTxt, "", gW * 0.38, gFont, mfs, True))
     If doRender Then

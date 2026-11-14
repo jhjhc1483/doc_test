@@ -363,9 +363,7 @@ Private Sub SetupFormat(ByVal ws As Object)
     Lbl ws, "B" & r, "표 머리글": Inp ws, "C" & r, "예", "s_colhead": ListValid ws, "C" & r, "예,아니오"
     Inp ws, "D" & r, "부서", "s_colh1": Inp ws, "E" & r & ":F" & r, "주요 예정사항", "s_colh2": r = r + 1
     Lbl ws, "B" & r, "내용 없는 부서": Inp ws, "C" & r, "문구 표시", "s_emptymode": ListValid ws, "C" & r, "문구 표시,숨기기"
-    Inp ws, "D" & r & ":F" & r, "특이사항 없음", "s_empty": r = r + 1
-    Lbl ws, "B" & r, "결재란": Inp ws, "C" & r, "아니오", "s_approval": ListValid ws, "C" & r, "예,아니오"
-    Inp ws, "D" & r & ":F" & r, "담당, 과장, 국장", "s_aplabels": r = r + 2
+    Inp ws, "D" & r & ":F" & r, "특이사항 없음", "s_empty": r = r + 2
     Lbl ws, "B" & r & ":F" & r, "문서 암호", True, 11: r = r + 1
     Note9 ws, "B" & r & ":F" & r, "이 파일을 열 때 암호를 묻게 하려면 한셀의 문서 암호를 쓰세요(내용이 암호화됩니다). 아래 단추로 정하거나 한셀 메뉴의 문서 암호에서 정합니다. 암호를 잊으면 열 수 없습니다. 두레이에 올리는 공동편집 파일에는 걸지 마세요.", 40
     r = r + 1
@@ -500,11 +498,9 @@ Public Function TestAll() As String
     Next
     gStep = "landscape"
     NSet "s_orient", "A4 가로"
-    NSet "s_approval", "예"
     DoBuild
-    r = r & "가로+결재: " & NStr("d_status") & "; "
+    r = r & "가로: " & NStr("d_status") & "; "
     NSet "s_orient", "A4 세로"
-    NSet "s_approval", "아니오"
     gStep = "manual"
     NSet "s_auto", "아니오"
     DoBuild
