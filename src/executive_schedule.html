@@ -498,7 +498,7 @@ body.locked > *:not(.lock) { display: none !important; }
 
     <button class="btn view-only" id="btnToEdit" title="이 문서를 고치는 화면으로 바꿉니다">편집 화면 열기</button>
     <div class="spacer"></div>
-    <button class="btn primary" id="btnPrint" title="Ctrl+P · 인쇄 창에서 'PDF로 저장'도 됩니다">인쇄 / PDF</button>
+    <button class="btn primary" id="btnPrint" title="Ctrl+P · 1쪽 일일 예정사항, 2쪽 부서별 일일 예정사항을 함께 인쇄 · 인쇄 창에서 'PDF로 저장'도 됩니다">인쇄 / PDF</button>
   </header>
 
   <main class="workspace">
@@ -2302,7 +2302,9 @@ body.locked > *:not(.lock) { display: none !important; }
     setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
   }
 
-  $('#btnPrint').addEventListener('click', function () { renderPreview(); window.print(); });
+  /* 합친 파일 안에서는 두 화면을 합쳐 인쇄 (1쪽 이 화면, 2쪽 부서별) — 틀(위 창)이 두 화면을 다시 그린 뒤 인쇄 */
+  $('#btnPrint').addEventListener('click', function () { if (HOST && HOST.print) HOST.print(); else { renderPreview(); window.print(); } });
+  if (HOST && HOST.onPrint) HOST.onPrint(function () { if (state) renderPreview(); });
   $('#btnPw').addEventListener('click', function () { if (window.__lock) window.__lock.change(); });
   /* 배포용 보기 파일(view)·매일 쓸 양식 파일(tpl): 이 파일(잠긴 원본)에 내용을 잠가서 넣음 */
   function snapshot() { return { app: 'exec-daily-schedule', version: 1, savedAt: Date.now(), doc: clone(state.doc), style: clone(state.style), execs: clone(state.execs), tables: clone(state.tables) }; }

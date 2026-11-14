@@ -50,15 +50,19 @@ body {
 }
 .shell-frames iframe.on { visibility: visible; }
 body.shell-only .shell-bar { display: none; }
-/* 브라우저 메뉴로 이 창 전체를 인쇄할 때: 지금 화면의 A4 한 장만 (보통은 화면 안 [인쇄 / PDF]·Ctrl+P가 그 화면만 인쇄) */
+/* 인쇄: 두 화면을 합쳐 1쪽 일일 예정사항(임원) → 2쪽 부서별 일일 예정사항. 화면마다 A4 한 장, 용지 방향은 그 화면 설정대로
+   (인쇄 직전에 printPrep()이 찍을 칸에 .pr, 가로면 .land, 마지막 칸에 .last를 붙이고 @page 규칙을 씀) */
 @media print {
   html, body { height: auto; overflow: visible; background: #fff; }
   .shell { display: block; height: auto; }
   .shell-bar { display: none !important; }
   .shell-frames { position: static; }
   .shell-frames iframe { display: none; }
-  .shell-frames iframe.on { display: block; position: static; visibility: visible; width: 210mm; height: 296.5mm; background: #fff; }
-  .shell-frames.landscape iframe.on { width: 297mm; height: 209.5mm; }
+  .shell-frames iframe.pr { display: block; position: static; visibility: visible; width: 210mm; height: 296.5mm; background: #fff; break-after: page; }
+  .shell-frames iframe.pr.land { width: 297mm; height: 209.5mm; }
+  .shell-frames iframe.pr.last { break-after: auto; }
+  .shell-frames iframe.pr[data-app="exec"] { page: p-exec; }
+  .shell-frames iframe.pr[data-app="daily"] { page: p-daily; }
 }
 </style>
 <style id="lock-style">
@@ -146,6 +150,7 @@ body.locked > *:not(.lock) { display: none !important; }
   var NAMES = { daily: '부서별 일일 예정사항', exec: '일일 예정사항' };
   var ORDER_KEY = 'daily-schedule:shell-order';        // 메뉴 순서 (맨 앞 화면이 열 때 먼저 나옴)
   var DEFAULT_ORDER = ['exec', 'daily'];                // 처음에는 임원이 먼저
+  var PRINT_ORDER = ['exec', 'daily'];                  // 인쇄: 1쪽 일일 예정사항, 2쪽 부서별 (메뉴 순서와 상관없이)
   try { localStorage.removeItem('daily-schedule:shell-tab'); } catch (err) { /* 예전 방식(마지막으로 보던 화면)의 흔적 */ }
   window.__PRISTINE_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;   // 손대기 전의 이 파일 (잠긴 상태 그대로)
   function el(id) { return document.getElementById(id); }
@@ -255,7 +260,9 @@ body.locked > *:not(.lock) { display: none !important; }
       path: location.pathname,            // 자동저장 이름에 씀 (칸 안에서는 주소가 about:srcdoc)
       tplName: '일일예정사항_양식.html',
       provide: function (fn) { providers[app] = fn; },        // fn(kind) → 보기·양식 파일에 넣을 내용(JSON 글)
-      makeFile: function (kind) { return makeFile(app, kind); }
+      makeFile: function (kind) { return makeFile(app, kind); },
+      onPrint: function (fn) { renderers[app] = fn; },        // fn() → 인쇄 직전에 그 화면의 A4를 다시 그림
+      print: printAll                                         // 화면의 [인쇄 / PDF]·Ctrl+P: 두 화면을 합쳐 인쇄
     };
   };
 
@@ -270,7 +277,9 @@ body.locked > *:not(.lock) { display: none !important; }
     var f = document.createElement('iframe');
     f.title = NAMES[app];
     f.setAttribute('data-app', app);
-    el('shellFrames').appendChild(f);
+    var next = null;                                    // 칸은 인쇄 차례대로 둠 (이미 있는 칸을 옮기면 다시 읽히므로 새 칸을 끼워 넣음)
+    PRINT_ORDER.slice(PRINT_ORDER.indexOf(app) + 1).some(function (a) { return (next = frames[a] || null); });
+    el('shellFrames').insertBefore(f, next);
     f.srcdoc = frameDoc(app);
     frames[app] = f;
     return f;
@@ -355,24 +364,43 @@ body.locked > *:not(.lock) { display: none !important; }
     dragApp = ''; clearDrop();
   });
   el('shellTabs').addEventListener('dragend', function () { dragApp = ''; clearDrop(); });
-  /* 지금 화면 인쇄: 그 화면의 [인쇄 / PDF] (그 칸만 A4로 인쇄) */
-  function printActive() {
-    var f = frames[active], b = null;
-    try { b = f && f.contentDocument.getElementById('btnPrint'); } catch (err) { b = null; }
-    if (b) b.click(); else window.print();
+  /* 인쇄: 1쪽 일일 예정사항(임원) + 2쪽 부서별 일일 예정사항을 한 번에.
+     보기 파일(화면 하나만 든 파일)이거나 다른 화면이 아직 안 열렸으면 있는 화면만 */
+  function pageRuleOf(a) {
+    try { return frames[a].contentDocument.getElementById('page-rule').textContent || ''; } catch (err) { return ''; }
   }
+  function printApps() {
+    return PRINT_ORDER.filter(function (a) { return frames[a] && (!only || a === only) && pageRuleOf(a); });
+  }
+  function printPrep() {
+    var list = printApps();
+    if (!list.length && frames[active]) list = [active];
+    var rules = ['@page { size: A4 portrait; margin: 0; }'];
+    APPS.forEach(function (a) {
+      var f = frames[a], i = list.indexOf(a), land = /landscape/.test(pageRuleOf(a));
+      if (!f) return;
+      f.classList.toggle('pr', i >= 0);
+      f.classList.toggle('land', i >= 0 && land);
+      f.classList.toggle('last', i >= 0 && i === list.length - 1);
+      rules.push('@page p-' + a + ' { size: A4 ' + (land ? 'landscape' : 'portrait') + '; margin: 0; }');
+    });
+    if (list.length === 1) rules[0] = '@page { size: A4 ' + (/landscape/.test(pageRuleOf(list[0])) ? 'landscape' : 'portrait') + '; margin: 0; }';
+    el('page-rule').textContent = rules.join('\n');
+  }
+  var renderers = {};
+  function printAll() {
+    printApps().forEach(function (a) { try { if (renderers[a]) renderers[a](); } catch (err) { /* 무시 */ } });    // 두 화면 모두 지금 내용으로
+    printPrep();
+    window.print();
+  }
+  function printActive() { printAll(); }
   function isPrintKey(e) { return (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.code === 'KeyP' || e.key === 'p' || e.key === 'P'); }
   document.addEventListener('keydown', function (e) {
     if (document.body.classList.contains('locked')) return;
     if (isPrintKey(e) && el('pwDialog').hidden && el('pwAsk').hidden) { e.preventDefault(); printActive(); }
   });
-  /* 브라우저 메뉴로 이 창을 인쇄할 때: 지금 화면의 용지 방향을 따름 */
-  window.addEventListener('beforeprint', function () {
-    var f = frames[active], rule = '';
-    try { rule = f.contentDocument.getElementById('page-rule').textContent; } catch (err) { rule = ''; }
-    if (rule) el('page-rule').textContent = rule;
-    el('shellFrames').classList.toggle('landscape', /landscape/.test(rule));
-  });
+  /* 브라우저 메뉴로 이 창을 인쇄할 때도 같게 */
+  window.addEventListener('beforeprint', printPrep);
   /* 파일을 메뉴 위에 끌어다 놓아도 그 파일로 넘어가지 않게 */
   function hasFiles(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0; }
   window.addEventListener('dragover', function (e) { if (hasFiles(e)) e.preventDefault(); });

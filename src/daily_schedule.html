@@ -481,7 +481,7 @@ body.locked > *:not(.lock) { display: none !important; }
     <button class="btn view-only" id="btnToEdit" title="이 문서를 고치는 화면으로 바꿉니다">편집 화면 열기</button>
 
     <div class="spacer"></div>
-    <button class="btn primary" id="btnPrint" title="Ctrl+P · 인쇄 창에서 'PDF로 저장'도 됩니다">인쇄 / PDF</button>
+    <button class="btn primary" id="btnPrint" title="Ctrl+P · 1쪽 일일 예정사항, 2쪽 부서별 일일 예정사항을 함께 인쇄 · 인쇄 창에서 'PDF로 저장'도 됩니다">인쇄 / PDF</button>
   </header>
 
   <main class="workspace">
@@ -3215,8 +3215,10 @@ body.locked > *:not(.lock) { display: none !important; }
   });
 
   /* 인쇄 */
-  $('#btnPrint').addEventListener('click', function () { renderPreview(); window.print(); });
-  window.addEventListener('beforeprint', renderPreview);
+  /* 합친 파일 안에서는 두 화면을 합쳐 인쇄 (1쪽 일일 예정사항, 2쪽 이 화면) — 틀(위 창)이 두 화면을 다시 그린 뒤 인쇄 */
+  $('#btnPrint').addEventListener('click', function () { if (HOST && HOST.print) HOST.print(); else { renderPreview(); window.print(); } });
+  if (HOST && HOST.onPrint) HOST.onPrint(function () { if (state) renderPreview(); });
+  window.addEventListener('beforeprint', function () { if (state) renderPreview(); });
 
   /* 단축키 */
   document.addEventListener('keydown', function (e) {
