@@ -643,7 +643,7 @@ body.locked > *:not(.lock) { display: none !important; }
             <h3>저장</h3>
             <ul>
               <li>파일로 저장하는 기능은 없습니다. 작업 중인 내용은 <b>이 탭에만</b> 자동으로 남아 새로고침해도 이어지고, <b>탭·창을 닫으면 지워집니다</b>(이 컴퓨터에 남지 않음). 매일 한셀에서 복사해 붙여넣어 씁니다. 직위·성명·회사명·서식처럼 계속 쓸 것은 저장 ▾ → <b>매일 쓸 양식 파일</b>로 받아 두고 그 파일을 여세요.</li>
-              <li>저장 ▾ → <b>엑셀로 내보내기(.xlsx)</b>: 지금 내용이 든 공동편집 양식을 받습니다. 한셀에서 보거나 고친 뒤 맨 마지막 <b>합본</b> 시트를 복사해 붙여넣으면 그 내용이 그대로 돌아옵니다. 엑셀 파일에는 암호가 걸리지 않습니다.</li>
+              <li>저장 ▾ → <b>엑셀로 내보내기(.xlsx)</b>: 지금 내용이 든 공동편집 양식을 받습니다. 한셀에서 보거나 고친 뒤 맨 마지막 <b>합본</b> 시트를 복사해 붙여넣으면 그 내용이 그대로 돌아옵니다. 엑셀 파일에는 암호가 걸리지 않습니다. <b>비공개</b>로 체크된 문서는 내보내기 전에 문서 비밀번호를 걸라고 안내합니다.</li>
               <li>인쇄 창에서는 용지 <b>A4</b>, 배율 <b>기본값(100%)</b>, 여백 <b>기본값</b>으로 두세요.</li>
             </ul>
           </section>
@@ -2939,7 +2939,12 @@ body.locked > *:not(.lock) { display: none !important; }
     return out;
   }
   /* 공동편집용 엑셀 양식: 작성방법 + 임원마다 시트 하나. fill이면 지금 내용을 채워서(엑셀로 내보내기) */
+  /* 비공개로 체크된 문서를 엑셀로 내보낼 때: 엑셀 파일에는 암호가 없으니 문서 비밀번호를 걸라고 먼저 묻고 알림 */
+  var SECRET_XLSX_MSG = '이 문서는 "비공개"로 체크되어 있습니다.\n\n내보내는 엑셀 파일에는 암호가 걸리지 않습니다. 받은 뒤 반드시 문서 비밀번호를 걸어 주세요.\n' +
+    '· 한셀: 메뉴의 [문서 암호]\n· 엑셀: 파일 → 정보 → 통합 문서 보호 → 암호 설정\n\n비밀번호를 걸기 전에는 다른 사람에게 보내거나 공유 폴더에 올리지 마세요.\n\n내보낼까요?';
   function makeExcelTemplate(fill) {
+    var secret = !!fill && !!state.style.showSecret;
+    if (secret && !confirm(SECRET_XLSX_MSG)) return;
     var HEAD = ['시간', '내용', '비고 (작은 글씨 *)', '※ 참고'];
     var W = [14, 54, 32, 34];
     var A1F = '"#"&MID(CELL("filename",A1),FIND("]",CELL("filename",A1))+1,99)';   // A1: "#" + 지금 시트 이름 (시트 이름을 바꾸면 같이 바뀜)
@@ -2973,6 +2978,7 @@ body.locked > *:not(.lock) { display: none !important; }
       guide.splice(1, 1, [{ v: '일일 예정사항 — 내보낸 내용', s: 3 }],
         G('문서 날짜 ' + fmtDate(state.doc.date) + ' · 내보낸 시각 ' + isoOf(now) + ' ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes()) +
           ' · 맨 마지막 "합본" 시트를 복사해 화면에 붙여넣으면 이 내용이 그대로 돌아옵니다(아래 작성방법대로 고쳐 써도 됩니다).'));
+      if (secret) guide.splice(3, 0, [{ v: '⚠ 비공개 문서입니다. 이 파일에 반드시 문서 비밀번호를 걸고, 비밀번호 없이 다른 사람에게 보내거나 공유 폴더에 올리지 마세요.', s: 3 }]);
     }
     var sheets = [{ name: '작성방법', rows: guide, widths: W }];
     var used = { '작성방법': 1 };
@@ -2992,8 +2998,9 @@ body.locked > *:not(.lock) { display: none !important; }
     sheets.push(hapbonSheet(sheets.slice(1), R, 6, 3));     // 맨 마지막: 합본 (이 시트만 복사해 붙여넣기)
     var fname = fill ? '일일예정사항_' + (state.doc.date || todayISO()) + '.xlsx' : '임원일일예정_공동편집양식.xlsx';
     downloadBlob(fname, buildXlsx(sheets));
-    toast(fill ? '지금 내용을 엑셀로 내보냈습니다: ' + fname + ' — 합본 시트를 복사해 붙여넣으면 그대로 돌아옵니다. (엑셀 파일은 암호가 걸리지 않습니다)'
-      : '공동편집용 엑셀 양식을 저장했습니다: 임원일일예정_공동편집양식.xlsx (임원 ' + N + '명 + 맨 밑 표)');
+    if (!fill) toast('공동편집용 엑셀 양식을 저장했습니다: 임원일일예정_공동편집양식.xlsx (임원 ' + N + '명 + 맨 밑 표)');
+    else if (secret) toast('⚠ 비공개 문서를 엑셀로 내보냈습니다: ' + fname + ' — 암호가 걸려 있지 않으니 받은 파일에 반드시 문서 비밀번호를 거세요.', null, null, 15000);
+    else toast('지금 내용을 엑셀로 내보냈습니다: ' + fname + ' — 합본 시트를 복사해 붙여넣으면 그대로 돌아옵니다.');
   }
 
   /* 펼침 메뉴 */
